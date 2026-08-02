@@ -68,7 +68,7 @@
   color:var(--ink);
   background:var(--bg);
   min-height:100vh;
-  padding:0 0 40px;
+  padding:0;
   font-variant-numeric: tabular-nums;
   -webkit-tap-highlight-color: transparent;
   position:relative;
@@ -128,7 +128,7 @@
 .event-text:focus{ background:var(--surface); box-shadow:0 0 0 2px var(--accent-soft); }
 .event-text:empty:before{ content: attr(data-ph); color:var(--muted); }
 .row-del{ display:none; width:20px; height:20px; border:none; background:none; color:var(--muted); cursor:pointer; font-size:14px; line-height:1; flex-shrink:0; align-self:center; align-items:center; justify-content:center; border-radius:6px; }
-.event-row:hover .row-del, .task-row:hover .row-del{ display:flex; }
+.event-row:hover .row-del, .task-row:hover .row-del, .summary-row:hover .row-del{ display:flex; }
 .row-del:hover{ color:#c0392b; background:rgba(192,57,43,.08); }
 .add-line{ font-size:12px; color:var(--muted); cursor:pointer; padding:5px 6px; border-radius:6px; display:inline-flex; align-items:center; gap:4px; width:fit-content; margin-top:2px; }
 .add-line:hover{ background:rgba(0,0,0,.04); color:var(--accent); }
@@ -188,6 +188,7 @@
 .app-footer{
   display:flex; align-items:center; justify-content:space-between; gap:10px 16px; flex-wrap:wrap;
   margin-top:28px; padding:14px 20px; border-top:1px solid var(--border);
+  position:sticky; bottom:0; z-index:15; background:var(--bg);
 }
 .app-footer-links{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 .footer-sep{ color:var(--border-strong); font-size:11px; }
@@ -214,6 +215,12 @@
 .summary-group-head{ display:flex; align-items:center; gap:7px; padding:11px 14px; background:var(--accent-soft); color:var(--accent-soft-ink); font-weight:700; font-size:14.5px; }
 .summary-group-head svg{ width:15px; height:15px; opacity:.8; flex-shrink:0; }
 .summary-group-count{ margin-inline-start:auto; font-size:11.5px; font-weight:600; opacity:.75; }
+.group-clear-btn{
+  background:none; border:none; color:var(--accent-soft-ink); opacity:.65; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; padding:3px; border-radius:6px; flex-shrink:0;
+}
+.group-clear-btn svg{ width:13px; height:13px; }
+.group-clear-btn:hover{ opacity:1; background:rgba(0,0,0,.08); }
 .summary-list{ display:flex; flex-direction:column; padding:6px 8px; gap:1px; }
 .summary-empty{ padding:16px 14px; color:var(--muted); font-size:12.5px; text-align:center; }
 .summary-row{ display:flex; flex-direction:column; gap:3px; padding:6px 6px 7px; border-radius:8px; }
@@ -372,7 +379,6 @@
   const STORAGE_PREFIX = 'planner_week_';
   const PEOPLE_KEY = 'people';
   const TOPICS_KEY = 'topics';
-  const PLACES_KEY = 'places';
   const API_URL = 'https://script.google.com/macros/s/AKfycbxO8tTn_6c1CxqcFSB35kgjQ3LYrmdzfjixTEdADlLCYyPB7sgL3Kw-UgCdwVXCkUU/exec';
   const EMAIL_KEY = 'planner_user_email';
   const CACHE_KEY = 'planner_shared_cache_v1';
@@ -394,7 +400,7 @@
   let pollTimer = null;
 
   function defaultAppState(){
-    return { people:[{id:uid(), name:'דורון'}, {id:uid(), name:'יובל'}], topics:[], places:[], weeks:{} };
+    return { people:[{id:uid(), name:'דורון'}, {id:uid(), name:'יובל'}], topics:[], weeks:{}, unscheduled:[] };
   }
 
   function isUserEditing(){
@@ -448,7 +454,7 @@
             appState = serverData;
             people = appState.people || defaultAppState().people;
             topics = appState.topics || [];
-            places = appState.places || [];
+            if(!appState.unscheduled) appState.unscheduled = [];
             weekData = loadWeek(weekStart);
             lastSyncedJson = serverJson;
             localStorage.setItem(CACHE_KEY, serverJson);
@@ -497,26 +503,43 @@
 
   // ---------- global lists: people & topics ----------
   function saveList(kind, list){
-    if(kind === PEOPLE_KEY) appState.people = list;
-    else if(kind === TOPICS_KEY) appState.topics = list;
-    else appState.places = list;
+    if(kind === PEOPLE_KEY) appState.people = list; else appState.topics = list;
     persistState();
   }
 
   let people = [];
   let topics = [];
-  let places = [];
 
   function nameById(list, id){ const it = list.find(x=>x.id===id); return it ? it.name : null; }
-  function listForKind(kind){ return kind==='person' ? people : (kind==='topic' ? topics : places); }
-  function iconForKind(kind){ return kind==='person' ? ICON_PERSON : (kind==='topic' ? ICON_TAG : ICON_PLACE); }
+  function listForKind(kind){ return kind==='person' ? people : topics; }
+  function iconForKind(kind){ return kind==='person' ? ICON_PERSON : ICON_TAG; }
+
+  // ---------- per-event cleanup: remove every task linked to a מופע once it's over ----------
+  function clearTasksForTopic(topicId){
+    Object.keys(appState.weeks).forEach(wk=>{
+      const wdata = appState.weeks[wk];
+      DAY_DEFS.forEach(d=>{
+        const day = wdata[d.key];
+        if(!day) return;
+        TASK_SECTIONS.forEach(sec=>{
+          const arr = day[sec.key];
+          if(!Array.isArray(arr)) return;
+          for(let i=arr.length-1;i>=0;i--){ if(arr[i].topicId===topicId) arr.splice(i,1); }
+        });
+      });
+    });
+    if(Array.isArray(appState.unscheduled)){
+      for(let i=appState.unscheduled.length-1;i>=0;i--){ if(appState.unscheduled[i].topicId===topicId) appState.unscheduled.splice(i,1); }
+    }
+    persistState();
+  }
 
   // ---------- week data ----------
   let weekStart = startOfWeek(new Date());
   let activeFilter = {type:'all', value:null};
 
   function weekKey(ws){ return STORAGE_PREFIX + isoKey(ws); }
-  function emptyTask(){ return {id:uid(), text:'', done:false, personId:null, topicId:null, placeId:null}; }
+  function emptyTask(){ return {id:uid(), text:'', done:false, personId:null, topicId:null}; }
   function emptyDayData(){ const d={events:[]}; TASK_SECTIONS.forEach(s=> d[s.key]=[]); return d; }
   function sampleWeekData(){ const data={}; DAY_DEFS.forEach(d=> data[d.key]=emptyDayData()); return data; }
 
@@ -586,14 +609,12 @@
     el.appendChild(mk('הכל','all',null));
     people.forEach(p=> el.appendChild(mk(p.name,'person',p.id)));
     topics.forEach(t=> el.appendChild(mk(t.name,'topic',t.id, true)));
-    places.forEach(pl=> el.appendChild(mk(pl.name,'place',pl.id, true)));
   }
 
   function itemMatchesFilter(item){
     if(activeFilter.type==='all') return true;
     if(activeFilter.type==='person') return item.personId===activeFilter.value;
     if(activeFilter.type==='topic') return item.topicId===activeFilter.value;
-    if(activeFilter.type==='place') return item.placeId===activeFilter.value;
     return true;
   }
 
@@ -612,7 +633,7 @@
   let summaryMode = 'person';
 
   function itemKindValue(item, kind){
-    return kind==='person' ? item.personId : (kind==='topic' ? item.topicId : item.placeId);
+    return kind==='person' ? item.personId : item.topicId;
   }
 
   function collectItemsFor(kind, id){
@@ -625,6 +646,9 @@
         });
       });
     });
+    (appState.unscheduled||[]).forEach(item=>{
+      if((itemKindValue(item,kind)||null)===id) out.push({item, dayKey:null, dayName:null, sectionKey:'unscheduled'});
+    });
     return out;
   }
 
@@ -633,7 +657,7 @@
     const row = document.createElement('div');
     row.className = 'summary-row' + (item.done ? ' done':'');
     row.setAttribute('data-id', item.id);
-    row.setAttribute('data-day', dayKey);
+    row.setAttribute('data-day', dayKey || '');
     row.setAttribute('data-section', sectionKey);
 
     const main = document.createElement('div');
@@ -641,21 +665,32 @@
     const cb = document.createElement('input');
     cb.type = 'checkbox';
     cb.checked = !!item.done;
-    cb.onchange = () => { item.done = cb.checked; saveWeek(weekStart, weekData); syncItemVisual(item.id, item.done); };
+    cb.onchange = () => {
+      item.done = cb.checked;
+      if(dayKey===null) persistState(); else saveWeek(weekStart, weekData);
+      syncItemVisual(item.id, item.done);
+    };
     main.appendChild(cb);
     const text = document.createElement('div');
     text.className = 'summary-row-text';
-    text.textContent = item.text || '(ללא טקסט)';
+    if(dayKey===null){
+      text.textContent = item.text || '';
+      makeEditable(text, 'משימה…', (val)=>{ item.text = val; persistState(); });
+    } else {
+      text.textContent = item.text || '(ללא טקסט)';
+    }
     main.appendChild(text);
     row.appendChild(main);
 
     const meta = document.createElement('div');
     meta.className = 'summary-row-meta';
-    const dayBadge = document.createElement('span');
-    dayBadge.className = 'day-badge';
-    dayBadge.textContent = dayName;
-    meta.appendChild(dayBadge);
-    ['person','topic','place'].filter(k=>k!==kind).forEach(otherKind=>{
+    if(dayKey!==null){
+      const dayBadge = document.createElement('span');
+      dayBadge.className = 'day-badge';
+      dayBadge.textContent = dayName;
+      meta.appendChild(dayBadge);
+    }
+    ['person','topic'].filter(k=>k!==kind).forEach(otherKind=>{
       const otherId = itemKindValue(item, otherKind);
       if(!otherId) return;
       const chip = document.createElement('span');
@@ -663,6 +698,20 @@
       chip.innerHTML = iconForKind(otherKind) + '<span class="chip-label">'+(nameById(listForKind(otherKind),otherId)||'⋯')+'</span>';
       meta.appendChild(chip);
     });
+    if(dayKey===null){
+      const spacer = document.createElement('span');
+      spacer.className = 'meta-spacer';
+      meta.appendChild(spacer);
+      const del = document.createElement('button');
+      del.className = 'row-del'; del.textContent = '×'; del.title = 'מחיקה';
+      del.onclick = ()=>{
+        const idx = appState.unscheduled.findIndex(x=>x.id===item.id);
+        if(idx>-1) appState.unscheduled.splice(idx,1);
+        persistState();
+        row.remove();
+      };
+      meta.appendChild(del);
+    }
     row.appendChild(meta);
     return row;
   }
@@ -674,6 +723,21 @@
     head.className = 'summary-group-head';
     const items = collectItemsFor(kind, id);
     head.innerHTML = (icon||'') + '<span>'+name+'</span><span class="summary-group-count">'+items.length+'</span>';
+    if(kind==='topic' && id && items.length){
+      const clearBtn = document.createElement('button');
+      clearBtn.className = 'group-clear-btn';
+      clearBtn.title = 'הסרת כל המשימות של האירוע';
+      clearBtn.innerHTML = ICON_CLEAR;
+      clearBtn.onclick = (e)=>{
+        e.stopPropagation();
+        if(confirm('להסיר את '+items.length+' המשימות המקושרות ל"'+name+'"? הפעולה לא ניתנת לביטול.')){
+          clearTasksForTopic(id);
+          renderBoard();
+          renderSummary();
+        }
+      };
+      head.appendChild(clearBtn);
+    }
     card.appendChild(head);
     const list = document.createElement('div');
     list.className = 'summary-list';
@@ -686,6 +750,26 @@
       items.forEach(entry => list.appendChild(renderSummaryRow(entry, kind)));
     }
     card.appendChild(list);
+
+    const addRow = document.createElement('div');
+    addRow.className = 'add-line';
+    addRow.textContent = '+ הוספת משימה';
+    addRow.onclick = () => {
+      const item = {id:uid(), text:'', done:false, personId: kind==='person'?id:null, topicId: kind==='topic'?id:null};
+      if(!appState.unscheduled) appState.unscheduled = [];
+      appState.unscheduled.push(item);
+      persistState();
+      const emptyMsg = list.querySelector('.summary-empty');
+      if(emptyMsg) emptyMsg.remove();
+      const row = renderSummaryRow({item, dayKey:null, dayName:null, sectionKey:'unscheduled'}, kind);
+      list.appendChild(row);
+      const countEl = head.querySelector('.summary-group-count');
+      if(countEl) countEl.textContent = String(parseInt(countEl.textContent||'0',10)+1);
+      const textEl = row.querySelector('.summary-row-text');
+      if(textEl) textEl.focus();
+    };
+    card.appendChild(addRow);
+
     return card;
   }
 
@@ -695,7 +779,7 @@
     if(!grid) return;
     grid.innerHTML = '';
     const kind = summaryMode;
-    title.textContent = kind==='person' ? 'המשימות של כל אחד' : (kind==='topic' ? 'המשימות לפי מופע' : 'המשימות לפי מקום');
+    title.textContent = kind==='person' ? 'המשימות של כל אחד' : 'המשימות לפי מופע';
     const list = listForKind(kind);
     const icon = iconForKind(kind);
     list.forEach(entry => grid.appendChild(renderSummaryGroup(kind, entry.id, entry.name, icon, false)));
@@ -730,7 +814,7 @@
     pop.appendChild(title);
 
     const ul = document.createElement('div'); ul.className='picker-list';
-    [['person','לפי אדם'], ['topic','לפי מופע'], ['place','לפי מקום']].forEach(([mode,label])=>{
+    [['person','לפי אדם'], ['topic','לפי מופע']].forEach(([mode,label])=>{
       const row = document.createElement('div');
       row.className = 'picker-item' + (summaryMode===mode ? ' selected':'');
       row.textContent = label;
@@ -769,7 +853,7 @@
   function openPicker(kind, anchorEl, currentId, onPick){
     closePicker();
     const list = listForKind(kind);
-    const storeKey = kind==='person' ? PEOPLE_KEY : (kind==='topic' ? TOPICS_KEY : PLACES_KEY);
+    const storeKey = kind==='person' ? PEOPLE_KEY : TOPICS_KEY;
     const pop = document.createElement('div');
     pop.className = 'picker';
     const rect = anchorEl.getBoundingClientRect();
@@ -778,7 +862,7 @@
 
     const title = document.createElement('div');
     title.className = 'picker-title';
-    title.textContent = kind==='person' ? 'שיוך לאיש צוות' : (kind==='topic' ? 'שיוך למופע/נושא' : 'שיוך למקום');
+    title.textContent = kind==='person' ? 'שיוך לאיש צוות' : 'שיוך למופע/נושא';
     pop.appendChild(title);
 
     const ul = document.createElement('div'); ul.className='picker-list';
@@ -816,7 +900,7 @@
 
     const addRow = document.createElement('div'); addRow.className='picker-add';
     const input = document.createElement('input');
-    input.placeholder = kind==='person' ? 'איש צוות חדש…' : (kind==='topic' ? 'מופע/נושא חדש…' : 'מקום חדש…');
+    input.placeholder = kind==='person' ? 'איש צוות חדש…' : 'מופע/נושא חדש…';
     const addBtn = document.createElement('button'); addBtn.textContent='+';
     function doAdd(){
       const val = input.value.trim();
@@ -1021,7 +1105,7 @@
 
   const ICON_TAG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41 13 21l-9-9V4h8z"/><circle cx="8.5" cy="8.5" r="1.3" fill="currentColor" stroke="none"/></svg>';
   const ICON_PERSON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
-  const ICON_PLACE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>';
+  const ICON_CLEAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/></svg>';
 
   function makeMetaChip(icon, filled){
     const chip = document.createElement('span');
@@ -1077,16 +1161,6 @@
       });
     };
     meta.appendChild(personChip);
-
-    const placeChip = makeMetaChip(ICON_PLACE, !!item.placeId);
-    placeChip.querySelector('.chip-label').textContent = item.placeId ? (nameById(places,item.placeId) || '⋯') : 'מקום';
-    placeChip.onclick = (e)=>{ e.preventDefault(); e.stopPropagation();
-      openPicker('place', placeChip, item.placeId, (id)=>{
-        item.placeId = id; placeChip.querySelector('.chip-label').textContent = id ? (nameById(places,id)||'⋯') : 'מקום';
-        placeChip.classList.toggle('filled', !!id); saveWeek(weekStart, weekData); applyFilterVisuals(); renderSummary();
-      });
-    };
-    meta.appendChild(placeChip);
 
     const spacer = document.createElement('span');
     spacer.className = 'meta-spacer';
@@ -1188,7 +1262,7 @@
     if(!appState || !appState.weeks) appState = defaultAppState();
     people = appState.people || defaultAppState().people;
     topics = appState.topics || [];
-    places = appState.places || [];
+    if(!appState.unscheduled) appState.unscheduled = [];
     weekStart = startOfWeek(new Date());
     weekData = loadWeek(weekStart);
     renderAll();
