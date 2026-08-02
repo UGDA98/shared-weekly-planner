@@ -247,6 +247,52 @@
 .picker-add input:focus{ border-color:var(--accent); }
 .picker-add button{ border:none; background:var(--accent); color:var(--accent-ink); border-radius:7px; padding:5px 10px; font-size:12.5px; cursor:pointer; }
 
+/* email gate (first-run identity) */
+.email-gate{
+  position:fixed; inset:0; z-index:200; background:rgba(23,20,29,.55);
+  display:none; align-items:center; justify-content:center; padding:20px;
+  backdrop-filter: blur(2px);
+}
+.email-gate-card{
+  background:var(--surface); border-radius:18px; box-shadow:var(--shadow);
+  padding:28px 26px; width:100%; max-width:340px; text-align:center;
+}
+.email-gate-card h2{ font-family:'Almoni Tzar AAA','Almoni Tzar','Frank Ruhl Display',serif; font-size:21px; margin:0 0 8px; }
+.email-gate-card p{ font-size:13px; color:var(--muted); line-height:1.5; margin:0 0 16px; }
+.email-gate-card input{
+  width:100%; border:1px solid var(--border-strong); border-radius:10px; padding:11px 14px;
+  font-size:14px; background:var(--bg); color:var(--ink); outline:none; margin-bottom:10px;
+  direction:ltr; text-align:center;
+}
+.email-gate-card input:focus{ border-color:var(--accent); box-shadow:0 0 0 2px var(--accent-soft); }
+.email-gate-card button{
+  width:100%; border:none; background:var(--accent); color:var(--accent-ink); border-radius:10px;
+  padding:11px 14px; font-size:14px; font-weight:600; cursor:pointer;
+}
+.email-gate-card button:hover{ opacity:.92; }
+.email-gate-error{ color:#c0392b; font-size:12px; margin-top:8px; min-height:14px; }
+.email-gate-note{ font-size:11.5px !important; color:var(--muted); margin-top:14px !important; margin-bottom:0 !important; }
+
+/* role badge + sync status */
+.role-badge{
+  font-size:11px; font-weight:600; color:var(--muted); background:var(--surface-2);
+  border:1px solid var(--border); border-radius:999px; padding:3px 10px; white-space:nowrap;
+  display:none; align-items:center; gap:4px;
+}
+.sync-status{ font-size:11px; color:var(--muted); align-self:center; }
+.foot{ gap:14px; }
+.foot-btn-ghost{ border:none; background:none; color:var(--muted); text-decoration:underline; text-decoration-color:var(--border-strong); }
+.foot-btn-ghost:hover{ color:var(--accent); }
+
+/* view-only mode: hide/disable every editing affordance */
+.planner-root.view-only .add-line,
+.planner-root.view-only .drag-handle,
+.planner-root.view-only .row-del{ display:none !important; }
+.planner-root.view-only .mini-chip{ pointer-events:none; cursor:default; }
+.planner-root.view-only input[type="checkbox"]{ pointer-events:none; }
+.planner-root.view-only .task-text,
+.planner-root.view-only .event-text{ pointer-events:none; }
+
 @media (max-width:640px){
   .day{ width:84vw; }
   .title{ font-size:22px; }
@@ -261,9 +307,21 @@
 </style>
 
 <div class="planner-root" id="root">
+  <div class="email-gate" id="emailGate">
+    <div class="email-gate-card">
+      <h2>יומן ומשימות</h2>
+      <p>כדי להתחבר, הזינו את כתובת המייל שלכם. זה משמש לזיהוי בלבד — אין צורך בסיסמה או חשבון.</p>
+      <input type="email" id="emailInput" placeholder="name@example.com" autocomplete="email" />
+      <button id="emailSubmit">כניסה</button>
+      <div class="email-gate-error" id="emailError"></div>
+      <p class="email-gate-note">מי שקיבל הרשאת עריכה יוכל לערוך; כל השאר יראו את הלוח בתצוגה בלבד.</p>
+    </div>
+  </div>
+
   <div class="top">
     <div class="top-row">
       <h1 class="title">יומן ומשימות</h1>
+      <span class="role-badge" id="roleBadge">צפייה בלבד</span>
       <div class="week-nav">
         <button class="nav-btn" id="prevWeek" title="שבוע קודם" aria-label="שבוע קודם">‹</button>
         <span class="week-range" id="weekRange"></span>
@@ -288,7 +346,9 @@
   </div>
 
   <div class="foot">
+    <span class="sync-status" id="syncStatus"></span>
     <button class="foot-btn" id="exportBtn">ייצוא גיבוי (JSON)</button>
+    <button class="foot-btn foot-btn-ghost" id="switchUserBtn"></button>
   </div>
 </div>
 
@@ -303,8 +363,12 @@
     {key:'team', label:'צוות'}
   ];
   const STORAGE_PREFIX = 'planner_week_';
-  const PEOPLE_KEY = 'planner_people_v2';
-  const TOPICS_KEY = 'planner_topics_v2';
+  const PEOPLE_KEY = 'people';
+  const TOPICS_KEY = 'topics';
+  const API_URL = 'https://script.google.com/macros/s/AKfycbxO8tTn_6c1CxqcFSB35kgjQ3LYrmdzfjixTEdADlLCYyPB7sgL3Kw-UgCdwVXCkUU/exec';
+  const EMAIL_KEY = 'planner_user_email';
+  const CACHE_KEY = 'planner_shared_cache_v1';
+  const POLL_MS = 20000;
 
   function pad(n){ return String(n).padStart(2,'0'); }
   function fmtDate(d){ return pad(d.getDate())+'.'+pad(d.getMonth()+1); }
@@ -313,18 +377,123 @@
   function uid(){ return 'i'+Math.random().toString(36).slice(2,10); }
   function startOfWeek(d){ const x=new Date(d); x.setHours(0,0,0,0); x.setDate(x.getDate()-x.getDay()); return x; }
 
-  // ---------- global lists: people & topics ----------
-  function loadList(key, fallback){
-    const raw = localStorage.getItem(key);
-    if(raw){ try { return JSON.parse(raw); } catch(e){} }
-    return fallback;
-  }
-  function saveList(key, list){ localStorage.setItem(key, JSON.stringify(list)); }
+  // ---------- shared state (synced through the Apps Script backend) ----------
+  let currentEmail = '';
+  let currentRole = 'viewer';
+  let appState = null;      // { people, topics, weeks:{ weekKey: dayData } }
+  let lastSyncedJson = '';  // last state string confirmed round-tripped with the server
+  let saveTimer = null;
+  let pollTimer = null;
 
-  let people = loadList(PEOPLE_KEY, [{id:uid(), name:'דורון'}, {id:uid(), name:'יובל'}]);
-  let topics = loadList(TOPICS_KEY, []);
-  saveList(PEOPLE_KEY, people);
-  saveList(TOPICS_KEY, topics);
+  function defaultAppState(){
+    return { people:[{id:uid(), name:'דורון'}, {id:uid(), name:'יובל'}], topics:[], weeks:{} };
+  }
+
+  function isUserEditing(){
+    const ae = document.activeElement;
+    return !!(ae && (ae.isContentEditable || ae.tagName === 'INPUT'));
+  }
+
+  function persistState(){
+    localStorage.setItem(CACHE_KEY, JSON.stringify(appState));
+    scheduleSave();
+  }
+
+  function scheduleSave(){
+    if(currentRole !== 'editor') return;
+    clearTimeout(saveTimer);
+    setSyncStatus('שומר…');
+    saveTimer = setTimeout(pushState, 600);
+  }
+
+  async function pushState(){
+    if(!currentEmail || currentRole !== 'editor') return;
+    const payload = JSON.stringify(appState);
+    try{
+      await fetch(API_URL, {
+        method:'POST',
+        headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body: JSON.stringify({ email: currentEmail, data: appState })
+      });
+      lastSyncedJson = payload;
+      setSyncStatus('מסונכרן ✓');
+    }catch(e){
+      setSyncStatus('אין חיבור — יישמר מקומית');
+    }
+  }
+
+  async function refreshFromServer(isInitial){
+    if(!currentEmail) return;
+    try{
+      const url = API_URL + '?email=' + encodeURIComponent(currentEmail) + '&t=' + Date.now();
+      const res = await fetch(url);
+      const json = await res.json();
+      if(!json || !json.ok) return;
+      const roleChanged = json.role !== currentRole;
+      currentRole = json.role || 'viewer';
+      updateRoleUI();
+      const serverData = (json.data && json.data.weeks) ? json.data : null;
+      if(serverData){
+        const serverJson = JSON.stringify(serverData);
+        if(serverJson !== lastSyncedJson){
+          if(!isUserEditing()){
+            appState = serverData;
+            people = appState.people || defaultAppState().people;
+            topics = appState.topics || [];
+            weekData = loadWeek(weekStart);
+            lastSyncedJson = serverJson;
+            localStorage.setItem(CACHE_KEY, serverJson);
+            renderAll();
+            setSyncStatus('עודכן ממכשיר אחר');
+          }
+        } else if(isInitial){
+          setSyncStatus('מסונכרן ✓');
+        }
+      } else if(isInitial && currentRole === 'editor'){
+        // shared sheet has no real data yet — seed it from our (cached/default) state
+        lastSyncedJson = '';
+        persistState();
+      }
+      if(roleChanged) renderAll();
+    }catch(e){
+      if(isInitial) setSyncStatus('אין חיבור — עובד מהעותק המקומי');
+    }
+  }
+
+  function startPolling(){
+    clearInterval(pollTimer);
+    pollTimer = setInterval(()=> refreshFromServer(false), POLL_MS);
+  }
+
+  function setSyncStatus(text){
+    const el = document.getElementById('syncStatus');
+    if(el) el.textContent = text;
+  }
+
+  function updateRoleUI(){
+    const root = document.getElementById('root');
+    root.classList.toggle('view-only', currentRole !== 'editor');
+    const badge = document.getElementById('roleBadge');
+    if(badge) badge.style.display = currentRole === 'editor' ? 'none' : 'inline-flex';
+    const switchBtn = document.getElementById('switchUserBtn');
+    if(switchBtn) switchBtn.textContent = 'מחובר/ת כ־' + currentEmail + ' (החלפה)';
+  }
+
+  function renderAll(){
+    updateWeekRange();
+    renderFilters();
+    renderBoard();
+    renderSummary();
+  }
+
+  // ---------- global lists: people & topics ----------
+  function saveList(kind, list){
+    if(kind === PEOPLE_KEY) appState.people = list; else appState.topics = list;
+    persistState();
+  }
+
+  let people = [];
+  let topics = [];
 
   function nameById(list, id){ const it = list.find(x=>x.id===id); return it ? it.name : null; }
 
@@ -364,16 +533,16 @@
   }
 
   function loadWeek(ws){
-    const raw = localStorage.getItem(weekKey(ws));
-    let data;
-    if(raw){ try { data = JSON.parse(raw); } catch(e){ data = sampleWeekData(); } }
-    else data = sampleWeekData();
+    const key = weekKey(ws);
+    let data = appState.weeks[key];
+    if(!data) data = sampleWeekData();
     DAY_DEFS.forEach(d=>{ if(!data[d.key]) data[d.key]=emptyDayData(); migrateLegacy(data[d.key]); });
+    appState.weeks[key] = data;
     return data;
   }
-  function saveWeek(ws, data){ localStorage.setItem(weekKey(ws), JSON.stringify(data)); }
+  function saveWeek(ws, data){ appState.weeks[weekKey(ws)] = data; persistState(); }
 
-  let weekData = loadWeek(weekStart);
+  let weekData = null;
 
   // ---------- filters ----------
   function renderFilters(){
@@ -921,12 +1090,7 @@
   document.getElementById('gotoToday').onclick = () => { goToWeek(startOfWeek(new Date()), true); };
 
   document.getElementById('exportBtn').onclick = async () => {
-    const all = {people, topics, weeks:{}};
-    for(let i=0;i<localStorage.length;i++){
-      const k = localStorage.key(i);
-      if(k.startsWith(STORAGE_PREFIX)) all.weeks[k] = JSON.parse(localStorage.getItem(k));
-    }
-    const json = JSON.stringify(all, null, 2);
+    const json = JSON.stringify(appState, null, 2);
     if(window.claude && window.claude.downloads){
       try{ await window.claude.downloads.save({filename:'יומן-ומשימות-גיבוי.json', data: json}); return; }catch(e){}
     }
@@ -937,11 +1101,59 @@
     a.click();
   };
 
-  updateWeekRange();
-  renderFilters();
-  renderBoard();
-  renderSummary();
-  scrollTodayIntoView();
+  // ---------- email gate / boot ----------
+  function showEmailGate(){ document.getElementById('emailGate').style.display = 'flex'; }
+  function hideEmailGate(){ document.getElementById('emailGate').style.display = 'none'; }
+
+  function submitEmail(){
+    const val = document.getElementById('emailInput').value.trim();
+    const errEl = document.getElementById('emailError');
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)){
+      errEl.textContent = 'כתובת מייל לא תקינה — נסו שוב';
+      return;
+    }
+    errEl.textContent = '';
+    currentEmail = val.toLowerCase();
+    localStorage.setItem(EMAIL_KEY, currentEmail);
+    hideEmailGate();
+    initialLoad();
+  }
+  document.getElementById('emailSubmit').onclick = submitEmail;
+  document.getElementById('emailInput').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); submitEmail(); } });
+
+  document.getElementById('switchUserBtn').onclick = () => {
+    clearInterval(pollTimer);
+    localStorage.removeItem(EMAIL_KEY);
+    currentEmail = ''; currentRole = 'viewer';
+    document.getElementById('emailInput').value = '';
+    showEmailGate();
+  };
+
+  async function initialLoad(){
+    const cachedRaw = localStorage.getItem(CACHE_KEY);
+    appState = null;
+    if(cachedRaw){ try{ appState = JSON.parse(cachedRaw); }catch(e){} }
+    if(!appState || !appState.weeks) appState = defaultAppState();
+    people = appState.people || defaultAppState().people;
+    topics = appState.topics || [];
+    weekStart = startOfWeek(new Date());
+    weekData = loadWeek(weekStart);
+    renderAll();
+    scrollTodayIntoView();
+
+    setSyncStatus('מתחבר…');
+    await refreshFromServer(true);
+    startPolling();
+  }
+
+  function boot(){
+    currentEmail = (localStorage.getItem(EMAIL_KEY) || '').trim();
+    if(!currentEmail){ showEmailGate(); return; }
+    hideEmailGate();
+    initialLoad();
+  }
+
+  boot();
 })();
 </script>
 
