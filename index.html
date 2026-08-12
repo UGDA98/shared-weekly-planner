@@ -62,19 +62,22 @@
 }
 
 *{box-sizing:border-box;}
+html,body{ overscroll-behavior:contain; }
 .planner-root{
   direction:rtl;
   font-family:'Almoni Tzar AAA', 'Almoni Tzar 4.0 AAA', 'Almoni Tzar', 'Rubik UI', system-ui, -apple-system, "Segoe UI", sans-serif;
   color:var(--ink);
   background:var(--bg);
-  min-height:100vh;
+  min-height:100dvh;
+  display:flex;
+  flex-direction:column;
   padding:0;
   font-variant-numeric: tabular-nums;
   -webkit-tap-highlight-color: transparent;
   position:relative;
 }
 .planner-root *{ font-family: inherit; }
-.top{ position:sticky; top:0; z-index:20; background:var(--bg); padding:18px 20px 10px; border-bottom:1px solid var(--border); }
+.top{ position:sticky; top:0; z-index:20; background:var(--bg); padding:18px 20px 10px; border-bottom:1px solid var(--border); box-shadow:var(--shadow); }
 .top-row{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap; }
 .title{ font-weight:700; font-size:26px; letter-spacing:.2px; margin:0; text-wrap:balance; }
 .week-nav{ display:flex; align-items:center; gap:10px; }
@@ -84,7 +87,12 @@
 .nav-btn:active{ transform:scale(.92); }
 .nav-btn.today-btn{ width:auto; padding:0 12px; font-size:13px; font-weight:500; }
 
-.filters{ display:flex; gap:8px; flex-wrap:nowrap; overflow-x:auto; margin-top:12px; align-items:center; scrollbar-width:thin; -webkit-overflow-scrolling:touch; }
+.filters-bar{
+  display:flex; align-items:center; gap:10px; padding:10px 20px; min-height:44px;
+  background:var(--surface-2); border-bottom:1px solid var(--border);
+}
+.filters-label{ font-size:12px; color:var(--muted); font-weight:600; white-space:nowrap; flex-shrink:0; }
+.filters{ display:flex; gap:8px; flex-wrap:nowrap; overflow-x:auto; align-items:center; scrollbar-width:thin; -webkit-overflow-scrolling:touch; min-width:0; }
 .filters::-webkit-scrollbar{ height:6px; }
 .filters::-webkit-scrollbar-thumb{ background:var(--border); border-radius:8px; }
 .chip{ border:1px solid var(--border); background:var(--surface); color:var(--muted); font-size:13px; font-weight:500; padding:6px 14px; border-radius:999px; cursor:pointer; transition:all .12s ease; white-space:nowrap; flex-shrink:0; }
@@ -189,13 +197,82 @@
 
 .app-footer{
   display:flex; align-items:center; justify-content:space-between; gap:10px 16px; flex-wrap:wrap;
-  margin-top:28px; padding:14px 20px; border-top:1px solid var(--border);
-  position:sticky; bottom:0; z-index:15; background:var(--bg);
+  margin-top:auto; padding:14px 20px; border-top:1px solid var(--border);
+  background:var(--bg);
 }
 .app-footer-links{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 .footer-sep{ color:var(--border-strong); font-size:11px; }
 .footer-link{ font-size:11.5px; color:var(--muted); background:none; border:none; cursor:pointer; padding:2px 0; text-decoration:underline; text-decoration-color:var(--border-strong); text-underline-offset:2px; }
 .footer-link:hover{ color:var(--accent); }
+
+.no-access-msg{
+  margin:24px 20px; padding:18px 20px; border:1px solid var(--border-strong); border-radius:12px;
+  background:var(--surface-2); color:var(--ink); font-size:14px; line-height:1.7; text-align:center;
+}
+
+/* ---------- board picker (workspace-switcher pattern) ---------- */
+.board-picker{ position:relative; }
+.board-picker-btn{
+  display:flex; align-items:center; gap:6px; font-size:13px; font-weight:600; color:var(--ink);
+  background:var(--surface-2); border:1px solid var(--border); border-radius:10px;
+  padding:8px 12px; min-height:38px; cursor:pointer; max-width:220px;
+}
+.board-picker-btn:hover{ border-color:var(--border-strong); }
+.board-picker-btn[aria-expanded="true"]{ border-color:var(--accent); }
+.board-picker-icon{ width:15px; height:15px; color:var(--muted); flex-shrink:0; }
+.board-picker-chevron{ width:14px; height:14px; color:var(--muted); flex-shrink:0; transition:transform .15s; }
+.board-picker-btn[aria-expanded="true"] .board-picker-chevron{ transform:rotate(180deg); }
+#boardPickerLabel{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+.board-picker-menu{
+  position:absolute; top:calc(100% + 6px); inset-inline-start:0; z-index:30; display:none;
+  min-width:230px; max-width:300px; background:var(--surface); border:1px solid var(--border-strong);
+  border-radius:12px; box-shadow:var(--shadow); padding:6px;
+}
+.board-picker-list{ display:flex; flex-direction:column; max-height:280px; overflow-y:auto; }
+.board-picker-item{
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  min-height:44px; padding:8px 10px; border-radius:8px; border:none; background:none;
+  font-size:13.5px; color:var(--ink); cursor:pointer; text-align:start; width:100%;
+}
+.board-picker-item:hover{ background:var(--surface-2); }
+.board-picker-item.active{ background:var(--accent-soft); color:var(--accent-soft-ink); font-weight:600; }
+.board-picker-item-role{ font-size:11px; color:var(--muted); flex-shrink:0; }
+.board-picker-item.active .board-picker-item-role{ color:var(--accent-soft-ink); opacity:.75; }
+.board-picker-empty{ padding:14px 10px; font-size:12.5px; color:var(--muted); text-align:center; }
+.board-picker-new{
+  display:flex; align-items:center; gap:8px; width:100%; min-height:44px; padding:8px 10px 8px;
+  border-radius:8px; border:none; border-top:1px solid var(--border); margin-top:4px; padding-top:12px;
+  background:none; font-size:13.5px; font-weight:600; color:var(--accent); cursor:pointer;
+}
+.board-picker-new:hover{ background:var(--accent-soft); }
+.board-picker-new svg{ width:16px; height:16px; flex-shrink:0; }
+
+/* new-board modal — mirrors .email-gate / .email-gate-card styling for visual consistency */
+.modal-overlay{
+  position:fixed; inset:0; z-index:210; background:rgba(23,20,29,.55);
+  display:none; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(2px);
+}
+.modal-card{
+  background:var(--surface); border-radius:18px; box-shadow:var(--shadow);
+  padding:26px 24px; width:100%; max-width:340px;
+}
+.modal-card h3{ font-size:18px; font-weight:700; margin:0 0 6px; }
+.modal-sub{ font-size:12.5px; color:var(--muted); line-height:1.6; margin:0 0 16px; }
+.modal-label{ display:block; font-size:12px; font-weight:600; color:var(--ink); margin-bottom:6px; }
+.modal-input{
+  width:100%; box-sizing:border-box; border:1px solid var(--border-strong); border-radius:10px;
+  padding:11px 14px; font-size:14px; background:var(--bg); color:var(--ink); outline:none; min-height:44px;
+}
+.modal-input:focus{ border-color:var(--accent); box-shadow:0 0 0 2px var(--accent-soft); }
+.modal-error{ color:#c0392b; font-size:12px; margin-top:8px; min-height:14px; }
+.modal-actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:16px; }
+.modal-btn{ min-height:42px; padding:0 18px; border-radius:10px; font-size:13.5px; font-weight:600; cursor:pointer; border:none; }
+.modal-btn-secondary{ background:var(--surface-2); color:var(--ink); }
+.modal-btn-secondary:hover{ background:var(--border); }
+.modal-btn-primary{ background:var(--accent); color:var(--accent-ink); }
+.modal-btn-primary:hover{ opacity:.92; }
+.modal-btn-primary:disabled{ opacity:.6; cursor:default; }
 
 /* weekly digest: grouped-by-person / grouped-by-topic view. A wrapping grid (not a
    scroll row) on purpose — unlike the days, groups have no inherent order, so letting
@@ -329,9 +406,15 @@
   .drag-handle{ width:26px; height:28px; font-size:15px; }
   .mini-chip{ min-height:30px; padding:6px 12px 6px 10px; font-size:12.5px; }
   .add-line{ padding:9px 8px; font-size:13px; }
-  .nav-btn{ width:38px; height:38px; }
+  .nav-btn{ width:40px; height:40px; }
   .nav-btn.today-btn{ padding:0 14px; }
-  .chip{ padding:8px 15px; }
+  .chip{ padding:8px 15px; min-height:36px; }
+
+  .board-picker-btn{ min-height:42px; max-width:100%; flex:1 1 auto; }
+  .board-picker-menu{ min-width:0; width:calc(100vw - 28px); max-width:320px; }
+
+  .filters-bar{ padding:9px 14px; gap:8px; }
+  .app-footer{ padding:12px 14px; }
 }
 @media (prefers-reduced-motion: reduce){ .nav-btn, .chip{ transition:none; } }
 </style>
@@ -351,6 +434,20 @@
   <div class="top">
     <div class="top-row">
       <h1 class="title">יומן ומשימות</h1>
+      <div class="board-picker" id="boardPicker">
+        <button class="board-picker-btn" id="boardPickerBtn" type="button" aria-haspopup="true" aria-expanded="false">
+          <svg class="board-picker-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+          <span id="boardPickerLabel">לוח</span>
+          <svg class="board-picker-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="board-picker-menu" id="boardPickerMenu" role="menu">
+          <div class="board-picker-list" id="boardPickerList"></div>
+          <button class="board-picker-new" id="newBoardBtn" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            לוח חדש
+          </button>
+        </div>
+      </div>
       <span class="role-badge" id="roleBadge">צפייה בלבד</span>
       <div class="week-nav">
         <button class="nav-btn" id="prevWeek" title="שבוע קודם" aria-label="שבוע קודם">‹</button>
@@ -359,12 +456,20 @@
         <button class="nav-btn today-btn" id="gotoToday">היום</button>
       </div>
     </div>
+  </div>
+
+  <div class="filters-bar">
+    <span class="filters-label">הדגשה לפי:</span>
     <div class="filters" id="filters"></div>
   </div>
 
   <div class="board" id="board"></div>
 
-  <div class="summary-section">
+  <div class="no-access-msg" id="noAccessMsg" style="display:none;">
+    <p id="noAccessText"></p>
+  </div>
+
+  <div class="summary-section" id="summarySection">
     <div class="summary-head">
       <h2 class="summary-title" id="summaryTitle">המשימות של כל אחד</h2>
       <button class="mode-btn" id="summaryModeBtn">
@@ -385,6 +490,20 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="newBoardModal">
+  <div class="modal-card">
+    <h3>לוח חדש</h3>
+    <p class="modal-sub">תיצרו לוח משימות נפרד. תהיו העורך/ת הראשונ/ה שלו — תוכלו להוסיף אנשים נוספים אחר כך.</p>
+    <label for="newBoardNameInput" class="modal-label">שם הלוח</label>
+    <input type="text" id="newBoardNameInput" class="modal-input" placeholder="למשל: לוז שבועי — צוות הדרכה" />
+    <div class="modal-error" id="newBoardError"></div>
+    <div class="modal-actions">
+      <button class="modal-btn modal-btn-secondary" id="newBoardCancel" type="button">ביטול</button>
+      <button class="modal-btn modal-btn-primary" id="newBoardCreate" type="button">יצירה</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (function(){
   const DAY_DEFS = [
@@ -400,8 +519,12 @@
   const TOPICS_KEY = 'topics';
   const API_URL = 'https://script.google.com/macros/s/AKfycbxO8tTn_6c1CxqcFSB35kgjQ3LYrmdzfjixTEdADlLCYyPB7sgL3Kw-UgCdwVXCkUU/exec';
   const EMAIL_KEY = 'planner_user_email';
-  const CACHE_KEY = 'planner_shared_cache_v1';
+  const CACHE_KEY_PREFIX = 'planner_shared_cache_v1__';
+  const LEGACY_BOARD_ID = 'board-1';
   const POLL_MS = 20000;
+
+  function cacheKeyFor(boardId){ return CACHE_KEY_PREFIX + (boardId || LEGACY_BOARD_ID); }
+  function lastBoardKeyFor(email){ return 'planner_last_board_id__' + (email || ''); }
 
   function pad(n){ return String(n).padStart(2,'0'); }
   function fmtDate(d){ return pad(d.getDate())+'.'+pad(d.getMonth()+1); }
@@ -413,6 +536,8 @@
   // ---------- shared state (synced through the Apps Script backend) ----------
   let currentEmail = '';
   let currentRole = 'viewer';
+  let currentBoardId = '';
+  let boardsList = [];      // [{id, name, role}] — boards the current email can access
   let appState = null;      // { people, topics, weeks:{ weekKey: dayData } }
   let lastSyncedJson = '';  // last state string confirmed round-tripped with the server
   let saveTimer = null;
@@ -428,7 +553,7 @@
   }
 
   function persistState(){
-    localStorage.setItem(CACHE_KEY, JSON.stringify(appState));
+    localStorage.setItem(cacheKeyFor(currentBoardId), JSON.stringify(appState));
     scheduleSave();
   }
 
@@ -440,13 +565,13 @@
   }
 
   async function pushState(){
-    if(!currentEmail || currentRole !== 'editor') return;
+    if(!currentEmail || currentRole !== 'editor' || !currentBoardId) return;
     const payload = JSON.stringify(appState);
     try{
       await fetch(API_URL, {
         method:'POST',
         headers:{'Content-Type':'text/plain;charset=utf-8'},
-        body: JSON.stringify({ email: currentEmail, data: appState })
+        body: JSON.stringify({ action:'saveBoard', board: currentBoardId, email: currentEmail, data: appState })
       });
       lastSyncedJson = payload;
       setSyncStatus('מסונכרן ✓');
@@ -456,12 +581,16 @@
   }
 
   async function refreshFromServer(isInitial){
-    if(!currentEmail) return;
+    if(!currentEmail || !currentBoardId) return;
     try{
-      const url = API_URL + '?email=' + encodeURIComponent(currentEmail) + '&t=' + Date.now();
+      const url = API_URL + '?action=getBoard&board=' + encodeURIComponent(currentBoardId) + '&email=' + encodeURIComponent(currentEmail) + '&t=' + Date.now();
       const res = await fetch(url);
       const json = await res.json();
-      if(!json || !json.ok) return;
+      if(!json || !json.ok){
+        if(isInitial) showNoAccess(json && json.error);
+        return;
+      }
+      hideNoAccess();
       const roleChanged = json.role !== currentRole;
       currentRole = json.role || 'viewer';
       updateRoleUI();
@@ -476,7 +605,7 @@
             if(!appState.unscheduled) appState.unscheduled = [];
             weekData = loadWeek(weekStart);
             lastSyncedJson = serverJson;
-            localStorage.setItem(CACHE_KEY, serverJson);
+            localStorage.setItem(cacheKeyFor(currentBoardId), serverJson);
             renderAll();
             setSyncStatus('עודכן ממכשיר אחר');
           }
@@ -484,7 +613,7 @@
           setSyncStatus('מסונכרן ✓');
         }
       } else if(isInitial && currentRole === 'editor'){
-        // shared sheet has no real data yet — seed it from our (cached/default) state
+        // board has no real data yet — seed it from our (cached/default) state
         lastSyncedJson = '';
         persistState();
       }
@@ -496,7 +625,207 @@
 
   function startPolling(){
     clearInterval(pollTimer);
-    pollTimer = setInterval(()=> refreshFromServer(false), POLL_MS);
+    pollTimer = setInterval(async ()=> {
+      refreshFromServer(false);
+      // self-heal the board list on the same cadence as everything else — a single
+      // failed fetch at initial load (network hiccup) would otherwise leave the
+      // picker permanently empty for the rest of the session with no retry.
+      const menuOpen = document.getElementById('boardPickerMenu').style.display === 'block';
+      if(!menuOpen){
+        boardsList = await fetchBoardsList();
+        renderBoardSwitcher();
+      }
+    }, POLL_MS);
+  }
+
+  /* ---------- multi-board: list / switch / create ---------- */
+
+  async function fetchBoardsList(){
+    if(!currentEmail) return [];
+    try{
+      const url = API_URL + '?action=listBoards&email=' + encodeURIComponent(currentEmail) + '&t=' + Date.now();
+      const res = await fetch(url);
+      const json = await res.json();
+      if(json && json.ok && Array.isArray(json.boards)) return json.boards;
+    }catch(e){}
+    return [];
+  }
+
+  function resolveInitialBoardId(){
+    const params = new URLSearchParams(location.search);
+    const fromUrl = params.get('board');
+    if(fromUrl) return fromUrl;
+    const fromStorage = localStorage.getItem(lastBoardKeyFor(currentEmail));
+    if(fromStorage) return fromStorage;
+    return LEGACY_BOARD_ID;
+  }
+
+  function reflectBoardInUrl(boardId, replace){
+    try{
+      const url = new URL(location.href);
+      url.searchParams.set('board', boardId);
+      if(replace) history.replaceState(null, '', url); else history.pushState(null, '', url);
+    }catch(e){}
+  }
+
+  function renderBoardSwitcher(){
+    const label = document.getElementById('boardPickerLabel');
+    const list = document.getElementById('boardPickerList');
+    if(!label || !list) return;
+
+    const current = boardsList.find(b => b.id === currentBoardId);
+    label.textContent = current ? current.name : 'בחר/י לוח';
+
+    list.innerHTML = '';
+    if(!boardsList.length){
+      const empty = document.createElement('div');
+      empty.className = 'board-picker-empty';
+      empty.textContent = 'עדיין אין לכם לוחות';
+      list.appendChild(empty);
+      return;
+    }
+    boardsList.forEach(b=>{
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'board-picker-item' + (b.id === currentBoardId ? ' active' : '');
+      item.setAttribute('role', 'menuitemradio');
+      item.setAttribute('aria-checked', b.id === currentBoardId ? 'true' : 'false');
+      const nameSpan = document.createElement('span');
+      nameSpan.textContent = b.name;
+      const roleSpan = document.createElement('span');
+      roleSpan.className = 'board-picker-item-role';
+      roleSpan.textContent = b.role === 'editor' ? 'עורך/ת' : 'צפייה';
+      item.appendChild(nameSpan);
+      item.appendChild(roleSpan);
+      item.onclick = () => {
+        closeBoardPicker();
+        if(b.id !== currentBoardId) switchToBoard(b.id, {});
+      };
+      list.appendChild(item);
+    });
+  }
+
+  function openBoardPicker(){
+    document.getElementById('boardPickerMenu').style.display = 'block';
+    document.getElementById('boardPickerBtn').setAttribute('aria-expanded', 'true');
+  }
+  function closeBoardPicker(){
+    document.getElementById('boardPickerMenu').style.display = 'none';
+    document.getElementById('boardPickerBtn').setAttribute('aria-expanded', 'false');
+  }
+  function toggleBoardPicker(){
+    const open = document.getElementById('boardPickerMenu').style.display === 'block';
+    if(open) closeBoardPicker(); else openBoardPicker();
+  }
+
+  document.getElementById('boardPickerBtn').onclick = (e) => { e.stopPropagation(); toggleBoardPicker(); };
+  document.addEventListener('click', (e) => {
+    const picker = document.getElementById('boardPicker');
+    if(picker && !picker.contains(e.target)) closeBoardPicker();
+  });
+  document.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeBoardPicker(); });
+
+  function openNewBoardModal(){
+    closeBoardPicker();
+    document.getElementById('newBoardError').textContent = '';
+    const input = document.getElementById('newBoardNameInput');
+    input.value = '';
+    document.getElementById('newBoardModal').style.display = 'flex';
+    input.focus();
+  }
+  function closeNewBoardModal(){
+    document.getElementById('newBoardModal').style.display = 'none';
+  }
+
+  async function submitNewBoard(){
+    const input = document.getElementById('newBoardNameInput');
+    const errEl = document.getElementById('newBoardError');
+    const createBtn = document.getElementById('newBoardCreate');
+    const name = input.value.trim();
+    if(!name){
+      errEl.textContent = 'צריך לתת שם ללוח';
+      return;
+    }
+    errEl.textContent = '';
+    createBtn.disabled = true;
+    createBtn.textContent = 'יוצר…';
+    try{
+      const res = await fetch(API_URL, {
+        method:'POST',
+        headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body: JSON.stringify({ action:'createBoard', email: currentEmail, name })
+      });
+      const json = await res.json();
+      if(json && json.ok && json.board){
+        closeNewBoardModal();
+        boardsList = await fetchBoardsList();
+        renderBoardSwitcher();
+        await switchToBoard(json.board.id, {});
+      } else {
+        errEl.textContent = 'יצירת הלוח נכשלה, נסו שוב.';
+      }
+    }catch(e){
+      errEl.textContent = 'אין חיבור — נסו שוב.';
+    }finally{
+      createBtn.disabled = false;
+      createBtn.textContent = 'יצירה';
+    }
+  }
+
+  document.getElementById('newBoardBtn').onclick = openNewBoardModal;
+  document.getElementById('newBoardCancel').onclick = closeNewBoardModal;
+  document.getElementById('newBoardCreate').onclick = submitNewBoard;
+  document.getElementById('newBoardModal').addEventListener('click', (e) => {
+    if(e.target.id === 'newBoardModal') closeNewBoardModal();
+  });
+  document.getElementById('newBoardNameInput').addEventListener('keydown', (e) => {
+    if(e.key === 'Enter'){ e.preventDefault(); submitNewBoard(); }
+  });
+
+  async function switchToBoard(boardId, opts){
+    opts = opts || {};
+    if(boardId === currentBoardId) return;
+    clearTimeout(saveTimer);
+    if(currentRole === 'editor' && currentBoardId) await pushState(); // flush pending edit before leaving
+    clearInterval(pollTimer);
+
+    currentBoardId = boardId;
+    localStorage.setItem(lastBoardKeyFor(currentEmail), boardId);
+    reflectBoardInUrl(boardId, !!opts.replace);
+
+    const cachedRaw = localStorage.getItem(cacheKeyFor(boardId));
+    appState = null;
+    if(cachedRaw){ try{ appState = JSON.parse(cachedRaw); }catch(e){} }
+    if(!appState || !appState.weeks) appState = defaultAppState();
+    people = appState.people || defaultAppState().people;
+    topics = appState.topics || [];
+    if(!appState.unscheduled) appState.unscheduled = [];
+    lastSyncedJson = '';
+    weekData = loadWeek(weekStart);
+    renderAll();
+
+    setSyncStatus('מתחבר…');
+    await refreshFromServer(true);
+    startPolling();
+    renderBoardSwitcher();
+  }
+
+  function showNoAccess(errorCode){
+    document.getElementById('filters').style.display = 'none';
+    document.getElementById('board').style.display = 'none';
+    document.getElementById('summarySection').style.display = 'none';
+    const el = document.getElementById('noAccessMsg');
+    el.style.display = 'block';
+    document.getElementById('noAccessText').textContent = errorCode === 'not_found'
+      ? 'הלוח הזה לא נמצא.'
+      : 'אין לכם גישה ללוח הזה. בקשו מאחד העורכים להוסיף את כתובת המייל שלכם, או עברו ללוח אחר מהרשימה למטה.';
+  }
+
+  function hideNoAccess(){
+    document.getElementById('filters').style.display = '';
+    document.getElementById('board').style.display = '';
+    document.getElementById('summarySection').style.display = '';
+    document.getElementById('noAccessMsg').style.display = 'none';
   }
 
   function setSyncStatus(text){
@@ -920,6 +1249,11 @@
     const addRow = document.createElement('div'); addRow.className='picker-add';
     const input = document.createElement('input');
     input.placeholder = kind==='person' ? 'איש צוות חדש…' : 'מופע/נושא חדש…';
+    // autocomplete="off" alone is unreliable on name-like fields in Chrome —
+    // a unique `name` defeats its saved-values heuristic so a typed name
+    // (e.g. "דורין") can never be silently replaced by a similar saved one.
+    input.setAttribute('autocomplete', 'off');
+    input.setAttribute('name', 'new-entry-' + kind + '-' + uid());
     const addBtn = document.createElement('button'); addBtn.textContent='+';
     function doAdd(){
       const val = input.value.trim();
@@ -1269,13 +1603,18 @@
   document.getElementById('switchUserBtn').onclick = () => {
     clearInterval(pollTimer);
     localStorage.removeItem(EMAIL_KEY);
-    currentEmail = ''; currentRole = 'viewer';
+    currentEmail = ''; currentRole = 'viewer'; currentBoardId = ''; boardsList = [];
+    closeBoardPicker();
+    renderBoardSwitcher();
     document.getElementById('emailInput').value = '';
     showEmailGate();
   };
 
   async function initialLoad(){
-    const cachedRaw = localStorage.getItem(CACHE_KEY);
+    currentBoardId = resolveInitialBoardId();
+    reflectBoardInUrl(currentBoardId, true);
+
+    const cachedRaw = localStorage.getItem(cacheKeyFor(currentBoardId));
     appState = null;
     if(cachedRaw){ try{ appState = JSON.parse(cachedRaw); }catch(e){} }
     if(!appState || !appState.weeks) appState = defaultAppState();
@@ -1290,6 +1629,9 @@
     setSyncStatus('מתחבר…');
     await refreshFromServer(true);
     startPolling();
+
+    boardsList = await fetchBoardsList();
+    renderBoardSwitcher();
   }
 
   function boot(){
