@@ -80,13 +80,22 @@ html,body{ overscroll-behavior:contain; }
 .nav-btn.today-btn{ width:auto; padding:0 12px; font-size:13px; font-weight:500; }
 
 .filters-bar{
-  display:flex; align-items:center; gap:10px; padding:10px 20px; min-height:44px;
+  display:flex; align-items:center; padding:10px 20px; min-height:44px;
   background:var(--surface-2); border-bottom:1px solid var(--border);
 }
-.filters-label{ font-size:12px; color:var(--muted); font-weight:600; white-space:nowrap; flex-shrink:0; }
-.filters{ display:flex; gap:8px; flex-wrap:nowrap; overflow-x:auto; align-items:center; scrollbar-width:thin; -webkit-overflow-scrolling:touch; min-width:0; }
-.filters::-webkit-scrollbar{ height:6px; }
-.filters::-webkit-scrollbar-thumb{ background:var(--border); border-radius:8px; }
+.highlight-btn{
+  display:flex; align-items:center; gap:7px; font-size:13px; font-weight:600; color:var(--ink);
+  background:var(--surface); border:1px solid var(--border); border-radius:10px;
+  padding:8px 12px; min-height:38px; cursor:pointer; max-width:100%;
+}
+.highlight-btn:hover{ border-color:var(--border-strong); }
+.highlight-btn[aria-expanded="true"]{ border-color:var(--accent); }
+.highlight-btn-icon{ width:14px; height:14px; color:var(--muted); flex-shrink:0; }
+.highlight-btn-chevron{ width:13px; height:13px; color:var(--muted); flex-shrink:0; transition:transform .15s; }
+.highlight-btn[aria-expanded="true"] .highlight-btn-chevron{ transform:rotate(180deg); }
+#highlightBtnLabel{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.picker-item.stale{ color:var(--muted); opacity:.6; }
+.picker-divider{ height:1px; background:var(--border); margin:4px 2px; }
 .chip{ border:1px solid var(--border); background:var(--surface); color:var(--muted); font-size:13px; font-weight:500; padding:6px 14px; border-radius:999px; cursor:pointer; transition:all .12s ease; white-space:nowrap; flex-shrink:0; }
 .chip:hover{ border-color:var(--accent); color:var(--ink); }
 .chip.active{ background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
@@ -243,11 +252,16 @@ html,body{ overscroll-behavior:contain; }
 }
 .drawer-new-board:hover{ background:var(--accent-soft); }
 .drawer-new-board svg{ width:16px; height:16px; flex-shrink:0; }
-.drawer-toggle-row{
-  display:flex; align-items:center; justify-content:space-between; min-height:40px;
-  font-size:13.5px; color:var(--ink); cursor:pointer;
+.drawer-section-list{ display:flex; flex-direction:column; gap:2px; }
+.drawer-section-row{
+  display:flex; align-items:center; gap:8px; min-height:44px; padding:2px 4px;
+  font-size:13.5px; color:var(--ink); border-radius:8px;
 }
-.drawer-toggle-row input[type="checkbox"]{ width:20px; height:20px; accent-color:var(--accent); cursor:pointer; }
+.drawer-section-row:hover{ background:var(--surface-2); }
+.drawer-section-row .drag-handle{ display:flex; opacity:.55; }
+.drawer-section-row .drag-handle:hover{ opacity:1; }
+.drawer-section-row-label{ flex:1; }
+.drawer-section-row input[type="checkbox"]{ width:20px; height:20px; accent-color:var(--accent); cursor:pointer; flex-shrink:0; }
 .drawer-action{
   display:block; width:100%; min-height:44px; padding:10px; text-align:start;
   border-radius:8px; border:1px solid var(--border); background:var(--surface-2);
@@ -419,15 +433,14 @@ html,body{ overscroll-behavior:contain; }
   .add-line{ padding:9px 8px; font-size:13px; }
   .nav-btn{ width:40px; height:40px; }
   .nav-btn.today-btn{ padding:0 14px; }
-  .chip{ padding:8px 15px; min-height:36px; }
-
   .board-subtitle{ max-width:38vw; }
   .drawer-panel{ width:min(300px, 86vw); padding:16px; }
 
-  .filters-bar{ padding:9px 14px; gap:8px; }
+  .filters-bar{ padding:9px 14px; }
+  .highlight-btn{ min-height:42px; max-width:100%; }
 }
 @media (prefers-reduced-motion: reduce){
-  .nav-btn, .chip{ transition:none; }
+  .nav-btn{ transition:none; }
   .drawer-overlay, .drawer-panel{ transition:none; }
 }
 </style>
@@ -464,12 +477,17 @@ html,body{ overscroll-behavior:contain; }
     </div>
   </div>
 
-  <div class="filters-bar">
-    <span class="filters-label">הדגשה לפי:</span>
-    <div class="filters" id="filters"></div>
-  </div>
+  <div id="boardSection">
+    <div class="filters-bar">
+      <button class="highlight-btn" id="highlightBtn" type="button" aria-haspopup="true" aria-expanded="false">
+        <svg class="highlight-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/></svg>
+        <span id="highlightBtnLabel">הדגשה: הכל</span>
+        <svg class="highlight-btn-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+    </div>
 
-  <div class="board" id="board"></div>
+    <div class="board" id="board"></div>
+  </div>
 
   <div class="no-access-msg" id="noAccessMsg" style="display:none;">
     <p id="noAccessText"></p>
@@ -507,15 +525,8 @@ html,body{ overscroll-behavior:contain; }
     <div class="drawer-divider"></div>
 
     <div class="drawer-section">
-      <div class="drawer-section-label">הגדרות לוח</div>
-      <label class="drawer-toggle-row">
-        <span>הצגת לוח שבועי</span>
-        <input type="checkbox" id="toggleShowBoard" />
-      </label>
-      <label class="drawer-toggle-row">
-        <span>הצגת סיכום משימות</span>
-        <input type="checkbox" id="toggleShowSummary" />
-      </label>
+      <div class="drawer-section-label">הגדרות לוח — גררו לשינוי סדר התצוגה</div>
+      <div class="drawer-section-list" id="drawerSectionList"></div>
     </div>
 
     <div class="drawer-divider"></div>
@@ -581,17 +592,24 @@ html,body{ overscroll-behavior:contain; }
   let pollTimer = null;
 
   function defaultBoardSettings(){
-    return { showBoard:true, showSummary:true };
+    return { showBoard:true, showSummary:true, sectionOrder:[{id:'board'}, {id:'summary'}] };
   }
 
   function defaultAppState(){
     return { people:[{id:uid(), name:'דורון'}, {id:uid(), name:'יובל'}], topics:[], weeks:{}, unscheduled:[], settings:defaultBoardSettings() };
   }
 
-  // boards saved before this feature existed have no `settings` key — fill it
-  // in rather than let every settings.* read need its own fallback everywhere.
+  // boards saved before a given settings field existed are missing just that
+  // field (e.g. sectionOrder added after showBoard/showSummary already
+  // shipped) — fill in per-field rather than all-or-nothing, and rather than
+  // let every settings.* read need its own fallback everywhere.
   function ensureSettings(state){
-    if(state && !state.settings) state.settings = defaultBoardSettings();
+    if(!state) return state;
+    if(!state.settings) state.settings = defaultBoardSettings();
+    const defaults = defaultBoardSettings();
+    Object.keys(defaults).forEach(key => {
+      if(state.settings[key] === undefined) state.settings[key] = defaults[key];
+    });
     return state;
   }
 
@@ -753,17 +771,48 @@ html,body{ overscroll-behavior:contain; }
     });
   }
 
-  function syncSectionToggles(){
-    const boardToggle = document.getElementById('toggleShowBoard');
-    const summaryToggle = document.getElementById('toggleShowSummary');
-    if(!boardToggle || !summaryToggle || !appState) return;
-    const settings = appState.settings || defaultBoardSettings();
-    boardToggle.checked = settings.showBoard !== false;
-    summaryToggle.checked = settings.showSummary !== false;
+  const SECTION_LABELS = { board:'לוח שבועי', summary:'סיכום משימות' };
+
+  function renderSectionSettingsList(){
+    const list = document.getElementById('drawerSectionList');
+    if(!list || !appState) return;
+    ensureSettings(appState);
+    const settings = appState.settings;
+    list.innerHTML = '';
+    settings.sectionOrder.forEach(entry => {
+      const row = document.createElement('div');
+      row.className = 'drawer-section-row';
+      row.setAttribute('data-id', entry.id);
+
+      const handle = dragHandleEl();
+      row.appendChild(handle);
+
+      const label = document.createElement('span');
+      label.className = 'drawer-section-row-label';
+      label.textContent = SECTION_LABELS[entry.id] || entry.id;
+      row.appendChild(label);
+
+      const key = entry.id === 'board' ? 'showBoard' : 'showSummary';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = settings[key] !== false;
+      cb.addEventListener('change', ()=>{
+        settings[key] = cb.checked;
+        persistState();
+        applySectionVisibility();
+      });
+      row.appendChild(cb);
+
+      list.appendChild(row);
+      setupDrag(handle, list, () => appState.settings.sectionOrder, '.drawer-section-row', () => {
+        persistState();
+        applySectionOrder();
+      });
+    });
   }
 
   function openDrawer(){
-    syncSectionToggles();
+    renderSectionSettingsList();
     const overlay = document.getElementById('drawerOverlay');
     overlay.style.display = 'flex';
     requestAnimationFrame(()=> overlay.classList.add('open'));
@@ -835,21 +884,6 @@ html,body{ overscroll-behavior:contain; }
   }
 
   document.getElementById('drawerNewBoardBtn').onclick = openNewBoardModal;
-
-  document.getElementById('toggleShowBoard').addEventListener('change', (e)=>{
-    if(!appState) return;
-    ensureSettings(appState);
-    appState.settings.showBoard = e.target.checked;
-    persistState();
-    applySectionVisibility();
-  });
-  document.getElementById('toggleShowSummary').addEventListener('change', (e)=>{
-    if(!appState) return;
-    ensureSettings(appState);
-    appState.settings.showSummary = e.target.checked;
-    persistState();
-    applySectionVisibility();
-  });
   document.getElementById('newBoardCancel').onclick = closeNewBoardModal;
   document.getElementById('newBoardCreate').onclick = submitNewBoard;
   document.getElementById('newBoardModal').addEventListener('click', (e) => {
@@ -889,8 +923,7 @@ html,body{ overscroll-behavior:contain; }
   }
 
   function showNoAccess(errorCode){
-    document.querySelector('.filters-bar').style.display = 'none';
-    document.getElementById('board').style.display = 'none';
+    document.getElementById('boardSection').style.display = 'none';
     document.getElementById('summarySection').style.display = 'none';
     const el = document.getElementById('noAccessMsg');
     el.style.display = 'block';
@@ -924,6 +957,23 @@ html,body{ overscroll-behavior:contain; }
     renderBoard();
     renderSummary();
     applySectionVisibility();
+    applySectionOrder();
+  }
+
+  // per-board customization (Tier 2): let a board run "summary first, board
+  // second" instead of the fixed default — reorders the two section
+  // containers in the DOM to match appState.settings.sectionOrder.
+  function applySectionOrder(){
+    if(!appState) return;
+    const settings = appState.settings || defaultBoardSettings();
+    const order = (settings.sectionOrder && settings.sectionOrder.length === 2) ? settings.sectionOrder : defaultBoardSettings().sectionOrder;
+    const sections = { board: document.getElementById('boardSection'), summary: document.getElementById('summarySection') };
+    const parent = sections.board.parentNode;
+    order.forEach(entry => { if(sections[entry.id]) parent.appendChild(sections[entry.id]); });
+    // no-access message belongs with the board slot specifically — keep it
+    // immediately after boardSection wherever that ends up, not left behind.
+    const noAccessEl = document.getElementById('noAccessMsg');
+    if(noAccessEl) sections.board.insertAdjacentElement('afterend', noAccessEl);
   }
 
   // per-board customization (Tier 1): show/hide the weekly board or the
@@ -1035,20 +1085,101 @@ html,body{ overscroll-behavior:contain; }
   let weekData = null;
 
   // ---------- filters ----------
-  function renderFilters(){
-    const el = document.getElementById('filters');
-    el.innerHTML = '';
-    const mk = (label, type, value, ghost) => {
-      const b = document.createElement('button');
-      b.className = 'chip' + (ghost?' ghost':'') + (activeFilter.type===type && activeFilter.value===value ? ' active':'');
-      b.textContent = label;
-      b.onclick = () => { activeFilter = (activeFilter.type===type && activeFilter.value===value) ? {type:'all',value:null} : {type,value}; renderFilters(); applyFilterVisuals(); };
-      return b;
-    };
-    el.appendChild(mk('הכל','all',null));
-    people.forEach(p=> el.appendChild(mk(p.name,'person',p.id)));
-    topics.forEach(t=> el.appendChild(mk(t.name,'topic',t.id, true)));
+  // A topic (מופע) becomes progressively less relevant once every day it was
+  // ever tagged on has passed — surfaced by sorting it toward the bottom of
+  // the highlight list rather than deleting it (someone may still want to
+  // highlight last week's event to review what was assigned).
+  function topicLastActiveDate(topicId){
+    let latest = null;
+    Object.keys(appState.weeks).forEach(key=>{
+      if(key.indexOf(STORAGE_PREFIX) !== 0) return;
+      const parts = key.slice(STORAGE_PREFIX.length).split('-').map(Number);
+      if(parts.length !== 3 || parts.some(isNaN)) return;
+      const weekStart = new Date(parts[0], parts[1]-1, parts[2]);
+      const wdata = appState.weeks[key];
+      DAY_DEFS.forEach((d, idx)=>{
+        const day = wdata[d.key];
+        if(!day) return;
+        const hasTopic = TASK_SECTIONS.some(sec => (day[sec.key]||[]).some(item => item.topicId === topicId));
+        if(!hasTopic) return;
+        const offset = d.key === 'weekend' ? 6 : idx;
+        const dayDate = new Date(weekStart); dayDate.setDate(dayDate.getDate() + offset);
+        if(!latest || dayDate > latest) latest = dayDate;
+      });
+    });
+    return latest;
   }
+  function isTopicStale(topicId){
+    if((appState.unscheduled||[]).some(item => item.topicId === topicId)) return false; // recurring/undated — always current
+    const last = topicLastActiveDate(topicId);
+    if(!last) return false; // never scheduled yet — nothing to judge staleness by
+    const today = new Date(); today.setHours(0,0,0,0);
+    return last < today;
+  }
+  function sortedTopicsForHighlight(){
+    const fresh = [], stale = [];
+    topics.forEach(t => (isTopicStale(t.id) ? stale : fresh).push(t));
+    return fresh.concat(stale);
+  }
+
+  function highlightLabelFor(filter){
+    if(filter.type === 'all') return 'הכל';
+    if(filter.type === 'person'){ const p = people.find(x=>x.id===filter.value); return p ? p.name : 'הכל'; }
+    if(filter.type === 'topic'){ const t = topics.find(x=>x.id===filter.value); return t ? t.name : 'הכל'; }
+    return 'הכל';
+  }
+
+  function renderFilters(){
+    const label = document.getElementById('highlightBtnLabel');
+    if(label) label.textContent = 'הדגשה: ' + highlightLabelFor(activeFilter);
+  }
+
+  function openHighlightMenu(){
+    closePicker();
+    const anchorEl = document.getElementById('highlightBtn');
+    anchorEl.setAttribute('aria-expanded', 'true');
+    const pop = document.createElement('div');
+    pop.className = 'picker';
+    const rect = anchorEl.getBoundingClientRect();
+    pop.style.top = (rect.bottom + 6) + 'px';
+    pop.style.left = Math.max(8, Math.min(window.innerWidth-208, rect.left)) + 'px';
+
+    const title = document.createElement('div');
+    title.className = 'picker-title';
+    title.textContent = 'הדגשה לפי';
+    pop.appendChild(title);
+
+    const list = document.createElement('div'); list.className = 'picker-list';
+
+    function row(label, type, value, stale){
+      const r = document.createElement('div');
+      const active = activeFilter.type === type && activeFilter.value === value;
+      r.className = 'picker-item' + (active ? ' selected' : '') + (stale ? ' stale' : '');
+      r.textContent = label;
+      r.onclick = () => {
+        activeFilter = active ? {type:'all', value:null} : {type, value};
+        renderFilters(); applyFilterVisuals(); closePicker();
+      };
+      list.appendChild(r);
+    }
+
+    row('הכל', 'all', null);
+    if(people.length || topics.length) list.appendChild(Object.assign(document.createElement('div'), {className:'picker-divider'}));
+    people.forEach(p => row(p.name, 'person', p.id));
+    if(people.length && topics.length) list.appendChild(Object.assign(document.createElement('div'), {className:'picker-divider'}));
+    sortedTopicsForHighlight().forEach(t => row(t.name, 'topic', t.id, isTopicStale(t.id)));
+
+    pop.appendChild(list);
+    document.body.appendChild(pop);
+    openPickerEl = pop;
+    setTimeout(()=> document.addEventListener('mousedown', onDocClick, true), 0);
+  }
+
+  document.getElementById('highlightBtn').onclick = (e) => {
+    e.stopPropagation();
+    if(openPickerEl && document.getElementById('highlightBtn').getAttribute('aria-expanded') === 'true') closePicker();
+    else openHighlightMenu();
+  };
 
   function itemMatchesFilter(item){
     if(activeFilter.type==='all') return true;
@@ -1286,7 +1417,14 @@ html,body{ overscroll-behavior:contain; }
 
   // ---------- picker popover (person / topic) ----------
   let openPickerEl = null;
-  function closePicker(){ if(openPickerEl){ openPickerEl.remove(); openPickerEl=null; document.removeEventListener('mousedown', onDocClick, true); } }
+  function closePicker(){
+    if(openPickerEl){
+      openPickerEl.remove(); openPickerEl=null;
+      document.removeEventListener('mousedown', onDocClick, true);
+      const hb = document.getElementById('highlightBtn');
+      if(hb) hb.setAttribute('aria-expanded', 'false'); // no-op unless this was the trigger
+    }
+  }
   function onDocClick(e){ if(openPickerEl && !openPickerEl.contains(e.target)) closePicker(); }
 
   function openPicker(kind, anchorEl, currentId, onPick){
