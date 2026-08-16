@@ -580,6 +580,7 @@ html,body{
 
     <div class="drawer-section">
       <button class="drawer-action" id="drawerExportBtn" type="button">ייצוא גיבוי (JSON)</button>
+      <button class="drawer-action" id="drawerRestoreBackupBtn" type="button" style="display:none;">שחזור מהגיבוי האחרון</button>
       <button class="drawer-action" id="drawerSwitchUserBtn" type="button"></button>
       <span class="sync-status" id="syncStatus"></span>
     </div>
@@ -620,6 +621,7 @@ html,body{
   const POLL_MS = 20000;
 
   function cacheKeyFor(boardId){ return CACHE_KEY_PREFIX + (boardId || LEGACY_BOARD_ID); }
+  function backupCacheKeyFor(boardId){ return cacheKeyFor(boardId) + '__prev'; }
   function lastBoardKeyFor(email){ return 'planner_last_board_id__' + (email || ''); }
 
   function pad(n){ return String(n).padStart(2,'0'); }
@@ -667,6 +669,11 @@ html,body{
   }
 
   function persistState(){
+    // keep a one-step-back copy of whatever was cached *before* this write,
+    // so a bad local write (or a save that raced with something else) always
+    // leaves one earlier known-good snapshot recoverable, not just the latest.
+    const prev = localStorage.getItem(cacheKeyFor(currentBoardId));
+    if(prev) localStorage.setItem(backupCacheKeyFor(currentBoardId), prev);
     localStorage.setItem(cacheKeyFor(currentBoardId), JSON.stringify(appState));
     scheduleSave();
   }
@@ -694,6 +701,24 @@ html,body{
     }
   }
 
+  // a normal scheduleSave() waits 600ms before actually sending — fine while
+  // the tab stays open, but a refresh/close/tab-switch in that window used to
+  // just kill the pending timer outright, silently dropping the edit (the
+  // page would then reload the server's now-stale copy over it). Flush
+  // immediately, via sendBeacon rather than fetch, the moment the tab is
+  // about to go away — sendBeacon is specifically designed to still deliver
+  // during unload, where a normal fetch would get cancelled mid-flight.
+  function flushPendingSaveOnExit(){
+    if(!currentEmail || currentRole !== 'editor' || !currentBoardId) return;
+    clearTimeout(saveTimer);
+    const payload = JSON.stringify({ action:'saveBoard', board: currentBoardId, email: currentEmail, data: appState });
+    try{
+      navigator.sendBeacon(API_URL, new Blob([payload], {type:'text/plain;charset=utf-8'}));
+    }catch(e){}
+  }
+  document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState === 'hidden') flushPendingSaveOnExit(); });
+  window.addEventListener('pagehide', flushPendingSaveOnExit);
+
   async function refreshFromServer(isInitial){
     if(!currentEmail || !currentBoardId) return;
     try{
@@ -720,6 +745,8 @@ html,body{
             ensureSettings(appState);
             weekData = loadWeek(weekStart);
             lastSyncedJson = serverJson;
+            const prevLocal = localStorage.getItem(cacheKeyFor(currentBoardId));
+            if(prevLocal && prevLocal !== serverJson) localStorage.setItem(backupCacheKeyFor(currentBoardId), prevLocal);
             localStorage.setItem(cacheKeyFor(currentBoardId), serverJson);
             renderAll();
             setSyncStatus('עודכן ממכשיר אחר');
@@ -911,6 +938,8 @@ html,body{
 
   function openDrawer(){
     renderSectionSettingsList();
+    const restoreBtn = document.getElementById('drawerRestoreBackupBtn');
+    restoreBtn.style.display = localStorage.getItem(backupCacheKeyFor(currentBoardId)) ? '' : 'none';
     const overlay = document.getElementById('drawerOverlay');
     overlay.style.display = 'flex';
     requestAnimationFrame(()=> overlay.classList.add('open'));
@@ -2053,6 +2082,30 @@ html,body{
     a.href = URL.createObjectURL(blob);
     a.download = 'יומן-ומשימות-גיבוי.json';
     a.click();
+  };
+
+  document.getElementById('drawerRestoreBackupBtn').onclick = () => {
+    const raw = localStorage.getItem(backupCacheKeyFor(currentBoardId));
+    if(!raw) return;
+    let backup;
+    try{ backup = JSON.parse(raw); }catch(e){ return; }
+    showConfirmModal({
+      title: 'שחזור מהגיבוי האחרון',
+      message: 'זה יחליף את המצב הנוכחי של הלוח בגרסה השמורה שלפני העדכון האחרון. אפשר תמיד לשחזר בחזרה מיד אחרי, כי גם הפעולה הזו שומרת גיבוי משלה. להמשיך?',
+      confirmLabel: 'שחזור',
+      onConfirm: ()=>{
+        appState = backup;
+        people = appState.people || defaultAppState().people;
+        topics = appState.topics || [];
+        if(!appState.unscheduled) appState.unscheduled = [];
+        ensureSettings(appState);
+        weekData = loadWeek(weekStart);
+        persistState();
+        pushState();
+        renderAll();
+        closeDrawer();
+      }
+    });
   };
 
   // ---------- email gate / boot ----------
