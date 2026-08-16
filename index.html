@@ -157,7 +157,7 @@ html,body{
 .add-line:hover{ background:rgba(0,0,0,.04); color:var(--accent); }
 
 .label{ font-size:11.5px; font-weight:600; color:var(--muted); margin-bottom:4px; display:block; }
-.tasks{ display:flex; flex-direction:column; gap:1px; }
+.tasks{ display:flex; flex-direction:column; gap:1px; min-height:8px; }
 
 /* tasks: two-line row. Line 1 = checkbox + full-width text (never competes for space).
    Line 2 = drag handle (always in-flow, dims on hover) + person/topic chips (always visible, given room to
@@ -370,6 +370,7 @@ html,body{
 
 .dragging-ghost{ opacity:.45; }
 .drop-line{ height:2px; background:var(--accent); border-radius:2px; margin:2px 4px; }
+.drop-target-hover{ background:var(--accent-soft); outline:1.5px dashed var(--accent); outline-offset:-1px; border-radius:var(--radius-sm); }
 
 /* picker popover */
 .picker{
@@ -1855,27 +1856,102 @@ html,body{
   // document-level pointermove listener permanently reacting to unrelated mouse movement).
   let activeDrag = null;
 
+  // resolves the live weekData/appState array a dropzone container (.events
+  // or .tasks, tagged with data-dropzone/data-day/data-section) represents —
+  // used at drop time to move an item into a container other than the one
+  // it started in, without each row's setupDrag call needing to know about
+  // every possible destination up front.
+  function arrayForContainer(containerEl){
+    const zone = containerEl.getAttribute('data-dropzone');
+    const dayKey = containerEl.getAttribute('data-day');
+    if(zone === 'events'){
+      const day = weekData[dayKey];
+      return day ? day.events : null;
+    }
+    if(zone === 'tasks'){
+      const sectionKey = containerEl.getAttribute('data-section');
+      if(sectionKey === 'unscheduled') return appState.unscheduled || null;
+      const day = weekData[dayKey];
+      return day ? day[sectionKey] : null;
+    }
+    return null;
+  }
+
+  // auto-scrolls the horizontally-scrolling day board while dragging a row
+  // near its left/right edge, so a day outside the visible viewport is reachable
+  let autoScrollDX = 0, autoScrollRAF = null;
+  function updateBoardAutoScroll(clientX){
+    const board = document.getElementById('board');
+    if(!board){ stopBoardAutoScroll(); return; }
+    const rect = board.getBoundingClientRect();
+    const EDGE = 50, SPEED = 14;
+    if(clientX - rect.left < EDGE) autoScrollDX = -SPEED;
+    else if(rect.right - clientX < EDGE) autoScrollDX = SPEED;
+    else autoScrollDX = 0;
+    if(autoScrollDX !== 0 && !autoScrollRAF){
+      const step = ()=>{
+        if(!autoScrollDX){ autoScrollRAF = null; return; }
+        board.scrollLeft += autoScrollDX;
+        autoScrollRAF = requestAnimationFrame(step);
+      };
+      autoScrollRAF = requestAnimationFrame(step);
+    }
+  }
+  function stopBoardAutoScroll(){
+    autoScrollDX = 0;
+    if(autoScrollRAF){ cancelAnimationFrame(autoScrollRAF); autoScrollRAF = null; }
+  }
+
   function endActiveDrag(commit){
     if(!activeDrag) return;
-    const {handle, pointerId, row, listEl, rowSelector, getArray, onReorder} = activeDrag;
+    const {handle, pointerId, row, listEl, rowSelector, getArray, onReorder, dropzone, currentListEl, hoverContainer} = activeDrag;
     try{ handle.releasePointerCapture(pointerId); }catch(e){}
     row.classList.remove('dragging-ghost');
+    if(hoverContainer) hoverContainer.classList.remove('drop-target-hover');
     document.removeEventListener('pointermove', activeDrag.onMove);
     document.removeEventListener('pointerup', activeDrag.onUp);
     document.removeEventListener('pointercancel', activeDrag.onUp);
+    stopBoardAutoScroll();
     if(commit){
-      const finalRows = Array.from(listEl.querySelectorAll(rowSelector));
-      const arr = getArray();
-      const idOrder = finalRows.map(r=>r.getAttribute('data-id'));
-      arr.sort((a,b)=> idOrder.indexOf(a.id) - idOrder.indexOf(b.id));
-      onReorder();
+      if(dropzone && currentListEl && currentListEl !== listEl){
+        // dropped into a different container — move the item between the
+        // underlying arrays, then do a full re-render rather than patching
+        // the DOM in place: renderTaskRow/renderEventRow close over the day
+        // key and section, so a stale in-place row would keep pointing at
+        // the array it started in (see plan doc for why this was chosen).
+        const arr = getArray();
+        const id = row.getAttribute('data-id');
+        const idx = arr.findIndex(x=>x.id===id);
+        const movedItem = idx>-1 ? arr.splice(idx,1)[0] : null;
+        const destArr = arrayForContainer(currentListEl);
+        if(movedItem && destArr){
+          const destRows = Array.from(currentListEl.querySelectorAll(rowSelector));
+          const insertAt = destRows.indexOf(row);
+          if(insertAt>-1) destArr.splice(insertAt, 0, movedItem);
+          else destArr.push(movedItem);
+        }
+        saveWeek(weekStart, weekData);
+        renderBoard();
+        renderSummary();
+      } else {
+        const finalRows = Array.from(listEl.querySelectorAll(rowSelector));
+        const arr = getArray();
+        const idOrder = finalRows.map(r=>r.getAttribute('data-id'));
+        arr.sort((a,b)=> idOrder.indexOf(a.id) - idOrder.indexOf(b.id));
+        onReorder();
+      }
     }
     activeDrag = null;
   }
 
   document.addEventListener('pointerdown', ()=>{ if(activeDrag) endActiveDrag(true); }, true);
 
-  function setupDrag(handle, listEl, getArray, rowSelector, onReorder){
+  // opts.dropzone ('tasks'|'events') opts into cross-container drag: the row
+  // can be dropped into any other container tagged with the same
+  // data-dropzone value, not just reordered within listEl. Callers that omit
+  // opts keep the original same-list-only reorder behavior unchanged.
+  function setupDrag(handle, listEl, getArray, rowSelector, onReorder, opts){
+    const dropzone = opts && opts.dropzone;
     handle.addEventListener('pointerdown', (e)=>{
       if(activeDrag) endActiveDrag(true);
       e.preventDefault();
@@ -1883,22 +1959,52 @@ html,body{
       row.classList.add('dragging-ghost');
       try{ handle.setPointerCapture(e.pointerId); }catch(err){}
 
+      function setHoverContainer(container){
+        if(dragState.hoverContainer === container) return;
+        if(dragState.hoverContainer) dragState.hoverContainer.classList.remove('drop-target-hover');
+        dragState.hoverContainer = container;
+        if(container && container !== listEl) container.classList.add('drop-target-hover');
+      }
+
       function onMove(ev){
         if(activeDrag !== dragState) return;
         if(ev.buttons === 0){ endActiveDrag(true); return; } // missed pointerup: button already released
+        if(dropzone) updateBoardAutoScroll(ev.clientX);
         const el = document.elementFromPoint(ev.clientX, ev.clientY);
-        const overRow = el ? el.closest(rowSelector) : null;
-        if(overRow && overRow !== row && listEl.contains(overRow) && listEl.contains(row)){
-          const curRows = Array.from(listEl.querySelectorAll(rowSelector));
+        if(!el) return;
+        const overRow = el.closest(rowSelector);
+
+        if(!dropzone){
+          // original behavior: reorder within listEl only
+          if(overRow && overRow !== row && listEl.contains(overRow) && listEl.contains(row)){
+            const curRows = Array.from(listEl.querySelectorAll(rowSelector));
+            const overIndex = curRows.indexOf(overRow);
+            const curIndex = curRows.indexOf(row);
+            if(overIndex < curIndex) listEl.insertBefore(row, overRow);
+            else listEl.insertBefore(row, overRow.nextSibling);
+          }
+          return;
+        }
+
+        // cross-container mode: target is any container sharing this dropzone type
+        const targetContainer = (overRow && overRow!==row ? overRow.closest('[data-dropzone="'+dropzone+'"]') : null)
+          || el.closest('[data-dropzone="'+dropzone+'"]');
+        if(!targetContainer) return;
+        setHoverContainer(targetContainer);
+        dragState.currentListEl = targetContainer;
+        if(overRow && overRow !== row && targetContainer.contains(overRow)){
+          const curRows = Array.from(targetContainer.querySelectorAll(rowSelector));
           const overIndex = curRows.indexOf(overRow);
           const curIndex = curRows.indexOf(row);
-          if(overIndex < curIndex) listEl.insertBefore(row, overRow);
-          else listEl.insertBefore(row, overRow.nextSibling);
+          if(curIndex === -1 || overIndex < curIndex) targetContainer.insertBefore(row, overRow);
+          else targetContainer.insertBefore(row, overRow.nextSibling);
+        } else if(row.parentElement !== targetContainer){
+          targetContainer.appendChild(row);
         }
       }
       function onUp(){ if(activeDrag === dragState) endActiveDrag(true); }
 
-      const dragState = {handle, pointerId:e.pointerId, row, listEl, rowSelector, getArray, onReorder, onMove, onUp};
+      const dragState = {handle, pointerId:e.pointerId, row, listEl, rowSelector, getArray, onReorder, dropzone, currentListEl:listEl, hoverContainer:null, onMove, onUp};
       activeDrag = dragState;
       document.addEventListener('pointermove', onMove);
       document.addEventListener('pointerup', onUp);
@@ -1947,6 +2053,8 @@ html,body{
     evZone.className = 'zone-events';
     const evList = document.createElement('div');
     evList.className = 'events';
+    evList.setAttribute('data-dropzone', 'events');
+    evList.setAttribute('data-day', dayDef.key);
     data.events.forEach(ev => evList.appendChild(renderEventRow(dayDef.key, ev)));
     evZone.appendChild(evList);
     const addEv = document.createElement('div');
@@ -1975,6 +2083,9 @@ html,body{
       sSection.appendChild(label);
       const list = document.createElement('div');
       list.className = 'tasks';
+      list.setAttribute('data-dropzone', 'tasks');
+      list.setAttribute('data-day', dayDef.key);
+      list.setAttribute('data-section', sec.key);
       (data[sec.key]||[]).forEach(item => list.appendChild(renderTaskRow(dayDef.key, sec.key, item)));
       sSection.appendChild(list);
       const addT = document.createElement('div');
@@ -2024,7 +2135,7 @@ html,body{
 
     requestAnimationFrame(()=>{
       if(row.parentElement){
-        setupDrag(handle, row.parentElement, () => weekData[dayKey].events, '.event-row', ()=> saveWeek(weekStart, weekData));
+        setupDrag(handle, row.parentElement, () => weekData[dayKey].events, '.event-row', ()=> saveWeek(weekStart, weekData), {dropzone:'events'});
       }
     });
 
@@ -2111,7 +2222,7 @@ html,body{
 
     requestAnimationFrame(()=>{
       if(row.parentElement){
-        setupDrag(handle, row.parentElement, () => weekData[dayKey][sectionKey], '.task-row', ()=> { saveWeek(weekStart, weekData); renderSummary(); });
+        setupDrag(handle, row.parentElement, () => weekData[dayKey][sectionKey], '.task-row', ()=> { saveWeek(weekStart, weekData); renderSummary(); }, {dropzone:'tasks'});
       }
     });
 
