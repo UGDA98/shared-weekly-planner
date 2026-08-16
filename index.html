@@ -521,7 +521,7 @@ html,body{ overscroll-behavior:contain; }
     <div class="filters-bar">
       <button class="highlight-btn" id="highlightBtn" type="button" aria-haspopup="true" aria-expanded="false">
         <svg class="highlight-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/></svg>
-        <span id="highlightBtnLabel">הדגשה: הכל</span>
+        <span id="highlightBtnLabel">הכל</span>
         <svg class="highlight-btn-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
       </button>
     </div>
@@ -1316,7 +1316,7 @@ html,body{ overscroll-behavior:contain; }
 
   function renderFilters(){
     const label = document.getElementById('highlightBtnLabel');
-    if(label) label.textContent = 'הדגשה: ' + highlightLabelFor(activeFilter);
+    if(label) label.textContent = highlightLabelFor(activeFilter);
   }
 
   // shared popover placement for .picker-style dropdowns: clamps horizontally like
