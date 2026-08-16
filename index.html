@@ -422,7 +422,7 @@ html,body{ overscroll-behavior:contain; }
   border:1px solid var(--border); border-radius:var(--radius-pill); padding:3px 10px; white-space:nowrap;
   display:none; align-items:center; gap:4px;
 }
-.sync-status{ font-size:11px; color:var(--muted); white-space:nowrap; flex-shrink:0; }
+.sync-status{ font-size:11px; color:var(--muted); text-align:center; margin-top:2px; }
 
 /* view-only mode: hide/disable every editing affordance */
 .planner-root.view-only .add-line,
@@ -506,7 +506,6 @@ html,body{ overscroll-behavior:contain; }
           <span class="board-subtitle" id="boardSubtitle"></span>
         </div>
       </div>
-      <span class="sync-status" id="syncStatus"></span>
       <span class="role-badge" id="roleBadge">צפייה בלבד</span>
       <div class="week-nav">
         <button class="nav-btn" id="prevWeek" title="שבוע קודם" aria-label="שבוע קודם">›</button>
@@ -574,6 +573,7 @@ html,body{ overscroll-behavior:contain; }
     <div class="drawer-section">
       <button class="drawer-action" id="drawerExportBtn" type="button">ייצוא גיבוי (JSON)</button>
       <button class="drawer-action" id="drawerSwitchUserBtn" type="button"></button>
+      <span class="sync-status" id="syncStatus"></span>
     </div>
   </div>
 </div>
