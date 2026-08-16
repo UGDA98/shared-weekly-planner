@@ -1631,11 +1631,123 @@ html,body{
     return card;
   }
 
+  // pool tasks: unscheduled items with no person AND no topic — genuinely
+  // free-floating, unlike the "ללא שיוך" card which is scoped to whichever
+  // one dimension (person/topic) is currently active and can still mix in
+  // items that do have the *other* dimension set.
+  function poolItems(){
+    return (appState.unscheduled||[]).filter(item => !(item.personIds||[]).length && !item.topicId);
+  }
+
+  // reuses the board's own task-row rendering (checkbox/editable text/drag
+  // handle/delete) rather than the summary-row style, so a pool row is a
+  // valid drag source/target for the same 'tasks' dropzone infrastructure
+  // day/section task lists use (see setupDrag) — a summary-row has no handle
+  // and isn't part of that system.
+  function renderPoolRow(item){
+    const row = document.createElement('div');
+    row.className = 'task-row' + (item.done ? ' done' : '');
+    row.setAttribute('data-id', item.id);
+    row.setAttribute('data-section', 'unscheduled');
+
+    const main = document.createElement('div');
+    main.className = 'task-main';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = !!item.done;
+    cb.onchange = () => { item.done = cb.checked; row.classList.toggle('done', item.done); persistState(); syncItemVisual(item.id, item.done); };
+    main.appendChild(cb);
+
+    const text = document.createElement('div');
+    text.className = 'task-text';
+    text.textContent = item.text || '';
+    makeEditable(text, 'משימה…', (val)=>{ item.text = val; persistState(); });
+    main.appendChild(text);
+    row.appendChild(main);
+
+    const meta = document.createElement('div');
+    meta.className = 'task-meta';
+    const handle = dragHandleEl();
+    meta.appendChild(handle);
+
+    const spacer = document.createElement('span');
+    spacer.className = 'meta-spacer';
+    meta.appendChild(spacer);
+
+    const del = document.createElement('button');
+    del.className = 'row-del'; del.textContent = '×'; del.title = 'מחיקה';
+    del.onclick = (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const arr = appState.unscheduled || [];
+      const i = arr.findIndex(x=>x.id===item.id);
+      if(i>-1) arr.splice(i,1);
+      persistState();
+      row.remove();
+      renderSummary();
+    };
+    meta.appendChild(del);
+    row.appendChild(meta);
+
+    requestAnimationFrame(()=>{
+      if(row.parentElement){
+        setupDrag(handle, row.parentElement, () => appState.unscheduled, '.task-row', ()=> { persistState(); renderSummary(); }, {dropzone:'tasks'});
+      }
+    });
+
+    return row;
+  }
+
+  function renderPoolCard(){
+    const card = document.createElement('div');
+    card.className = 'summary-group';
+    const head = document.createElement('div');
+    head.className = 'summary-group-head';
+    const items = poolItems();
+    head.innerHTML = '<span>מאגר משימות</span><span class="summary-group-count">'+items.length+'</span>';
+    card.appendChild(head);
+
+    const list = document.createElement('div');
+    list.className = 'summary-list tasks';
+    list.setAttribute('data-dropzone', 'tasks');
+    list.setAttribute('data-section', 'unscheduled');
+    if(!items.length){
+      const empty = document.createElement('div');
+      empty.className = 'summary-empty';
+      empty.textContent = 'אין משימות במאגר';
+      list.appendChild(empty);
+    } else {
+      items.forEach(item => list.appendChild(renderPoolRow(item)));
+    }
+    card.appendChild(list);
+
+    const addRow = document.createElement('div');
+    addRow.className = 'add-line';
+    addRow.textContent = '+ הוספת משימה';
+    addRow.onclick = () => {
+      const item = {id:uid(), text:'', done:false, personIds:[], topicId:null};
+      if(!appState.unscheduled) appState.unscheduled = [];
+      appState.unscheduled.push(item);
+      persistState();
+      const emptyMsg = list.querySelector('.summary-empty');
+      if(emptyMsg) emptyMsg.remove();
+      const row = renderPoolRow(item);
+      list.appendChild(row);
+      const countEl = head.querySelector('.summary-group-count');
+      if(countEl) countEl.textContent = String(parseInt(countEl.textContent||'0',10)+1);
+      const textEl = row.querySelector('.task-text');
+      if(textEl) textEl.focus();
+    };
+    card.appendChild(addRow);
+
+    return card;
+  }
+
   function renderSummary(){
     const grid = document.getElementById('summaryGrid');
     const title = document.getElementById('summaryTitle');
     if(!grid) return;
     grid.innerHTML = '';
+    grid.appendChild(renderPoolCard());
     const kind = summaryMode;
     title.textContent = kind==='person' ? 'המשימות של כל אחד' : 'המשימות לפי מופע';
     const list = listForKind(kind);
