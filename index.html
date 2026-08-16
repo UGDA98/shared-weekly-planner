@@ -41,15 +41,9 @@
   --radius-lg: 10px;
   --radius-pill: 999px;
 }
-@media (prefers-color-scheme: dark){
-  :root{
-    --bg:#17141d; --surface:#211d2b; --surface-2:#291f38; --accent:#bcaaea; --accent-ink:#221a3a;
-    --accent-soft:#362c4a; --accent-soft-ink:#e3d9f8; --ink:#f1eef8; --muted:#a297b3;
-    --border:#362c4a; --border-strong:#493c62; --done:#7fcb9c; --today-ring:#e0b263;
-    --shadow: 0 1px 2px rgba(0,0,0,.35), 0 10px 28px -14px rgba(0,0,0,.55);
-    color-scheme: dark;
-  }
-}
+/* the app intentionally always renders the light palette below, regardless
+   of the device/OS dark-mode setting — no @media(prefers-color-scheme:dark)
+   override here on purpose. */
 :root[data-theme="dark"]{
   --bg:#17141d; --surface:#211d2b; --surface-2:#291f38; --accent:#bcaaea; --accent-ink:#221a3a;
   --accent-soft:#362c4a; --accent-soft-ink:#e3d9f8; --ink:#f1eef8; --muted:#a297b3;
@@ -62,7 +56,15 @@
 }
 
 *{box-sizing:border-box;}
-html,body{ overscroll-behavior:contain; }
+html,body{
+  overscroll-behavior:contain;
+  /* declared here, not just on .planner-root, because the drawer, both
+     modals, and every picker/menu popover are appended straight to <body>
+     (outside .planner-root) so they can position with document-level
+     fixed/absolute coordinates — without this they silently fall back to
+     the browser's default serif instead of the app's font. */
+  font-family:'Rubik UI', system-ui, -apple-system, "Segoe UI", sans-serif;
+}
 .planner-root{
   direction:rtl;
   font-family:'Rubik UI', system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -476,6 +478,12 @@ html,body{ overscroll-behavior:contain; }
   .summary-row-main input[type="checkbox"]{ width:23px; height:23px; }
   .mini-chip{ min-height:30px; padding:6px 12px 6px 10px; font-size:12.5px; }
   .nav-btn{ width:40px; height:40px; }
+  /* rename/delete controls were hover-only, which never triggers on a touch
+     device with no mouse — make them always visible (subdued) here instead,
+     same treatment as .drag-handle/.row-del above */
+  .picker-item .pedit,
+  .picker-item .pdel{ opacity:.5; padding:6px; }
+  .drawer-board-item-actions{ opacity:.6; }
 }
 @media (prefers-reduced-motion: reduce){
   .nav-btn{ transition:none; }
