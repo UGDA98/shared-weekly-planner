@@ -1180,6 +1180,14 @@ html,body{
   function nameById(list, id){ const it = list.find(x=>x.id===id); return it ? it.name : null; }
   function listForKind(kind){ return kind==='person' ? people : topics; }
   function iconForKind(kind){ return kind==='person' ? ICON_PERSON : ICON_TAG; }
+  // a task's personIds label: the name when there's exactly one, a count when
+  // there are several — showing every name here would overflow the chip.
+  function personIdsLabel(ids, placeholder){
+    const arr = ids||[];
+    if(!arr.length) return placeholder;
+    if(arr.length===1) return nameById(people, arr[0]) || '⋯';
+    return arr.length + ' אנשי צוות';
+  }
 
   // ---------- per-event cleanup: remove every task linked to a מופע once it's over ----------
   function clearTasksForTopic(topicId){
@@ -1204,8 +1212,14 @@ html,body{
   // counts how many tasks/unscheduled items still point at a person/topic —
   // used to warn before deleting one out of the master list, since deleting
   // leaves those references dangling (they render as "⋯", see nameById).
+  // appState.weeks holds every week ever saved, but migrateLegacy only runs
+  // on the currently-viewed week (see loadWeek) — so items here may still be
+  // in either the legacy personId or the current personIds shape.
+  function itemHasPersonRef(item, id){
+    if(Array.isArray(item.personIds)) return item.personIds.includes(id);
+    return item.personId === id;
+  }
   function countReferencesFor(kind, id){
-    const field = kind==='person' ? 'personId' : 'topicId';
     let count = 0;
     Object.keys(appState.weeks).forEach(wk=>{
       const wdata = appState.weeks[wk];
@@ -1215,12 +1229,12 @@ html,body{
         TASK_SECTIONS.forEach(sec=>{
           const arr = day[sec.key];
           if(!Array.isArray(arr)) return;
-          arr.forEach(item=>{ if(item[field]===id) count++; });
+          arr.forEach(item=>{ if(kind==='person' ? itemHasPersonRef(item, id) : item.topicId===id) count++; });
         });
       });
     });
     if(Array.isArray(appState.unscheduled)){
-      appState.unscheduled.forEach(item=>{ if(item[field]===id) count++; });
+      appState.unscheduled.forEach(item=>{ if(kind==='person' ? itemHasPersonRef(item, id) : item.topicId===id) count++; });
     }
     return count;
   }
@@ -1256,33 +1270,47 @@ html,body{
   let activeFilter = {type:'all', value:null};
 
   function weekKey(ws){ return STORAGE_PREFIX + isoKey(ws); }
-  function emptyTask(){ return {id:uid(), text:'', done:false, personId:null, topicId:null}; }
+  function emptyTask(){ return {id:uid(), text:'', done:false, personIds:[], topicId:null}; }
+
+  // converts a legacy single personId into the personIds array in place, so
+  // both already-saved tasks and ones from an old client version pick up the
+  // new multi-select shape the moment their week/unscheduled list loads.
+  function migratePersonIds(item){
+    if(!Array.isArray(item.personIds)) item.personIds = item.personId ? [item.personId] : [];
+    if('personId' in item) delete item.personId;
+    return item;
+  }
   function emptyDayData(){ const d={events:[]}; TASK_SECTIONS.forEach(s=> d[s.key]=[]); return d; }
   function sampleWeekData(){ const data={}; DAY_DEFS.forEach(d=> data[d.key]=emptyDayData()); return data; }
 
   function migrateLegacy(day){
     // older versions used doron/yuval/routine instead of a unified 'team' list
-    if(day.team) return day;
-    day.team = [];
-    const mapPerson = { doron:'דורון', yuval:'יובל' };
-    ['doron','yuval'].forEach(k=>{
-      if(Array.isArray(day[k])){
-        const person = people.find(p=>p.name===mapPerson[k]);
-        day[k].forEach(item=>{
-          if(item.text) day.team.push({id:item.id||uid(), text:item.text, done:!!item.done, personId: person?person.id:null, topicId:null});
-        });
-      }
-      delete day[k];
-    });
-    if(Array.isArray(day.routine)){
-      day.routine.forEach(item=>{
-        if(item.text) day.team.push({id:item.id||uid(), text:item.text, done:!!item.done, personId:null, topicId:null});
+    if(!day.team){
+      day.team = [];
+      const mapPerson = { doron:'דורון', yuval:'יובל' };
+      ['doron','yuval'].forEach(k=>{
+        if(Array.isArray(day[k])){
+          const person = people.find(p=>p.name===mapPerson[k]);
+          day[k].forEach(item=>{
+            if(item.text) day.team.push({id:item.id||uid(), text:item.text, done:!!item.done, personId: person?person.id:null, topicId:null});
+          });
+        }
+        delete day[k];
       });
-      delete day.routine;
+      if(Array.isArray(day.routine)){
+        day.routine.forEach(item=>{
+          if(item.text) day.team.push({id:item.id||uid(), text:item.text, done:!!item.done, personId:null, topicId:null});
+        });
+        delete day.routine;
+      }
+      if(Array.isArray(day.main)){ day.general = day.main; delete day.main; }
+      if(!day.general) day.general = [];
+      day.general.forEach(t=>{ if(t.tag!==undefined){ delete t.tag; } if(t.topicId===undefined) t.topicId=null; });
     }
-    if(Array.isArray(day.main)){ day.general = day.main; delete day.main; }
-    if(!day.general) day.general = [];
-    day.general.forEach(t=>{ if(t.tag!==undefined){ delete t.tag; } if(t.personId===undefined) t.personId=null; if(t.topicId===undefined) t.topicId=null; });
+    // personId -> personIds runs every load (not just on first-ever migration
+    // above), so tasks saved by an older client keep upgrading in place.
+    day.team.forEach(migratePersonIds);
+    day.general.forEach(migratePersonIds);
     return day;
   }
 
@@ -1305,6 +1333,7 @@ html,body{
       data.weekend = merged;
     }
     DAY_DEFS.forEach(d=>{ if(!data[d.key]) data[d.key]=emptyDayData(); migrateLegacy(data[d.key]); });
+    if(Array.isArray(appState.unscheduled)) appState.unscheduled.forEach(migratePersonIds);
     appState.weeks[key] = data;
     return data;
   }
@@ -1428,7 +1457,7 @@ html,body{
 
   function itemMatchesFilter(item){
     if(activeFilter.type==='all') return true;
-    if(activeFilter.type==='person') return item.personId===activeFilter.value;
+    if(activeFilter.type==='person') return (item.personIds||[]).includes(activeFilter.value);
     if(activeFilter.type==='topic') return item.topicId===activeFilter.value;
     return true;
   }
@@ -1447,8 +1476,15 @@ html,body{
   // ---------- weekly digest: grouped by person / grouped by topic ----------
   let summaryMode = 'person';
 
-  function itemKindValue(item, kind){
-    return kind==='person' ? item.personId : item.topicId;
+  // a task can now belong to several people at once, so "does this item
+  // belong to id" is an includes() check for 'person' rather than equality —
+  // topic assignment stays single-valued.
+  function itemMatchesKind(item, kind, id){
+    if(kind==='person'){
+      const ids = item.personIds||[];
+      return id===null ? ids.length===0 : ids.includes(id);
+    }
+    return (item.topicId||null)===id;
   }
 
   function collectItemsFor(kind, id){
@@ -1457,12 +1493,12 @@ html,body{
       const day = weekData[d.key];
       TASK_SECTIONS.forEach(sec=>{
         (day[sec.key]||[]).forEach(item=>{
-          if((itemKindValue(item,kind)||null)===id) out.push({item, dayKey:d.key, dayName:d.name, sectionKey:sec.key});
+          if(itemMatchesKind(item,kind,id)) out.push({item, dayKey:d.key, dayName:d.name, sectionKey:sec.key});
         });
       });
     });
     (appState.unscheduled||[]).forEach(item=>{
-      if((itemKindValue(item,kind)||null)===id) out.push({item, dayKey:null, dayName:null, sectionKey:'unscheduled'});
+      if(itemMatchesKind(item,kind,id)) out.push({item, dayKey:null, dayName:null, sectionKey:'unscheduled'});
     });
     return out;
   }
@@ -1506,11 +1542,17 @@ html,body{
       meta.appendChild(dayBadge);
     }
     ['person','topic'].filter(k=>k!==kind).forEach(otherKind=>{
-      const otherId = itemKindValue(item, otherKind);
-      if(!otherId) return;
+      let label;
+      if(otherKind==='person'){
+        if(!(item.personIds||[]).length) return;
+        label = personIdsLabel(item.personIds);
+      } else {
+        if(!item.topicId) return;
+        label = nameById(topics, item.topicId) || '⋯';
+      }
       const chip = document.createElement('span');
       chip.className = 'mini-chip filled';
-      chip.innerHTML = iconForKind(otherKind) + '<span class="chip-label">'+(nameById(listForKind(otherKind),otherId)||'⋯')+'</span>';
+      chip.innerHTML = iconForKind(otherKind) + '<span class="chip-label">'+label+'</span>';
       meta.appendChild(chip);
     });
     if(dayKey===null){
@@ -1570,7 +1612,7 @@ html,body{
     addRow.className = 'add-line';
     addRow.textContent = '+ הוספת משימה';
     addRow.onclick = () => {
-      const item = {id:uid(), text:'', done:false, personId: kind==='person'?id:null, topicId: kind==='topic'?id:null};
+      const item = {id:uid(), text:'', done:false, personIds: (kind==='person'&&id) ? [id] : [], topicId: kind==='topic'?id:null};
       if(!appState.unscheduled) appState.unscheduled = [];
       appState.unscheduled.push(item);
       persistState();
@@ -1671,8 +1713,13 @@ html,body{
   }
   function onDocClick(e){ if(openPickerEl && !openPickerEl.contains(e.target)) closePicker(); }
 
-  function openPicker(kind, anchorEl, currentId, onPick){
+  function openPicker(kind, anchorEl, currentId, onPick, opts){
     closePicker();
+    const multi = !!(opts && opts.multi);
+    // in multi mode currentId is the current personIds array; picking toggles
+    // membership and reports the whole array back on every change instead of
+    // closing, so someone can select several people in one open of the popover
+    let selectedIds = multi ? (Array.isArray(currentId) ? currentId.slice() : []) : null;
     const list = listForKind(kind);
     const storeKey = kind==='person' ? PEOPLE_KEY : TOPICS_KEY;
     const pop = document.createElement('div');
@@ -1687,23 +1734,38 @@ html,body{
 
     const ul = document.createElement('div'); ul.className='picker-list';
     const noneRow = document.createElement('div');
-    noneRow.className = 'picker-item picker-clear' + (!currentId?' selected':'');
+    noneRow.className = 'picker-item picker-clear';
     noneRow.textContent = 'ללא';
-    noneRow.onclick = ()=>{ onPick(null); closePicker(); };
+    noneRow.onclick = ()=>{
+      if(multi){ selectedIds = []; onPick(selectedIds.slice()); renderRows(); }
+      else { onPick(null); closePicker(); }
+    };
     ul.appendChild(noneRow);
 
     function renderRows(){
+      noneRow.classList.toggle('selected', multi ? selectedIds.length===0 : !currentId);
       ul.querySelectorAll('.picker-row').forEach(r=>r.remove());
       list.forEach(p=>{
+        const isSelected = multi ? selectedIds.includes(p.id) : p.id===currentId;
         const row = document.createElement('div');
-        row.className = 'picker-item picker-row' + (p.id===currentId?' selected':'');
+        row.className = 'picker-item picker-row' + (isSelected ? ' selected' : '');
         row.setAttribute('data-id', p.id);
         const handle = dragHandleEl();
         row.appendChild(handle);
         const nameSpan = document.createElement('span');
         nameSpan.className = 'pname';
         nameSpan.textContent = p.name;
-        nameSpan.onclick = (e)=>{ e.stopPropagation(); onPick(p.id); closePicker(); };
+        nameSpan.onclick = (e)=>{
+          e.stopPropagation();
+          if(multi){
+            const idx = selectedIds.indexOf(p.id);
+            if(idx>-1) selectedIds.splice(idx,1); else selectedIds.push(p.id);
+            onPick(selectedIds.slice());
+            renderRows();
+          } else {
+            onPick(p.id); closePicker();
+          }
+        };
         row.appendChild(nameSpan);
         const edit = document.createElement('button');
         edit.className = 'pedit'; edit.title='שינוי שם';
@@ -1772,10 +1834,9 @@ html,body{
       list.push(item);
       saveList(storeKey, list);
       input.value='';
-      renderRows();
       renderFilters();
-      onPick(item.id);
-      closePicker();
+      if(multi){ selectedIds.push(item.id); onPick(selectedIds.slice()); renderRows(); }
+      else { onPick(item.id); closePicker(); }
     }
     addBtn.onclick = doAdd;
     input.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); doAdd(); } });
@@ -2019,13 +2080,14 @@ html,body{
     };
     meta.appendChild(topicChip);
 
-    const personChip = makeMetaChip(ICON_PERSON, !!item.personId);
-    personChip.querySelector('.chip-label').textContent = item.personId ? (nameById(people,item.personId) || '⋯') : 'איש צוות';
+    const personChip = makeMetaChip(ICON_PERSON, !!(item.personIds||[]).length);
+    personChip.querySelector('.chip-label').textContent = personIdsLabel(item.personIds, 'איש צוות');
     personChip.onclick = (e)=>{ e.preventDefault(); e.stopPropagation();
-      openPicker('person', personChip, item.personId, (id)=>{
-        item.personId = id; personChip.querySelector('.chip-label').textContent = id ? (nameById(people,id)||'⋯') : 'איש צוות';
-        personChip.classList.toggle('filled', !!id); saveWeek(weekStart, weekData); applyFilterVisuals(); renderSummary();
-      });
+      openPicker('person', personChip, item.personIds, (ids)=>{
+        item.personIds = ids;
+        personChip.querySelector('.chip-label').textContent = personIdsLabel(ids, 'איש צוות');
+        personChip.classList.toggle('filled', !!ids.length); saveWeek(weekStart, weekData); applyFilterVisuals(); renderSummary();
+      }, {multi:true});
     };
     meta.appendChild(personChip);
 
