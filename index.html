@@ -2254,6 +2254,7 @@ html,body{
       saveWeek(weekStart, weekData);
       const row = renderEventRow(dayDef.key, item);
       evList.appendChild(row);
+      equalizeEventZoneHeights();
       row.querySelector('.event-text').focus();
     };
     evZone.appendChild(addEv);
@@ -2318,6 +2319,7 @@ html,body{
       if(i>-1) arr.splice(i,1);
       saveWeek(weekStart, weekData);
       row.remove();
+      equalizeEventZoneHeights();
     };
     row.appendChild(del);
 
@@ -2453,11 +2455,28 @@ html,body{
     return row;
   }
 
+  // Days are equal-height flex siblings, but each one's events zone sizes to
+  // its own content, so a week with one busy day left the other days' task
+  // sections starting at different heights. CSS can't match a nested child
+  // across separate subtrees, so measure the tallest and floor them all to it.
+  // Reset first: otherwise last run's value keeps the max inflated after the
+  // busiest day loses an event.
+  function equalizeEventZoneHeights(){
+    requestAnimationFrame(()=>{
+      const zones = Array.from(document.querySelectorAll('#board .zone-events'));
+      if(!zones.length) return;
+      zones.forEach(z => z.style.minHeight = '');
+      const max = Math.max(...zones.map(z => z.getBoundingClientRect().height));
+      zones.forEach(z => z.style.minHeight = max + 'px');
+    });
+  }
+
   function renderBoard(){
     const board = document.getElementById('board');
     board.innerHTML = '';
     DAY_DEFS.forEach((d,i) => board.appendChild(renderDay(d,i)));
     applyFilterVisuals();
+    equalizeEventZoneHeights();
   }
 
   function goToWeek(newStart, scrollToToday){
