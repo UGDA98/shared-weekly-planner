@@ -160,8 +160,7 @@ html,body{
 .tasks{ display:flex; flex-direction:column; gap:1px; min-height:8px; }
 
 /* tasks: two-line row. Line 1 = checkbox + full-width text (never competes for space).
-   Line 2 = drag handle (always in-flow, dims on hover) + person/topic chips (always visible, given room to
-   be legible) + delete (hover-only), indented under the text. */
+   Line 2 = person/topic chips, revealed only when the row is expanded. */
 .task-row{ display:flex; flex-direction:column; border-radius:var(--radius-md); padding:4px 5px 5px; position:relative; }
 .task-row:hover{ background:rgba(0,0,0,.02); }
 .task-main{ display:flex; align-items:flex-start; gap:7px; }
@@ -171,6 +170,9 @@ html,body{
   border:1.6px solid var(--border-strong); background:var(--surface); cursor:pointer; position:relative;
   transition:background .15s ease, border-color .15s ease, transform .1s ease; align-self:flex-start; margin-top:2px;
 }
+/* the task checkbox doubles as the row's drag handle (tap toggles, drag moves) */
+.task-row input[type="checkbox"]{ cursor:grab; touch-action:none; }
+.task-row input[type="checkbox"]:active{ cursor:grabbing; }
 .task-row input[type="checkbox"]:hover,
 .summary-row-main input[type="checkbox"]:hover{ border-color:var(--accent); }
 .task-row input[type="checkbox"]:active,
@@ -1667,8 +1669,6 @@ html,body{
 
     const meta = document.createElement('div');
     meta.className = 'task-meta';
-    const handle = dragHandleEl();
-    meta.appendChild(handle);
 
     const spacer = document.createElement('span');
     spacer.className = 'meta-spacer';
@@ -1690,7 +1690,7 @@ html,body{
 
     requestAnimationFrame(()=>{
       if(row.parentElement){
-        setupDrag(handle, row.parentElement, () => appState.unscheduled, '.task-row', ()=> { persistState(); renderSummary(); }, {dropzone:'tasks'});
+        setupDrag(cb, row.parentElement, () => appState.unscheduled, '.task-row', ()=> { persistState(); renderSummary(); }, {dropzone:'tasks', threshold:7});
       }
     });
 
@@ -2064,7 +2064,9 @@ html,body{
   // opts keep the original same-list-only reorder behavior unchanged.
   function setupDrag(handle, listEl, getArray, rowSelector, onReorder, opts){
     const dropzone = opts && opts.dropzone;
-    handle.addEventListener('pointerdown', (e)=>{
+    const threshold = opts && opts.threshold;
+
+    function beginDrag(e){
       if(activeDrag) endActiveDrag(true);
       e.preventDefault();
       const row = handle.closest(rowSelector);
@@ -2121,6 +2123,38 @@ html,body{
       document.addEventListener('pointermove', onMove);
       document.addEventListener('pointerup', onUp);
       document.addEventListener('pointercancel', onUp);
+    }
+
+    if(!threshold){
+      handle.addEventListener('pointerdown', beginDrag);
+      return;
+    }
+
+    // threshold mode: the handle is an element with its own click behavior (a
+    // checkbox), so a plain tap must reach it untouched. Hold off on
+    // preventDefault/pointer-capture until the pointer has actually moved
+    // far enough to read as a drag rather than a tap.
+    handle.addEventListener('pointerdown', (e)=>{
+      const startX = e.clientX, startY = e.clientY;
+      function preMove(ev){
+        if(Math.hypot(ev.clientX-startX, ev.clientY-startY) <= threshold) return;
+        cleanup();
+        // the browser still fires a synthetic click on the handle after
+        // pointerup even though a drag happened in between — that click would
+        // toggle the checkbox, so swallow exactly one.
+        handle.addEventListener('click', swallowClick, {capture:true, once:true});
+        beginDrag(e);
+      }
+      function swallowClick(ev){ ev.preventDefault(); ev.stopPropagation(); }
+      function preUp(){ cleanup(); }
+      function cleanup(){
+        document.removeEventListener('pointermove', preMove);
+        document.removeEventListener('pointerup', preUp);
+        document.removeEventListener('pointercancel', preUp);
+      }
+      document.addEventListener('pointermove', preMove);
+      document.addEventListener('pointerup', preUp);
+      document.addEventListener('pointercancel', preUp);
     });
   }
 
@@ -2290,9 +2324,6 @@ html,body{
     const meta = document.createElement('div');
     meta.className = 'task-meta';
 
-    const handle = dragHandleEl();
-    meta.appendChild(handle);
-
     const topicChip = makeMetaChip(ICON_TAG, !!item.topicId);
     topicChip.querySelector('.chip-label').textContent = item.topicId ? (nameById(topics,item.topicId) || '⋯') : 'מופע';
     topicChip.onclick = (e)=>{ e.preventDefault(); e.stopPropagation();
@@ -2334,7 +2365,7 @@ html,body{
 
     requestAnimationFrame(()=>{
       if(row.parentElement){
-        setupDrag(handle, row.parentElement, () => weekData[dayKey][sectionKey], '.task-row', ()=> { saveWeek(weekStart, weekData); renderSummary(); }, {dropzone:'tasks'});
+        setupDrag(cb, row.parentElement, () => weekData[dayKey][sectionKey], '.task-row', ()=> { saveWeek(weekStart, weekData); renderSummary(); }, {dropzone:'tasks', threshold:7});
       }
     });
 
