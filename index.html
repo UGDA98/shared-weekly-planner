@@ -217,7 +217,7 @@ html,body{ overscroll-behavior:contain; }
 /* ---------- management drawer (replaces the old board-picker dropdown + footer) ---------- */
 .drawer-overlay{
   position:fixed; inset:0; z-index:150; background:rgba(23,20,29,.45);
-  display:none; justify-content:flex-end; backdrop-filter:blur(1px);
+  display:none; justify-content:flex-start; backdrop-filter:blur(1px);
   opacity:0; transition:opacity .2s ease;
 }
 .drawer-overlay.open{ opacity:1; }
@@ -237,16 +237,30 @@ html,body{ overscroll-behavior:contain; }
 .drawer-section{ display:flex; flex-direction:column; gap:6px; }
 .drawer-section-label{ font-size:11px; font-weight:600; color:var(--muted); margin-bottom:2px; }
 .drawer-divider{ height:1px; background:var(--border); margin:16px 0; }
-.drawer-board-list{ display:flex; flex-direction:column; gap:2px; max-height:280px; overflow-y:auto; }
+.drawer-board-list{ display:flex; flex-direction:column; gap:2px; }
 .drawer-board-item{
-  display:flex; align-items:center; justify-content:space-between; gap:8px;
-  min-height:44px; padding:8px 10px; border-radius:8px; border:none; background:none;
-  font-size:13.5px; color:var(--ink); cursor:pointer; text-align:start; width:100%;
+  display:flex; align-items:center; gap:2px;
+  min-height:44px; padding:2px 4px 2px 8px; border-radius:8px;
+  font-size:13.5px; color:var(--ink); text-align:start; width:100%;
 }
 .drawer-board-item:hover{ background:var(--surface-2); }
 .drawer-board-item.active{ background:var(--accent-soft); color:var(--accent-soft-ink); font-weight:600; }
+.drawer-board-item-main{
+  flex:1; min-width:0; display:flex; align-items:center; justify-content:space-between; gap:8px;
+  padding:6px 6px; border-radius:6px; cursor:pointer; font:inherit; color:inherit;
+}
+.drawer-board-item-name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; outline:none; border-radius:5px; padding:1px 3px; }
+.drawer-board-item-name[contenteditable="true"]{ background:var(--surface); box-shadow:0 0 0 1.5px var(--accent); white-space:normal; }
 .drawer-board-item-role{ font-size:11px; color:var(--muted); flex-shrink:0; }
 .drawer-board-item.active .drawer-board-item-role{ color:var(--accent-soft-ink); opacity:.75; }
+.drawer-board-item-actions{ display:flex; align-items:center; gap:1px; flex-shrink:0; opacity:0; }
+.drawer-board-item:hover .drawer-board-item-actions,
+.drawer-board-item:focus-within .drawer-board-item-actions{ opacity:1; }
+.drawer-board-item-actions .pedit,
+.drawer-board-item-actions .pdel{ background:none; border:none; color:var(--muted); cursor:pointer; font-size:13px; padding:5px; border-radius:6px; }
+.drawer-board-item-actions .pedit:hover{ color:var(--accent); background:var(--surface); }
+.drawer-board-item-actions .pdel:hover{ color:#d1453b; background:var(--surface); }
+.drawer-board-item-actions .pedit svg{ width:13px; height:13px; display:block; }
 .drawer-board-empty{ padding:14px 10px; font-size:12.5px; color:var(--muted); text-align:center; }
 .drawer-new-board{
   display:flex; align-items:center; gap:8px; width:100%; min-height:44px; padding:10px;
@@ -359,6 +373,7 @@ html,body{ overscroll-behavior:contain; }
 .picker-item:hover .pdel{ opacity:1; }
 .picker-item .pedit:hover{ color:var(--accent); }
 .picker-item .pedit svg{ width:13px; height:13px; display:block; }
+.picker-row .drag-handle{ display:flex; opacity:.4; }
 .picker-clear{ color:var(--muted); font-style:italic; }
 .picker-add{ display:flex; gap:5px; border-top:1px solid var(--border); padding-top:6px; }
 .picker-add input{
@@ -442,6 +457,18 @@ html,body{ overscroll-behavior:contain; }
   .filters-bar{ padding:9px 14px; }
   .highlight-btn{ min-height:42px; max-width:100%; }
 }
+/* touch-target sizing keyed to input type, not viewport width — a tablet at
+   900px is still a finger, not a mouse, and the 640px breakpoint above never
+   fires for it */
+@media (pointer:coarse){
+  .drag-handle{ display:flex; opacity:.45; width:26px; height:28px; font-size:15px; }
+  .row-del{ display:flex; opacity:.4; width:32px; height:32px; font-size:17px; }
+  .row-del:active{ opacity:1; }
+  .task-row input[type="checkbox"],
+  .summary-row-main input[type="checkbox"]{ width:23px; height:23px; }
+  .mini-chip{ min-height:30px; padding:6px 12px 6px 10px; font-size:12.5px; }
+  .nav-btn{ width:40px; height:40px; }
+}
 @media (prefers-reduced-motion: reduce){
   .nav-btn{ transition:none; }
   .drawer-overlay, .drawer-panel{ transition:none; }
@@ -474,9 +501,9 @@ html,body{ overscroll-behavior:contain; }
       <span class="sync-status" id="syncStatus"></span>
       <span class="role-badge" id="roleBadge">צפייה בלבד</span>
       <div class="week-nav">
-        <button class="nav-btn" id="prevWeek" title="שבוע קודם" aria-label="שבוע קודם">‹</button>
+        <button class="nav-btn" id="prevWeek" title="שבוע קודם" aria-label="שבוע קודם">›</button>
         <span class="week-range" id="weekRange"></span>
-        <button class="nav-btn" id="nextWeek" title="שבוע הבא" aria-label="שבוע הבא">›</button>
+        <button class="nav-btn" id="nextWeek" title="שבוע הבא" aria-label="שבוע הבא">‹</button>
         <button class="nav-btn today-btn" id="gotoToday">היום</button>
       </div>
     </div>
@@ -756,22 +783,72 @@ html,body{ overscroll-behavior:contain; }
       return;
     }
     boardsList.forEach(b=>{
-      const item = document.createElement('button');
-      item.type = 'button';
+      const item = document.createElement('div');
       item.className = 'drawer-board-item' + (b.id === currentBoardId ? ' active' : '');
-      item.setAttribute('role', 'menuitemradio');
-      item.setAttribute('aria-checked', b.id === currentBoardId ? 'true' : 'false');
+      item.setAttribute('data-id', b.id);
+
+      const main = document.createElement('span');
+      main.className = 'drawer-board-item-main';
+      main.setAttribute('role', 'menuitemradio');
+      main.setAttribute('aria-checked', b.id === currentBoardId ? 'true' : 'false');
+      main.tabIndex = 0;
+
       const nameSpan = document.createElement('span');
+      nameSpan.className = 'drawer-board-item-name';
       nameSpan.textContent = b.name;
+
       const roleSpan = document.createElement('span');
       roleSpan.className = 'drawer-board-item-role';
       roleSpan.textContent = b.role === 'editor' ? 'עורך/ת' : 'צפייה';
-      item.appendChild(nameSpan);
-      item.appendChild(roleSpan);
-      item.onclick = () => {
+
+      main.appendChild(nameSpan);
+      main.appendChild(roleSpan);
+
+      function goToBoard(){
         closeDrawer();
         if(b.id !== currentBoardId) switchToBoard(b.id, {});
-      };
+      }
+      main.onclick = goToBoard;
+      main.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); goToBoard(); } });
+      item.appendChild(main);
+
+      // rename/delete are destructive/administrative — only offered to this
+      // board's own editors, same gate as .view-only elsewhere in the app
+      if(b.role === 'editor'){
+        const actions = document.createElement('div');
+        actions.className = 'drawer-board-item-actions';
+
+        const edit = document.createElement('button');
+        edit.type = 'button'; edit.className = 'pedit'; edit.title = 'שינוי שם הלוח';
+        edit.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
+        edit.onclick = (e)=>{
+          e.stopPropagation();
+          main.onclick = null;
+          makeEditable(nameSpan, b.name, (newVal)=>{
+            if(newVal && newVal !== b.name) renameBoard(b.id, newVal);
+            else renderBoardSwitcher();
+          });
+          nameSpan.focus();
+          document.execCommand('selectAll', false, null);
+        };
+        actions.appendChild(edit);
+
+        const del = document.createElement('button');
+        del.type = 'button'; del.className = 'pdel'; del.textContent = '×'; del.title = 'מחיקת לוח';
+        del.onclick = (e)=>{
+          e.stopPropagation();
+          showConfirmModal({
+            title: 'מחיקת לוח',
+            message: 'למחוק את הלוח "' + b.name + '"? הפעולה בלתי הפיכה — כל הנתונים שבו יימחקו לצמיתות.',
+            confirmLabel: 'מחיקה',
+            onConfirm: ()=> deleteBoard(b.id)
+          });
+        };
+        actions.appendChild(del);
+
+        item.appendChild(actions);
+      }
+
       list.appendChild(item);
     });
   }
@@ -885,6 +962,51 @@ html,body{ overscroll-behavior:contain; }
     }finally{
       createBtn.disabled = false;
       createBtn.textContent = 'יצירה';
+    }
+  }
+
+  async function renameBoard(boardId, newName){
+    try{
+      const res = await fetch(API_URL, {
+        method:'POST',
+        headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body: JSON.stringify({ action:'renameBoard', email: currentEmail, board: boardId, name: newName })
+      });
+      const json = await res.json();
+      if(!(json && json.ok)) setSyncStatus('שינוי שם הלוח נכשל');
+    }catch(e){
+      setSyncStatus('אין חיבור — שינוי השם נכשל');
+    }
+    boardsList = await fetchBoardsList();
+    renderBoardSwitcher();
+  }
+
+  async function deleteBoard(boardId){
+    try{
+      const res = await fetch(API_URL, {
+        method:'POST',
+        headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body: JSON.stringify({ action:'deleteBoard', email: currentEmail, board: boardId })
+      });
+      const json = await res.json();
+      if(!(json && json.ok)){ setSyncStatus('מחיקת הלוח נכשלה'); return; }
+    }catch(e){
+      setSyncStatus('אין חיבור — מחיקת הלוח נכשלה');
+      return;
+    }
+    boardsList = await fetchBoardsList();
+    if(boardId === currentBoardId){
+      clearInterval(pollTimer);
+      currentBoardId = '';
+      if(boardsList.length){
+        await switchToBoard(boardsList[0].id, {replace:true});
+      } else {
+        appState = null;
+        showNoAccess('not_found');
+        renderBoardSwitcher();
+      }
+    } else {
+      renderBoardSwitcher();
     }
   }
 
@@ -1028,6 +1150,56 @@ html,body{ overscroll-behavior:contain; }
     persistState();
   }
 
+  // counts how many tasks/unscheduled items still point at a person/topic —
+  // used to warn before deleting one out of the master list, since deleting
+  // leaves those references dangling (they render as "⋯", see nameById).
+  function countReferencesFor(kind, id){
+    const field = kind==='person' ? 'personId' : 'topicId';
+    let count = 0;
+    Object.keys(appState.weeks).forEach(wk=>{
+      const wdata = appState.weeks[wk];
+      DAY_DEFS.forEach(d=>{
+        const day = wdata[d.key];
+        if(!day) return;
+        TASK_SECTIONS.forEach(sec=>{
+          const arr = day[sec.key];
+          if(!Array.isArray(arr)) return;
+          arr.forEach(item=>{ if(item[field]===id) count++; });
+        });
+      });
+    });
+    if(Array.isArray(appState.unscheduled)){
+      appState.unscheduled.forEach(item=>{ if(item[field]===id) count++; });
+    }
+    return count;
+  }
+
+  // small reusable confirm dialog built on the existing .modal-overlay/.modal-card
+  // styling (same classes as the new-board modal), for any destructive action that
+  // needs a "are you sure" step rather than acting instantly on click.
+  function showConfirmModal({title, message, confirmLabel, onConfirm}){
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.style.display = 'flex';
+    const card = document.createElement('div');
+    card.className = 'modal-card';
+    const h3 = document.createElement('h3'); h3.textContent = title;
+    const p = document.createElement('p'); p.className = 'modal-sub'; p.textContent = message;
+    const actions = document.createElement('div'); actions.className = 'modal-actions';
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'modal-btn modal-btn-secondary'; cancelBtn.type = 'button'; cancelBtn.textContent = 'ביטול';
+    const okBtn = document.createElement('button');
+    okBtn.className = 'modal-btn modal-btn-primary'; okBtn.type = 'button'; okBtn.textContent = confirmLabel || 'אישור';
+    function close(){ overlay.remove(); }
+    cancelBtn.onclick = close;
+    okBtn.onclick = ()=>{ close(); onConfirm(); };
+    overlay.addEventListener('click', (e)=>{ if(e.target===overlay) close(); });
+    actions.appendChild(cancelBtn); actions.appendChild(okBtn);
+    card.appendChild(h3); card.appendChild(p); card.appendChild(actions);
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+  }
+
   // ---------- week data ----------
   let weekStart = startOfWeek(new Date());
   let activeFilter = {type:'all', value:null};
@@ -1139,6 +1311,24 @@ html,body{ overscroll-behavior:contain; }
     if(label) label.textContent = 'הדגשה: ' + highlightLabelFor(activeFilter);
   }
 
+  // shared popover placement for .picker-style dropdowns: clamps horizontally like
+  // before, and now also flips above the anchor when there isn't room below (a picker
+  // opened from a row near the bottom of a short viewport used to render partly
+  // off-screen with no way to reach its lower items).
+  function positionPopover(pop, rect, opts){
+    opts = opts || {};
+    const width = opts.width || 208;
+    const leftOffset = opts.leftOffset || 0;
+    const assumedHeight = 280; // matches .picker's CSS max-height — a conservative
+                                // estimate so we flip early rather than clip
+    let top = rect.bottom + 6;
+    if(top + assumedHeight > window.innerHeight){
+      top = Math.max(8, rect.top - assumedHeight - 6);
+    }
+    pop.style.top = top + 'px';
+    pop.style.left = Math.max(8, Math.min(window.innerWidth - width, rect.left + leftOffset)) + 'px';
+  }
+
   function openHighlightMenu(){
     closePicker();
     const anchorEl = document.getElementById('highlightBtn');
@@ -1146,8 +1336,7 @@ html,body{ overscroll-behavior:contain; }
     const pop = document.createElement('div');
     pop.className = 'picker';
     const rect = anchorEl.getBoundingClientRect();
-    pop.style.top = (rect.bottom + 6) + 'px';
-    pop.style.left = Math.max(8, Math.min(window.innerWidth-208, rect.left)) + 'px';
+    positionPopover(pop, rect);
 
     const title = document.createElement('div');
     title.className = 'picker-title';
@@ -1379,8 +1568,7 @@ html,body{ overscroll-behavior:contain; }
     const pop = document.createElement('div');
     pop.className = 'picker';
     const rect = anchorEl.getBoundingClientRect();
-    pop.style.top = (rect.bottom + 6) + 'px';
-    pop.style.left = Math.max(8, Math.min(window.innerWidth-208, rect.left)) + 'px';
+    positionPopover(pop, rect);
     pop.style.width = '170px';
 
     const title = document.createElement('div');
@@ -1439,8 +1627,7 @@ html,body{ overscroll-behavior:contain; }
     const pop = document.createElement('div');
     pop.className = 'picker';
     const rect = anchorEl.getBoundingClientRect();
-    pop.style.top = (rect.bottom + 6) + 'px';
-    pop.style.left = Math.max(8, Math.min(window.innerWidth-208, rect.left - 100)) + 'px';
+    positionPopover(pop, rect, {leftOffset:-100});
 
     const title = document.createElement('div');
     title.className = 'picker-title';
@@ -1459,6 +1646,9 @@ html,body{ overscroll-behavior:contain; }
       list.forEach(p=>{
         const row = document.createElement('div');
         row.className = 'picker-item picker-row' + (p.id===currentId?' selected':'');
+        row.setAttribute('data-id', p.id);
+        const handle = dragHandleEl();
+        row.appendChild(handle);
         const nameSpan = document.createElement('span');
         nameSpan.className = 'pname';
         nameSpan.textContent = p.name;
@@ -1486,13 +1676,30 @@ html,body{ overscroll-behavior:contain; }
         del.className = 'pdel'; del.textContent='×'; del.title='מחיקה מהרשימה';
         del.onclick = (e)=>{
           e.stopPropagation();
-          const idx = list.findIndex(x=>x.id===p.id);
-          if(idx>-1) list.splice(idx,1);
-          saveList(storeKey, list);
-          renderRows(); renderFilters(); renderBoard(); renderSummary();
+          const doDelete = ()=>{
+            const idx = list.findIndex(x=>x.id===p.id);
+            if(idx>-1) list.splice(idx,1);
+            saveList(storeKey, list);
+            renderRows(); renderFilters(); renderBoard(); renderSummary();
+          };
+          const refCount = countReferencesFor(kind, p.id);
+          if(refCount > 0){
+            showConfirmModal({
+              title: 'מחיקת ' + (kind==='person' ? 'איש צוות' : 'מופע'),
+              message: '"' + p.name + '" משויכ/ת ל-' + refCount + (refCount===1 ? ' משימה קיימת' : ' משימות קיימות') + '. המשימות יישארו אך יאבדו את השיוך. למחוק בכל זאת?',
+              confirmLabel: 'מחיקה',
+              onConfirm: doDelete
+            });
+          } else {
+            doDelete();
+          }
         };
         row.appendChild(del);
         ul.appendChild(row);
+        setupDrag(handle, ul, ()=>list, '.picker-row', ()=>{
+          saveList(storeKey, list);
+          renderFilters(); renderBoard(); renderSummary();
+        });
       });
     }
     renderRows();
