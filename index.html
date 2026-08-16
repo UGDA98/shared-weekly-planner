@@ -136,6 +136,18 @@ html,body{
 .section{ padding:9px 12px; }
 .zone-tasks .section + .section{ border-top:1px dashed var(--border-strong); }
 
+/* collapsible headers — shared by the per-day task sections and the summary
+   cards, so both fold away the same way and read as one mechanism. */
+.collapse-head{ display:flex; align-items:center; gap:6px; cursor:pointer; user-select:none; }
+.collapse-head .label{ margin-bottom:0; }
+.collapse-count{ font-size:10.5px; font-weight:600; color:var(--muted); opacity:.8; }
+.collapse-chevron{ width:12px; height:12px; color:var(--muted); flex-shrink:0; margin-inline-start:auto; transition:transform .15s ease; }
+.collapse-head[aria-expanded="false"] .collapse-chevron{ transform:rotate(-90deg); }
+.section > .label{ margin-bottom:4px; }
+.section .collapse-head{ margin-bottom:4px; }
+.collapse-body[hidden]{ display:none; }
+.summary-group-head.collapse-head .collapse-chevron{ color:currentColor; opacity:.7; }
+
 .events{ display:flex; flex-direction:column; gap:2px; min-height:8px; }
 
 /* events: single line. handle/delete now stay in-flow (display:flex) at all
@@ -357,7 +369,9 @@ html,body{
 .mode-btn:hover{ border-color:var(--accent); color:var(--ink); }
 .mode-btn svg{ width:10px; height:10px; opacity:.65; }
 
-.summary-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(250px, 1fr)); gap:14px; padding-bottom:24px; }
+/* align-items:start so a collapsed card shrinks to just its header instead of
+   being stretched to the row's tallest card and trailing empty space */
+.summary-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(250px, 1fr)); gap:14px; padding-bottom:24px; align-items:start; }
 .summary-group{ background:var(--surface); border:1px solid var(--border); border-radius:14px; box-shadow:var(--shadow); overflow:hidden; display:flex; flex-direction:column; }
 .summary-group.unassigned{ border-style:dashed; box-shadow:none; }
 .summary-group-head{ display:flex; align-items:center; gap:7px; padding:11px 14px; background:var(--accent-soft); color:var(--accent-soft-ink); font-weight:700; font-size:14.5px; }
@@ -1612,6 +1626,8 @@ html,body{
       head.appendChild(clearBtn);
     }
     card.appendChild(head);
+
+    const body = document.createElement('div');
     const list = document.createElement('div');
     list.className = 'summary-list';
     if(!items.length){
@@ -1622,7 +1638,7 @@ html,body{
     } else {
       items.forEach(entry => list.appendChild(renderSummaryRow(entry, kind)));
     }
-    card.appendChild(list);
+    body.appendChild(list);
 
     const addRow = document.createElement('div');
     addRow.className = 'add-line';
@@ -1641,7 +1657,13 @@ html,body{
       const textEl = row.querySelector('.summary-row-text');
       if(textEl) textEl.focus();
     };
-    card.appendChild(addRow);
+    body.appendChild(addRow);
+    card.appendChild(body);
+
+    // keyed per person/topic rather than per week: a person's card is the same
+    // bucket every week, so re-applying the length rule each Sunday would keep
+    // undoing a deliberate choice.
+    makeCollapsible(head, body, 'grp:' + currentBoardId + ':' + kind + ':' + (id || 'unassigned'), items.length);
 
     return card;
   }
@@ -2212,6 +2234,50 @@ html,body{
     return h;
   }
 
+  // ---------- collapsible sections ----------
+  const COLLAPSE_KEY_PREFIX = 'planner_collapse__';
+  const COLLAPSE_AUTO_THRESHOLD = 6;
+
+  function readCollapseState(storageKey){
+    try{ return localStorage.getItem(COLLAPSE_KEY_PREFIX + storageKey); }catch(e){ return null; }
+  }
+  function writeCollapseState(storageKey, expanded){
+    try{ localStorage.setItem(COLLAPSE_KEY_PREFIX + storageKey, expanded ? '1' : '0'); }catch(e){}
+  }
+
+  const CHEVRON_SVG = '<svg class="collapse-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>';
+
+  // Turns a header element into a collapse toggle for a body element.
+  // A long list is collapsed on arrival so a busy day doesn't bury the rest of
+  // the week, but that's only the starting point: once someone has opened or
+  // closed a specific section by hand, that choice is remembered and always
+  // wins over the length rule.
+  function makeCollapsible(headEl, bodyEl, storageKey, itemCount){
+    const saved = readCollapseState(storageKey);
+    let expanded = saved === null ? itemCount <= COLLAPSE_AUTO_THRESHOLD : saved === '1';
+
+    headEl.classList.add('collapse-head');
+    headEl.setAttribute('role', 'button');
+    headEl.setAttribute('tabindex', '0');
+    bodyEl.classList.add('collapse-body');
+    headEl.insertAdjacentHTML('beforeend', CHEVRON_SVG);
+
+    function apply(){
+      headEl.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+      bodyEl.hidden = !expanded;
+    }
+    function toggle(){ expanded = !expanded; apply(); writeCollapseState(storageKey, expanded); }
+
+    headEl.addEventListener('click', (e)=>{
+      if(e.target.closest('button:not(.collapse-head)')) return; // e.g. the topic card's clear button
+      toggle();
+    });
+    headEl.addEventListener('keydown', (e)=>{
+      if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); toggle(); }
+    });
+    apply();
+  }
+
   // ---------- rendering ----------
   function renderDay(dayDef, index){
     const today = new Date();
@@ -2264,19 +2330,29 @@ html,body{
     const tZone = document.createElement('div');
     tZone.className = 'zone-tasks';
     TASK_SECTIONS.forEach(sec => {
+      const items = data[sec.key] || [];
       const sSection = document.createElement('div');
       sSection.className = 'section';
+
+      const head = document.createElement('div');
       const label = document.createElement('span');
       label.className = 'label';
       label.textContent = sec.label;
-      sSection.appendChild(label);
+      head.appendChild(label);
+      const count = document.createElement('span');
+      count.className = 'collapse-count';
+      count.textContent = items.length ? String(items.length) : '';
+      head.appendChild(count);
+      sSection.appendChild(head);
+
+      const body = document.createElement('div');
       const list = document.createElement('div');
       list.className = 'tasks';
       list.setAttribute('data-dropzone', 'tasks');
       list.setAttribute('data-day', dayDef.key);
       list.setAttribute('data-section', sec.key);
-      (data[sec.key]||[]).forEach(item => list.appendChild(renderTaskRow(dayDef.key, sec.key, item)));
-      sSection.appendChild(list);
+      items.forEach(item => list.appendChild(renderTaskRow(dayDef.key, sec.key, item)));
+      body.appendChild(list);
       const addT = document.createElement('div');
       addT.className = 'add-line';
       addT.textContent = '+ הוספת משימה';
@@ -2287,9 +2363,13 @@ html,body{
         renderSummary();
         const row = renderTaskRow(dayDef.key, sec.key, item);
         list.appendChild(row);
+        count.textContent = String(data[sec.key].length);
         row.querySelector('.task-text').focus();
       };
-      sSection.appendChild(addT);
+      body.appendChild(addT);
+      sSection.appendChild(body);
+
+      makeCollapsible(head, body, 'sec:' + currentBoardId + ':' + weekKey(weekStart) + ':' + dayDef.key + ':' + sec.key, items.length);
       tZone.appendChild(sSection);
     });
     card.appendChild(tZone);
