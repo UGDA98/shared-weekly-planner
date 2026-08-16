@@ -195,7 +195,20 @@ html,body{
   transition:opacity .15s ease, color .15s ease;
 }
 
-.task-meta{ display:flex; align-items:center; gap:5px; margin-inline-start:26px; margin-top:3px; flex-wrap:wrap; }
+/* metadata is hidden until the row is opened — however small the chips get
+   they still pull the eye, and they're secondary to the task text. The row
+   expands like a dropdown on click; .task-flag is the always-visible hint
+   that there's something to open. */
+.task-meta{ display:none; align-items:center; gap:5px; margin-inline-start:26px; margin-top:4px; flex-wrap:wrap; }
+.task-row.chips-open .task-meta{ display:flex; }
+
+.task-flag{
+  width:5px; height:5px; border-radius:50%; flex-shrink:0; align-self:flex-start; margin-top:9px;
+  background:var(--border-strong); opacity:.7; transition:background .12s ease, opacity .12s ease, transform .12s ease;
+}
+.task-flag.assigned{ background:var(--accent); opacity:.85; }
+.task-row:hover .task-flag{ opacity:1; }
+.task-row.chips-open .task-flag{ background:var(--accent); opacity:1; transform:scale(1.15); }
 
 /* kept deliberately quiet — this is metadata about a task, not the task
    itself, so it shouldn't compete with the task text for attention. No
@@ -1665,14 +1678,8 @@ html,body{
     text.textContent = item.text || '';
     makeEditable(text, 'משימה…', (val)=>{ item.text = val; persistState(); });
     main.appendChild(text);
-    row.appendChild(main);
 
-    const meta = document.createElement('div');
-    meta.className = 'task-meta';
-
-    const spacer = document.createElement('span');
-    spacer.className = 'meta-spacer';
-    meta.appendChild(spacer);
+    const updateFlag = wireChipReveal(row, main, ()=> !!item.topicId || !!(item.personIds||[]).length);
 
     const del = document.createElement('button');
     del.className = 'row-del'; del.textContent = '×'; del.title = 'מחיקה';
@@ -1685,8 +1692,43 @@ html,body{
       row.remove();
       renderSummary();
     };
-    meta.appendChild(del);
+    main.appendChild(del);
+    row.appendChild(main);
+
+    // pool items are the ones with no person and no topic, so assigning
+    // either here means the item no longer belongs in the pool — it moves to
+    // the matching person/topic card, which renderSummary() rebuilds.
+    const meta = document.createElement('div');
+    meta.className = 'task-meta';
+
+    const topicChip = makeMetaChip(ICON_TAG, !!item.topicId);
+    topicChip.querySelector('.chip-label').textContent = item.topicId ? (nameById(topics,item.topicId) || '⋯') : 'מופע';
+    topicChip.onclick = (e)=>{ e.preventDefault(); e.stopPropagation();
+      openPicker('topic', topicChip, item.topicId, (id)=>{
+        item.topicId = id;
+        topicChip.querySelector('.chip-label').textContent = id ? (nameById(topics,id)||'⋯') : 'מופע';
+        topicChip.classList.toggle('filled', !!id); updateFlag();
+        persistState();
+        renderSummary();
+      });
+    };
+    meta.appendChild(topicChip);
+
+    const personChip = makeMetaChip(ICON_PERSON, !!(item.personIds||[]).length);
+    personChip.querySelector('.chip-label').textContent = personIdsLabel(item.personIds, 'איש צוות');
+    personChip.onclick = (e)=>{ e.preventDefault(); e.stopPropagation();
+      openPicker('person', personChip, item.personIds, (ids)=>{
+        item.personIds = ids;
+        personChip.querySelector('.chip-label').textContent = personIdsLabel(ids, 'איש צוות');
+        personChip.classList.toggle('filled', !!ids.length); updateFlag();
+        persistState();
+        renderSummary();
+      }, {multi:true});
+    };
+    meta.appendChild(personChip);
     row.appendChild(meta);
+
+    updateFlag();
 
     requestAnimationFrame(()=>{
       if(row.parentElement){
@@ -2299,6 +2341,45 @@ html,body{
     return chip;
   }
 
+  // one row's chips open at a time, so the board never fills up with
+  // half-expanded rows — opening a row closes whichever was open before.
+  let openChipsRow = null;
+  function setOpenChipsRow(row){
+    if(openChipsRow && openChipsRow !== row) openChipsRow.classList.remove('chips-open');
+    openChipsRow = row;
+  }
+
+  // Wires a task row's "click to reveal its chips" behavior and returns an
+  // updateFlag() the caller invokes whenever an assignment changes, so the
+  // always-visible dot keeps reflecting whether the row has any assignment
+  // even while the chips themselves are hidden.
+  function wireChipReveal(row, main, isAssigned){
+    const flag = document.createElement('span');
+    flag.className = 'task-flag';
+    flag.title = 'תגיות';
+    main.appendChild(flag);
+
+    function toggle(){
+      const open = row.classList.toggle('chips-open');
+      if(open) setOpenChipsRow(row);
+      else if(openChipsRow === row) openChipsRow = null;
+    }
+    // the checkbox is the drag handle and the × deletes — everything else in
+    // the row opens the chips. Clicking the text still places a caret as
+    // usual, and only ever opens: otherwise moving the caret mid-edit would
+    // keep collapsing the chips underneath.
+    row.addEventListener('click', (e)=>{
+      if(e.target.closest('input[type="checkbox"], .row-del, .task-meta')) return;
+      if(e.target.closest('.task-text')){
+        if(!row.classList.contains('chips-open')) toggle();
+        return;
+      }
+      toggle();
+    });
+
+    return function updateFlag(){ flag.classList.toggle('assigned', !!isAssigned()); };
+  }
+
   function renderTaskRow(dayKey, sectionKey, item){
     const row = document.createElement('div');
     row.className = 'task-row' + (item.done ? ' done':'');
@@ -2319,35 +2400,8 @@ html,body{
     text.textContent = item.text || '';
     makeEditable(text, 'משימה…', (val)=>{ item.text = val; saveWeek(weekStart, weekData); renderSummary(); });
     main.appendChild(text);
-    row.appendChild(main);
 
-    const meta = document.createElement('div');
-    meta.className = 'task-meta';
-
-    const topicChip = makeMetaChip(ICON_TAG, !!item.topicId);
-    topicChip.querySelector('.chip-label').textContent = item.topicId ? (nameById(topics,item.topicId) || '⋯') : 'מופע';
-    topicChip.onclick = (e)=>{ e.preventDefault(); e.stopPropagation();
-      openPicker('topic', topicChip, item.topicId, (id)=>{
-        item.topicId = id; topicChip.querySelector('.chip-label').textContent = id ? (nameById(topics,id)||'⋯') : 'מופע';
-        topicChip.classList.toggle('filled', !!id); saveWeek(weekStart, weekData); applyFilterVisuals(); renderSummary();
-      });
-    };
-    meta.appendChild(topicChip);
-
-    const personChip = makeMetaChip(ICON_PERSON, !!(item.personIds||[]).length);
-    personChip.querySelector('.chip-label').textContent = personIdsLabel(item.personIds, 'איש צוות');
-    personChip.onclick = (e)=>{ e.preventDefault(); e.stopPropagation();
-      openPicker('person', personChip, item.personIds, (ids)=>{
-        item.personIds = ids;
-        personChip.querySelector('.chip-label').textContent = personIdsLabel(ids, 'איש צוות');
-        personChip.classList.toggle('filled', !!ids.length); saveWeek(weekStart, weekData); applyFilterVisuals(); renderSummary();
-      }, {multi:true});
-    };
-    meta.appendChild(personChip);
-
-    const spacer = document.createElement('span');
-    spacer.className = 'meta-spacer';
-    meta.appendChild(spacer);
+    const updateFlag = wireChipReveal(row, main, ()=> !!item.topicId || !!(item.personIds||[]).length);
 
     const del = document.createElement('button');
     del.className = 'row-del'; del.textContent = '×'; del.title = 'מחיקה';
@@ -2360,8 +2414,35 @@ html,body{
       row.remove();
       renderSummary();
     };
-    meta.appendChild(del);
+    main.appendChild(del);
+    row.appendChild(main);
+
+    const meta = document.createElement('div');
+    meta.className = 'task-meta';
+
+    const topicChip = makeMetaChip(ICON_TAG, !!item.topicId);
+    topicChip.querySelector('.chip-label').textContent = item.topicId ? (nameById(topics,item.topicId) || '⋯') : 'מופע';
+    topicChip.onclick = (e)=>{ e.preventDefault(); e.stopPropagation();
+      openPicker('topic', topicChip, item.topicId, (id)=>{
+        item.topicId = id; topicChip.querySelector('.chip-label').textContent = id ? (nameById(topics,id)||'⋯') : 'מופע';
+        topicChip.classList.toggle('filled', !!id); updateFlag(); saveWeek(weekStart, weekData); applyFilterVisuals(); renderSummary();
+      });
+    };
+    meta.appendChild(topicChip);
+
+    const personChip = makeMetaChip(ICON_PERSON, !!(item.personIds||[]).length);
+    personChip.querySelector('.chip-label').textContent = personIdsLabel(item.personIds, 'איש צוות');
+    personChip.onclick = (e)=>{ e.preventDefault(); e.stopPropagation();
+      openPicker('person', personChip, item.personIds, (ids)=>{
+        item.personIds = ids;
+        personChip.querySelector('.chip-label').textContent = personIdsLabel(ids, 'איש צוות');
+        personChip.classList.toggle('filled', !!ids.length); updateFlag(); saveWeek(weekStart, weekData); applyFilterVisuals(); renderSummary();
+      }, {multi:true});
+    };
+    meta.appendChild(personChip);
     row.appendChild(meta);
+
+    updateFlag();
 
     requestAnimationFrame(()=>{
       if(row.parentElement){
