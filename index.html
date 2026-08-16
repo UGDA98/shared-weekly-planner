@@ -116,8 +116,8 @@ html,body{
 .board::-webkit-scrollbar-thumb{ background:var(--border); border-radius:var(--radius-md); }
 .board::-webkit-scrollbar-track{ background:transparent; }
 
-.day{ scroll-snap-align:start; flex:0 0 auto; width:272px; background:var(--surface); border:1px solid var(--border); border-radius:16px; box-shadow:var(--shadow); display:flex; flex-direction:column; overflow:hidden; }
-.day.day-wide{ width:300px; }
+.day{ scroll-snap-align:start; flex:0 0 auto; width:300px; background:var(--surface); border:1px solid var(--border); border-radius:16px; box-shadow:var(--shadow); display:flex; flex-direction:column; overflow:hidden; }
+.day.day-wide{ width:330px; }
 .day.is-today{ box-shadow:var(--shadow), 0 0 0 2px var(--today-ring); }
 .day.dim{ opacity:.35; filter:saturate(.6); }
 
@@ -138,18 +138,20 @@ html,body{
 
 .events{ display:flex; flex-direction:column; gap:2px; min-height:8px; }
 
-/* events: single line. handle/delete are DISPLAY:NONE (not just invisible) when idle,
-   so the text gets the row's full width instead of reserving space for hidden controls. */
+/* events: single line. handle/delete now stay in-flow (display:flex) at all
+   times and only fade opacity in/out on hover — mirrors the mobile/touch
+   treatment below, which never had the desktop version's layout jump when a
+   hidden control popped into the flex row and pushed the text sideways. */
 .event-row{ display:flex; align-items:flex-start; gap:5px; position:relative; border-radius:var(--radius-md); padding:4px 5px; font-size:13px; line-height:1.5; color:var(--ink); }
 .event-row:hover{ background:rgba(0,0,0,.02); }
-.drag-handle{ display:none; width:14px; height:20px; flex-shrink:0; cursor:grab; color:var(--muted); align-items:center; justify-content:center; font-size:12px; touch-action:none; user-select:none; }
-.event-row:hover .drag-handle, .task-row:hover .drag-handle{ display:flex; }
+.drag-handle{ display:flex; opacity:.35; width:14px; height:20px; flex-shrink:0; cursor:grab; color:var(--muted); align-items:center; justify-content:center; font-size:12px; touch-action:none; user-select:none; transition:opacity .12s ease; }
+.event-row:hover .drag-handle, .task-row:hover .drag-handle{ opacity:1; }
 .drag-handle:hover{ color:var(--ink); }
 .event-text{ flex:1; min-width:0; outline:none; padding:2px 4px; border-radius:var(--radius-sm); min-height:1.3em; align-self:center; word-break:break-word; }
 .event-text:focus{ background:var(--surface); box-shadow:0 0 0 2px var(--accent-soft); }
 .event-text:empty:before{ content: attr(data-ph); color:var(--muted); }
-.row-del{ display:none; width:20px; height:20px; border:none; background:none; color:var(--muted); cursor:pointer; font-size:14px; line-height:1; flex-shrink:0; align-self:center; align-items:center; justify-content:center; border-radius:var(--radius-sm); }
-.event-row:hover .row-del, .task-row:hover .row-del, .summary-row:hover .row-del{ display:flex; }
+.row-del{ display:flex; opacity:0; width:20px; height:20px; border:none; background:none; color:var(--muted); cursor:pointer; font-size:14px; line-height:1; flex-shrink:0; align-self:center; align-items:center; justify-content:center; border-radius:var(--radius-sm); transition:opacity .12s ease; }
+.event-row:hover .row-del, .task-row:hover .row-del, .summary-row:hover .row-del{ opacity:1; }
 .row-del:hover{ color:#c0392b; background:rgba(192,57,43,.08); }
 .add-line{ font-size:12px; color:var(--muted); cursor:pointer; padding:5px 6px; border-radius:var(--radius-sm); display:inline-flex; align-items:center; gap:4px; width:fit-content; margin-top:2px; }
 .add-line:hover{ background:rgba(0,0,0,.04); color:var(--accent); }
@@ -158,7 +160,7 @@ html,body{
 .tasks{ display:flex; flex-direction:column; gap:1px; }
 
 /* tasks: two-line row. Line 1 = checkbox + full-width text (never competes for space).
-   Line 2 = drag handle (hover-only) + person/topic chips (always visible, given room to
+   Line 2 = drag handle (always in-flow, dims on hover) + person/topic chips (always visible, given room to
    be legible) + delete (hover-only), indented under the text. */
 .task-row{ display:flex; flex-direction:column; border-radius:var(--radius-md); padding:4px 5px 5px; position:relative; }
 .task-row:hover{ background:rgba(0,0,0,.02); }
@@ -193,16 +195,20 @@ html,body{
 
 .task-meta{ display:flex; align-items:center; gap:5px; margin-inline-start:26px; margin-top:3px; flex-wrap:wrap; }
 
+/* kept deliberately quiet — this is metadata about a task, not the task
+   itself, so it shouldn't compete with the task text for attention. No
+   border when empty (nothing to look at yet); a soft fill only once a
+   person/topic is actually assigned. */
 .mini-chip{
-  display:inline-flex; align-items:center; gap:4px; font-size:11.5px; font-weight:500; padding:4px 10px 4px 8px;
-  border-radius:var(--radius-pill); background:var(--surface); color:var(--muted);
-  border:1px dashed var(--border-strong); cursor:pointer; white-space:nowrap;
-  transition:all .12s ease; min-height:24px;
+  display:inline-flex; align-items:center; gap:3px; font-size:9.5px; font-weight:500; padding:2px 7px 2px 6px;
+  border-radius:var(--radius-pill); background:transparent; color:var(--muted);
+  border:1px solid transparent; cursor:pointer; white-space:nowrap;
+  transition:all .12s ease; min-height:18px;
 }
-.mini-chip svg{ width:11px; height:11px; flex-shrink:0; opacity:.7; }
-.mini-chip.filled{ color:var(--accent-soft-ink); background:var(--accent-soft); border-style:solid; border-color:transparent; font-weight:600; }
-.mini-chip.filled svg{ opacity:.85; }
-.mini-chip:hover{ border-color:var(--accent); color:var(--ink); }
+.mini-chip svg{ width:9px; height:9px; flex-shrink:0; opacity:.6; }
+.mini-chip.filled{ color:var(--accent-soft-ink); background:var(--accent-soft); }
+.mini-chip.filled svg{ opacity:.8; }
+.mini-chip:hover{ background:var(--surface-2); color:var(--ink); }
 .mini-chip.filled:hover{ color:var(--accent-soft-ink); }
 .meta-spacer{ flex:1; }
 
@@ -1842,8 +1848,12 @@ html,body{
   function dragHandleEl(){
     const h = document.createElement('span');
     h.className = 'drag-handle';
-    h.innerHTML = '⠿';
-    h.setAttribute('aria-hidden','true');
+    // a plain filled-circle SVG renders crisp and consistent at any zoom/font,
+    // unlike a text glyph — doubles as both the row's list-marker dot and the
+    // drag affordance, always visible (not just a hover extra).
+    h.innerHTML = '<svg viewBox="0 0 8 8" width="6" height="6" aria-hidden="true"><circle cx="4" cy="4" r="4" fill="currentColor"/></svg>';
+    h.setAttribute('title', 'גרירה לשינוי סדר');
+    h.setAttribute('aria-label', 'גרירה לשינוי סדר');
     return h;
   }
 
