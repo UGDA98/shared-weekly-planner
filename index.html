@@ -2563,12 +2563,34 @@ html,body{
   window.addEventListener('load', equalizeEventZoneHeights);
   if(document.fonts && document.fonts.ready) document.fonts.ready.then(equalizeEventZoneHeights);
 
+  // None of the passes above are a guarantee — real-world font rasterizing
+  // can still settle later than all of them, silently leaving the equalized
+  // height stale (reported bug: boxes line up right after load, then drift
+  // uneven a few seconds later with nothing left to catch it). Watch each
+  // day's actual event list for its own natural size changing (not the
+  // .zone-events wrapper itself — that one carries our own forced minHeight,
+  // and observing it would just react to our own writes) and re-equalize
+  // whenever it does, for as long as the board is on screen.
+  let eventZoneObserver = null;
+  function watchEventZoneSizes(){
+    if(eventZoneObserver) eventZoneObserver.disconnect();
+    if(typeof ResizeObserver !== 'function') return;
+    let pending = false;
+    eventZoneObserver = new ResizeObserver(()=>{
+      if(pending) return;
+      pending = true;
+      requestAnimationFrame(()=>{ pending = false; equalizeEventZoneHeightsNow(); });
+    });
+    document.querySelectorAll('#board .zone-events .events').forEach(el => eventZoneObserver.observe(el));
+  }
+
   function renderBoard(){
     const board = document.getElementById('board');
     board.innerHTML = '';
     DAY_DEFS.forEach((d,i) => board.appendChild(renderDay(d,i)));
     applyFilterVisuals();
     equalizeEventZoneHeights();
+    watchEventZoneSizes();
   }
 
   function goToWeek(newStart, scrollToToday){
