@@ -2541,15 +2541,27 @@ html,body{
   // across separate subtrees, so measure the tallest and floor them all to it.
   // Reset first: otherwise last run's value keeps the max inflated after the
   // busiest day loses an event.
-  function equalizeEventZoneHeights(){
-    requestAnimationFrame(()=>{
-      const zones = Array.from(document.querySelectorAll('#board .zone-events'));
-      if(!zones.length) return;
-      zones.forEach(z => z.style.minHeight = '');
-      const max = Math.max(...zones.map(z => z.getBoundingClientRect().height));
-      zones.forEach(z => z.style.minHeight = max + 'px');
-    });
+  function equalizeEventZoneHeightsNow(){
+    const zones = Array.from(document.querySelectorAll('#board .zone-events'));
+    if(!zones.length) return;
+    zones.forEach(z => z.style.minHeight = '');
+    const max = Math.max(...zones.map(z => z.getBoundingClientRect().height));
+    zones.forEach(z => z.style.minHeight = max + 'px');
   }
+  function equalizeEventZoneHeights(){
+    // a single rAF is normally enough, but on a cold load the embedded font
+    // can still be decoding when it fires, changing text metrics a frame
+    // later and invalidating the measurement — wait one more frame so layout
+    // has actually settled before measuring. rAF can also simply not fire for
+    // a while (backgrounded tab, power saving), so setTimeout is a second,
+    // independent path to the same call that isn't tied to a visible frame.
+    requestAnimationFrame(()=> requestAnimationFrame(equalizeEventZoneHeightsNow));
+    setTimeout(equalizeEventZoneHeightsNow, 200);
+  }
+  // belt-and-suspenders for that same cold-load case: once every resource
+  // (including the base64 font) has finished loading, re-equalize once more.
+  window.addEventListener('load', equalizeEventZoneHeights);
+  if(document.fonts && document.fonts.ready) document.fonts.ready.then(equalizeEventZoneHeights);
 
   function renderBoard(){
     const board = document.getElementById('board');
