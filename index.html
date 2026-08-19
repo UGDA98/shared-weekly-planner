@@ -1493,7 +1493,12 @@ html,body{
   }
 
   function applyFilterVisuals(){
-    document.querySelectorAll('.task-row[data-id]').forEach(row=>{
+    // scoped to #board: '.task-row' is also used by the unscheduled task-pool
+    // card in the summary section, whose rows aren't nested in a .day and
+    // aren't part of weekData — matching them here would both throw (no .day
+    // ancestor to read data-day from) and be meaningless (filters are a
+    // per-day-section concept).
+    document.querySelectorAll('#board .task-row[data-id]').forEach(row=>{
       const day = row.closest('.day').getAttribute('data-day');
       const section = row.getAttribute('data-section');
       const id = row.getAttribute('data-id');
