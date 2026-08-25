@@ -29,7 +29,7 @@
   --border:#e4dfee;
   --border-strong:#d3caea;
   --done:#3f9464;
-  --today-ring:#c9922e;
+  --today-ring:#b8842a;
   --shadow: 0 1px 2px rgba(40,25,70,.06), 0 8px 24px -12px rgba(40,25,70,.18);
   color-scheme: light;
   /* radius scale — consolidates the values that already repeated identically
@@ -52,7 +52,7 @@
 :root[data-theme="light"]{
   --bg:#f7f4fa; --surface:#ffffff; --surface-2:#f2eef9; --accent:#5b4b8a; --accent-ink:#ffffff;
   --accent-soft:#ebe4f7; --accent-soft-ink:#4a3c73; --ink:#211d2b; --muted:#6a627d;
-  --border:#e4dfee; --border-strong:#d3caea; --done:#3f9464; --today-ring:#c9922e; color-scheme: light;
+  --border:#e4dfee; --border-strong:#d3caea; --done:#3f9464; --today-ring:#b8842a; color-scheme: light;
 }
 
 *{box-sizing:border-box;}
@@ -179,7 +179,11 @@ html,body{
 .task-row input[type="checkbox"],
 .summary-row-main input[type="checkbox"]{
   appearance:none; -webkit-appearance:none; width:19px; height:19px; min-width:19px; border-radius:7px;
-  border:1.6px solid var(--border-strong); background:var(--surface); cursor:pointer; position:relative;
+  /* --muted, not --border-strong: an unchecked checkbox is an interactive
+     control (needs the 3:1 WCAG UI-component minimum), while --border-strong
+     is shared with purely decorative dividers that don't — scoping the
+     darker color here keeps those dividers as light as they were. */
+  border:1.6px solid var(--muted); background:var(--surface); cursor:pointer; position:relative;
   transition:background .15s ease, border-color .15s ease, transform .1s ease; align-self:flex-start; margin-top:2px;
 }
 /* the task checkbox doubles as the row's drag handle (tap toggles, drag moves) */
@@ -512,7 +516,7 @@ html,body{
   .task-row{ padding:6px 6px 8px; }
   .task-main{ gap:9px; }
   .task-row input[type="checkbox"],
-  .summary-row-main input[type="checkbox"]{ width:23px; height:23px; }
+  .summary-row-main input[type="checkbox"]{ width:24px; height:24px; }
   .task-text, .event-text{ font-size:14.5px; padding:5px 4px; }
   .event-row{ padding:6px 5px; gap:7px; }
   .row-del{ width:32px; height:32px; font-size:17px; }
@@ -535,9 +539,14 @@ html,body{
   .row-del{ display:flex; opacity:.4; width:32px; height:32px; font-size:17px; }
   .row-del:active{ opacity:1; }
   .task-row input[type="checkbox"],
-  .summary-row-main input[type="checkbox"]{ width:23px; height:23px; }
+  .summary-row-main input[type="checkbox"]{ width:24px; height:24px; }
   .mini-chip{ min-height:30px; padding:6px 12px 6px 10px; font-size:12.5px; }
   .nav-btn{ width:40px; height:40px; }
+  /* the collapse/chevron toggle's tappable area was only as tall as its text
+     line (~14px, well under the 24px WCAG 2.5.8 minimum) on every device,
+     touch included. Padding + matching negative margin grows the hit area
+     without changing the row's visible height or the layout around it. */
+  .collapse-head{ padding-block:5px; margin-block:-5px; }
   /* rename/delete controls were hover-only, which never triggers on a touch
      device with no mouse — make them always visible (subdued) here instead,
      same treatment as .drag-handle/.row-del above */
@@ -1764,6 +1773,7 @@ html,body{
     const cb = document.createElement('input');
     cb.type = 'checkbox';
     cb.checked = !!item.done;
+    cb.title = 'סימון כבוצע; ניתן גם לגרור לשינוי סדר';
     cb.onchange = () => { item.done = cb.checked; row.classList.toggle('done', item.done); persistState(); syncItemVisual(item.id, item.done); };
     main.appendChild(cb);
 
@@ -2574,6 +2584,7 @@ html,body{
     const cb = document.createElement('input');
     cb.type = 'checkbox';
     cb.checked = !!item.done;
+    cb.title = 'סימון כבוצע; ניתן גם לגרור לשינוי סדר';
     cb.onchange = () => { item.done = cb.checked; row.classList.toggle('done', item.done); saveWeek(weekStart, weekData); syncItemVisual(item.id, item.done); };
     main.appendChild(cb);
 
