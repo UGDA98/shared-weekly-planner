@@ -25,7 +25,7 @@
   --accent-soft:#ebe4f7;
   --accent-soft-ink:#4a3c73;
   --ink:#211d2b;
-  --muted:#867e97;
+  --muted:#6a627d;
   --border:#e4dfee;
   --border-strong:#d3caea;
   --done:#3f9464;
@@ -51,7 +51,7 @@
 }
 :root[data-theme="light"]{
   --bg:#f7f4fa; --surface:#ffffff; --surface-2:#f2eef9; --accent:#5b4b8a; --accent-ink:#ffffff;
-  --accent-soft:#ebe4f7; --accent-soft-ink:#4a3c73; --ink:#211d2b; --muted:#867e97;
+  --accent-soft:#ebe4f7; --accent-soft-ink:#4a3c73; --ink:#211d2b; --muted:#6a627d;
   --border:#e4dfee; --border-strong:#d3caea; --done:#3f9464; --today-ring:#c9922e; color-scheme: light;
 }
 
@@ -202,9 +202,9 @@ html,body{
 .task-text:focus{ background:var(--surface); }
 .task-text:empty:before{ content: attr(data-ph); color:var(--muted); }
 .task-row.done .task-text{
-  color:var(--muted); opacity:.7;
+  color:var(--muted);
   text-decoration:line-through; text-decoration-color:var(--border-strong); text-decoration-thickness:1.5px;
-  transition:opacity .15s ease, color .15s ease;
+  transition:color .15s ease;
 }
 
 /* metadata is hidden until the row is opened — however small the chips get
@@ -221,6 +221,15 @@ html,body{
 .task-flag.assigned{ background:var(--accent); opacity:.85; }
 .task-row:hover .task-flag{ opacity:1; }
 .task-row.chips-open .task-flag{ background:var(--accent); opacity:1; transform:scale(1.15); }
+
+/* who/what a task is tagged with, always visible (not just on hover/open) —
+   answers "is this mine" without a click; the dot above stays as the quiet
+   at-a-glance signal, this is the actual name/topic once there is one. */
+.task-flag-label{
+  font-size:10px; color:var(--muted); flex-shrink:0; align-self:flex-start; margin-top:8px; margin-inline-start:-2px;
+  max-width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.task-row.chips-open .task-flag-label{ display:none; } /* the open chips already say this, no need to double it up */
 
 /* kept deliberately quiet — this is metadata about a task, not the task
    itself, so it shouldn't compete with the task text for attention. No
@@ -256,6 +265,21 @@ html,body{
 .menu-btn svg{ width:19px; height:19px; }
 .title-group{ display:flex; flex-direction:column; gap:1px; min-width:0; }
 .board-subtitle{ font-size:12px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* ---------- undo toast (task/event delete) ---------- */
+.undo-toast{
+  position:fixed; left:50%; bottom:22px; transform:translateX(-50%);
+  display:flex; align-items:center; gap:14px;
+  background:var(--ink); color:var(--surface); border-radius:var(--radius-lg); box-shadow:var(--shadow);
+  padding:10px 10px 10px 16px; font-size:13px; z-index:300; direction:rtl;
+  opacity:0; transition:opacity .15s ease, transform .15s ease;
+}
+.undo-toast.show{ opacity:1; }
+.undo-toast-btn{
+  border:none; background:none; color:var(--surface); font:inherit; font-weight:700; cursor:pointer;
+  padding:6px 10px; border-radius:var(--radius-sm); text-decoration:underline; text-underline-offset:2px;
+}
+.undo-toast-btn:hover{ background:rgba(255,255,255,.12); }
 
 /* ---------- management drawer (replaces the old board-picker dropdown + footer) ---------- */
 .drawer-overlay{
@@ -390,9 +414,9 @@ html,body{
 .summary-row-main{ display:flex; align-items:flex-start; gap:7px; }
 .summary-row-text{ flex:1; min-width:0; font-size:13px; line-height:1.4; align-self:flex-start; word-break:break-word; }
 .summary-row.done .summary-row-text{
-  color:var(--muted); opacity:.7;
+  color:var(--muted);
   text-decoration:line-through; text-decoration-color:var(--border-strong); text-decoration-thickness:1.5px;
-  transition:opacity .15s ease, color .15s ease;
+  transition:color .15s ease;
 }
 .summary-row-meta{ display:flex; align-items:center; gap:5px; margin-inline-start:25px; flex-wrap:wrap; }
 .day-badge{ font-size:10.5px; font-weight:600; color:var(--muted); background:var(--surface-2); border-radius:var(--radius-pill); padding:2px 9px; }
@@ -1269,6 +1293,36 @@ html,body{
     return count;
   }
 
+  // task/event delete used to be instant with zero recovery path — this gives
+  // a few seconds to reverse a mis-tap without adding a confirm step in front
+  // of every delete (which would slow down real, intended deletes). Only one
+  // toast at a time: a second delete replaces the first rather than stacking,
+  // since undoing #1 after already deleting #2 would be a confusing partial-undo.
+  let undoToastEl = null, undoToastTimer = null;
+  function showUndoToast(message, onUndo){
+    if(undoToastEl) undoToastEl.remove();
+    clearTimeout(undoToastTimer);
+    const toast = document.createElement('div');
+    toast.className = 'undo-toast';
+    const msg = document.createElement('span');
+    msg.textContent = message;
+    toast.appendChild(msg);
+    const btn = document.createElement('button');
+    btn.className = 'undo-toast-btn';
+    btn.type = 'button';
+    btn.textContent = 'בטל';
+    btn.onclick = () => { hideUndoToast(); onUndo(); };
+    toast.appendChild(btn);
+    document.body.appendChild(toast);
+    requestAnimationFrame(()=> toast.classList.add('show'));
+    undoToastEl = toast;
+    undoToastTimer = setTimeout(hideUndoToast, 6000);
+  }
+  function hideUndoToast(){
+    clearTimeout(undoToastTimer);
+    if(undoToastEl){ undoToastEl.remove(); undoToastEl = null; }
+  }
+
   // small reusable confirm dialog built on the existing .modal-overlay/.modal-card
   // styling (same classes as the new-board modal), for any destructive action that
   // needs a "are you sure" step rather than acting instantly on click.
@@ -1598,9 +1652,22 @@ html,body{
       del.className = 'row-del'; del.textContent = '×'; del.title = 'מחיקה';
       del.onclick = ()=>{
         const idx = appState.unscheduled.findIndex(x=>x.id===item.id);
+        const list = row.parentElement;
+        const nextSibling = row.nextSibling;
         if(idx>-1) appState.unscheduled.splice(idx,1);
         persistState();
+        const countEl = row.closest('.summary-group')?.querySelector('.summary-group-count');
+        if(countEl) countEl.textContent = String(Math.max(0, parseInt(countEl.textContent||'0',10)-1));
         row.remove();
+        showUndoToast('המשימה נמחקה', ()=>{
+          appState.unscheduled.splice(Math.min(idx, appState.unscheduled.length), 0, item);
+          persistState();
+          if(countEl) countEl.textContent = String(parseInt(countEl.textContent||'0',10)+1);
+          const emptyMsg = list && list.querySelector('.summary-empty');
+          if(emptyMsg) emptyMsg.remove();
+          if(list) list.insertBefore(renderSummaryRow({item, dayKey:null, dayName:null, sectionKey:'unscheduled'}, kind), list.contains(nextSibling) ? nextSibling : null);
+          renderSummary();
+        });
       };
       meta.appendChild(del);
     }
@@ -1714,10 +1781,23 @@ html,body{
       e.preventDefault(); e.stopPropagation();
       const arr = appState.unscheduled || [];
       const i = arr.findIndex(x=>x.id===item.id);
+      const list = row.parentElement;
+      const nextSibling = row.nextSibling;
       if(i>-1) arr.splice(i,1);
       persistState();
+      const countEl = row.closest('.summary-group')?.querySelector('.summary-group-count');
+      if(countEl) countEl.textContent = String(Math.max(0, parseInt(countEl.textContent||'0',10)-1));
       row.remove();
       renderSummary();
+      showUndoToast('המשימה נמחקה', ()=>{
+        arr.splice(Math.min(i, arr.length), 0, item);
+        persistState();
+        if(countEl) countEl.textContent = String(parseInt(countEl.textContent||'0',10)+1);
+        const emptyMsg = list && list.querySelector('.summary-empty');
+        if(emptyMsg) emptyMsg.remove();
+        if(list) list.insertBefore(renderPoolRow(item), list.contains(nextSibling) ? nextSibling : null);
+        renderSummary();
+      });
     };
     main.appendChild(del);
     row.appendChild(main);
@@ -2401,10 +2481,18 @@ html,body{
     del.onclick = () => {
       const arr = weekData[dayKey].events;
       const i = arr.findIndex(x=>x.id===item.id);
+      const list = row.parentElement;
+      const nextSibling = row.nextSibling;
       if(i>-1) arr.splice(i,1);
       saveWeek(weekStart, weekData);
       row.remove();
       equalizeEventZoneHeights();
+      showUndoToast('האירוע נמחק', ()=>{
+        arr.splice(Math.min(i, arr.length), 0, item);
+        saveWeek(weekStart, weekData);
+        if(list) list.insertBefore(renderEventRow(dayKey, item), list.contains(nextSibling) ? nextSibling : null);
+        equalizeEventZoneHeights();
+      });
     };
     row.appendChild(del);
 
@@ -2440,11 +2528,15 @@ html,body{
   // updateFlag() the caller invokes whenever an assignment changes, so the
   // always-visible dot keeps reflecting whether the row has any assignment
   // even while the chips themselves are hidden.
-  function wireChipReveal(row, main, isAssigned){
+  function wireChipReveal(row, main, isAssigned, labelText){
     const flag = document.createElement('span');
     flag.className = 'task-flag';
     flag.title = 'תגיות';
     main.appendChild(flag);
+
+    const flagLabel = document.createElement('span');
+    flagLabel.className = 'task-flag-label';
+    main.appendChild(flagLabel);
 
     function toggle(){
       const open = row.classList.toggle('chips-open');
@@ -2464,7 +2556,10 @@ html,body{
       toggle();
     });
 
-    return function updateFlag(){ flag.classList.toggle('assigned', !!isAssigned()); };
+    return function updateFlag(){
+      flag.classList.toggle('assigned', !!isAssigned());
+      flagLabel.textContent = labelText ? (labelText() || '') : '';
+    };
   }
 
   function renderTaskRow(dayKey, sectionKey, item){
@@ -2488,7 +2583,10 @@ html,body{
     makeEditable(text, 'משימה…', (val)=>{ item.text = val; saveWeek(weekStart, weekData); renderSummary(); });
     main.appendChild(text);
 
-    const updateFlag = wireChipReveal(row, main, ()=> !!item.topicId || !!(item.personIds||[]).length);
+    const updateFlag = wireChipReveal(row, main,
+      ()=> !!item.topicId || !!(item.personIds||[]).length,
+      ()=> (item.personIds && item.personIds.length) ? personIdsLabel(item.personIds) : (item.topicId ? (nameById(topics, item.topicId) || '⋯') : '')
+    );
 
     const del = document.createElement('button');
     del.className = 'row-del'; del.textContent = '×'; del.title = 'מחיקה';
@@ -2496,10 +2594,21 @@ html,body{
       e.preventDefault(); e.stopPropagation();
       const arr = weekData[dayKey][sectionKey];
       const i = arr.findIndex(x=>x.id===item.id);
+      const list = row.parentElement;
+      const nextSibling = row.nextSibling;
       if(i>-1) arr.splice(i,1);
       saveWeek(weekStart, weekData);
+      const countEl = row.closest('.section')?.querySelector('.collapse-count');
+      if(countEl){ const n = Math.max(0, arr.length); countEl.textContent = n ? String(n) : ''; }
       row.remove();
       renderSummary();
+      showUndoToast('המשימה נמחקה', ()=>{
+        arr.splice(Math.min(i, arr.length), 0, item);
+        saveWeek(weekStart, weekData);
+        if(countEl) countEl.textContent = String(arr.length);
+        if(list) list.insertBefore(renderTaskRow(dayKey, sectionKey, item), list.contains(nextSibling) ? nextSibling : null);
+        renderSummary();
+      });
     };
     main.appendChild(del);
     row.appendChild(main);
