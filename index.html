@@ -439,7 +439,6 @@ html,body{
   transition:color .15s ease;
 }
 .summary-row-meta{ display:flex; align-items:center; gap:5px; margin-inline-start:25px; flex-wrap:wrap; }
-.day-badge{ font-size:10.5px; font-weight:600; color:var(--muted); background:var(--surface-2); border-radius:var(--radius-pill); padding:2px 9px; }
 
 .dragging-ghost{ opacity:.45; }
 .drop-line{ height:2px; background:var(--accent); border-radius:2px; margin:2px 4px; }
@@ -1651,24 +1650,38 @@ html,body{
 
     const meta = document.createElement('div');
     meta.className = 'summary-row-meta';
-    if(dayKey!==null){
-      const dayBadge = document.createElement('span');
-      dayBadge.className = 'day-badge';
-      dayBadge.textContent = dayName;
-      meta.appendChild(dayBadge);
-    }
+
+    const dayChip = makeMetaChip(ICON_CALENDAR, dayKey!==null);
+    dayChip.querySelector('.chip-label').textContent = dayKey!==null ? dayName : 'יום';
+    dayChip.onclick = (e)=>{
+      e.preventDefault(); e.stopPropagation();
+      openDayPicker(dayChip, dayKey, (targetDayKey)=>{
+        if(targetDayKey === dayKey) return;
+        moveTaskToDay(item, dayKey, sectionKey, targetDayKey);
+        renderBoard();
+        renderSummary();
+      });
+    };
+    meta.appendChild(dayChip);
+
     ['person','topic'].filter(k=>k!==kind).forEach(otherKind=>{
-      let label;
-      if(otherKind==='person'){
-        if(!(item.personIds||[]).length) return;
-        label = personIdsLabel(item.personIds);
-      } else {
-        if(!item.topicId) return;
-        label = nameById(topics, item.topicId) || '⋯';
-      }
-      const chip = document.createElement('span');
-      chip.className = 'mini-chip filled';
-      chip.innerHTML = iconForKind(otherKind) + '<span class="chip-label">'+label+'</span>';
+      const chip = makeMetaChip(iconForKind(otherKind), otherKind==='person' ? !!(item.personIds||[]).length : !!item.topicId);
+      const refreshLabel = ()=>{
+        chip.querySelector('.chip-label').textContent = otherKind==='person'
+          ? personIdsLabel(item.personIds, 'איש צוות')
+          : (item.topicId ? (nameById(topics, item.topicId) || '⋯') : 'מופע');
+      };
+      refreshLabel();
+      chip.onclick = (e)=>{
+        e.preventDefault(); e.stopPropagation();
+        openPicker(otherKind, chip, otherKind==='person' ? item.personIds : item.topicId, (val)=>{
+          if(otherKind==='person') item.personIds = val; else item.topicId = val;
+          refreshLabel();
+          chip.classList.toggle('filled', otherKind==='person' ? !!(item.personIds||[]).length : !!item.topicId);
+          if(dayKey===null) persistState(); else saveWeek(weekStart, weekData);
+          renderSummary();
+        }, otherKind==='person' ? {multi:true} : undefined);
+      };
       meta.appendChild(chip);
     });
     if(dayKey===null){
@@ -1861,6 +1874,18 @@ html,body{
       }, {multi:true});
     };
     meta.appendChild(personChip);
+
+    const dayChip = makeMetaChip(ICON_CALENDAR, false);
+    dayChip.querySelector('.chip-label').textContent = 'יום';
+    dayChip.onclick = (e)=>{ e.preventDefault(); e.stopPropagation();
+      openDayPicker(dayChip, null, (targetDayKey)=>{
+        if(targetDayKey === null) return;
+        moveTaskToDay(item, null, 'unscheduled', targetDayKey);
+        renderBoard();
+        renderSummary();
+      });
+    };
+    meta.appendChild(dayChip);
     row.appendChild(meta);
 
     updateFlag();
@@ -1970,6 +1995,63 @@ html,body{
         renderSummary();
         closePicker();
       };
+      ul.appendChild(row);
+    });
+    pop.appendChild(ul);
+
+    document.body.appendChild(pop);
+    openPickerEl = pop;
+    setTimeout(()=> document.addEventListener('mousedown', onDocClick, true), 0);
+  }
+
+  // Moves a task between "unscheduled" (fromDayKey===null) and a specific
+  // day's task list (always into the 'general' section — reassigning section
+  // is still done by dragging within the day, same as today). Used by the day
+  // chip in the summary/pool rows, which are outside the board's own dropzone
+  // tree and so can't rely on drag-and-drop to move a task into a day.
+  function moveTaskToDay(item, fromDayKey, fromSectionKey, toDayKey){
+    if(fromDayKey===null){
+      const idx = (appState.unscheduled||[]).findIndex(x=>x.id===item.id);
+      if(idx>-1) appState.unscheduled.splice(idx,1);
+    } else {
+      const arr = weekData[fromDayKey][fromSectionKey];
+      const idx = arr.findIndex(x=>x.id===item.id);
+      if(idx>-1) arr.splice(idx,1);
+    }
+    if(toDayKey===null){
+      if(!appState.unscheduled) appState.unscheduled = [];
+      appState.unscheduled.push(item);
+    } else {
+      weekData[toDayKey].general.push(item);
+    }
+    persistState();
+  }
+
+  function openDayPicker(anchorEl, currentDayKey, onPick){
+    closePicker();
+    const pop = document.createElement('div');
+    pop.className = 'picker';
+    const rect = anchorEl.getBoundingClientRect();
+    positionPopover(pop, rect);
+    pop.style.width = '150px';
+
+    const title = document.createElement('div');
+    title.className = 'picker-title';
+    title.textContent = 'שיוך ליום';
+    pop.appendChild(title);
+
+    const ul = document.createElement('div'); ul.className='picker-list';
+    const noneRow = document.createElement('div');
+    noneRow.className = 'picker-item picker-clear' + (currentDayKey===null ? ' selected':'');
+    noneRow.textContent = 'ללא (לא משובץ)';
+    noneRow.onclick = ()=>{ onPick(null); closePicker(); };
+    ul.appendChild(noneRow);
+
+    DAY_DEFS.forEach(d=>{
+      const row = document.createElement('div');
+      row.className = 'picker-item' + (currentDayKey===d.key ? ' selected':'');
+      row.textContent = d.name;
+      row.onclick = ()=>{ onPick(d.key); closePicker(); };
       ul.appendChild(row);
     });
     pop.appendChild(ul);
@@ -2575,6 +2657,7 @@ html,body{
   const ICON_TAG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41 13 21l-9-9V4h8z"/><circle cx="8.5" cy="8.5" r="1.3" fill="currentColor" stroke="none"/></svg>';
   const ICON_PERSON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
   const ICON_CLEAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/></svg>';
+  const ICON_CALENDAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>';
 
   function makeMetaChip(icon, filled){
     const chip = document.createElement('span');
