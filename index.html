@@ -125,6 +125,10 @@ html,body{
 .day-name{ font-weight:700; font-size:20px; letter-spacing:.1px; }
 .day-date{ font-size:11.5px; font-weight:600; color:var(--accent-ink); background:var(--accent); border-radius:var(--radius-pill); padding:3px 10px; white-space:nowrap; }
 
+.day-banner{ background:var(--accent); color:var(--accent-ink); font-weight:700; font-size:13px; padding:8px 14px; text-align:center; white-space:normal; word-break:break-word; cursor:text; outline:none; }
+.day-banner:empty:before{ content: attr(data-ph); color:var(--accent-ink); opacity:.75; font-weight:600; }
+.day-banner-add{ margin:4px 14px 0; }
+
 .zone-events{ padding:10px 12px 8px; background:var(--surface); transition:min-height 200ms ease-out; }
 .zone-tasks{
   background:var(--surface-2);
@@ -509,7 +513,8 @@ html,body{
 .planner-root.view-only .mini-chip{ pointer-events:none; cursor:default; }
 .planner-root.view-only input[type="checkbox"]{ pointer-events:none; }
 .planner-root.view-only .task-text,
-.planner-root.view-only .event-text{ pointer-events:none; }
+.planner-root.view-only .event-text,
+.planner-root.view-only .day-banner{ pointer-events:none; }
 
 @media (max-width:640px){
   .day{ width:84vw; }
@@ -1385,10 +1390,11 @@ html,body{
     if('personId' in item) delete item.personId;
     return item;
   }
-  function emptyDayData(){ const d={events:[]}; TASK_SECTIONS.forEach(s=> d[s.key]=[]); return d; }
+  function emptyDayData(){ const d={events:[], title:''}; TASK_SECTIONS.forEach(s=> d[s.key]=[]); return d; }
   function sampleWeekData(){ const data={}; DAY_DEFS.forEach(d=> data[d.key]=emptyDayData()); return data; }
 
   function migrateLegacy(day){
+    if(day.title === undefined) day.title = '';
     // older versions used doron/yuval/routine instead of a unified 'team' list
     if(!day.team){
       day.team = [];
@@ -2391,6 +2397,38 @@ html,body{
   }
 
   // ---------- rendering ----------
+  function renderDayBanner(dayDef, data){
+    const wrap = document.createElement('div');
+    wrap.className = 'day-banner-wrap';
+    const showBanner = () => {
+      wrap.innerHTML = '';
+      const bar = document.createElement('div');
+      bar.className = 'day-banner';
+      bar.setAttribute('data-ph', 'כותרת יום…');
+      bar.textContent = data.title;
+      makeEditable(bar, 'כותרת יום…', (val)=>{
+        data.title = val;
+        saveWeek(weekStart, weekData);
+        if(!val) showAddLine();
+      });
+      wrap.appendChild(bar);
+    };
+    const showAddLine = () => {
+      wrap.innerHTML = '';
+      const addLine = document.createElement('div');
+      addLine.className = 'add-line day-banner-add';
+      addLine.textContent = '+ הוספת כותרת ליום';
+      addLine.onclick = () => {
+        data.title = '';
+        showBanner();
+        wrap.querySelector('.day-banner').focus();
+      };
+      wrap.appendChild(addLine);
+    };
+    if(data.title) showBanner(); else showAddLine();
+    return wrap;
+  }
+
   function renderDay(dayDef, index){
     const today = new Date();
     let dates;
@@ -2413,6 +2451,8 @@ html,body{
     const dateLabel = dates.length>1 ? (fmtDate(dates[0])+' – '+fmtDate(dates[1])) : fmtDate(dates[0]);
     head.innerHTML = '<span class="day-name">'+dayDef.name+'</span><span class="day-date">'+dateLabel+'</span>';
     card.appendChild(head);
+
+    card.appendChild(renderDayBanner(dayDef, data));
 
     // events zone
     const evZone = document.createElement('div');
