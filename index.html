@@ -124,6 +124,10 @@ html,body{
 .day-name{ font-weight:700; font-size:20px; letter-spacing:.1px; }
 .day-date{ font-size:11.5px; font-weight:600; color:var(--accent-ink); background:var(--accent); border-radius:var(--radius-pill); padding:3px 10px; white-space:nowrap; }
 
+.day-banner{ background:var(--accent); color:var(--accent-ink); font-weight:700; font-size:13px; padding:8px 14px; text-align:center; white-space:normal; word-break:break-word; cursor:text; outline:none; }
+.day-banner:empty:before{ content: attr(data-ph); color:var(--accent-ink); opacity:.75; font-weight:600; }
+.day-banner-add{ margin:4px 14px 0; }
+
 .zone-events{ padding:10px 12px 8px; background:var(--surface); transition:min-height 200ms ease-out; }
 .zone-tasks{
   background:var(--surface-2);
@@ -434,7 +438,6 @@ html,body{
   transition:color .15s ease;
 }
 .summary-row-meta{ display:flex; align-items:center; gap:5px; margin-inline-start:25px; flex-wrap:wrap; }
-.day-badge{ font-size:10.5px; font-weight:600; color:var(--muted); background:var(--surface-2); border-radius:var(--radius-pill); padding:2px 9px; }
 
 .dragging-ghost{ opacity:.45; }
 .drop-line{ height:2px; background:var(--accent); border-radius:2px; margin:2px 4px; }
@@ -548,6 +551,12 @@ html,body{
 .mv-chip--task{ border:1px solid var(--border-strong); color:var(--ink); }
 .mv-chip.done{ color:var(--done); text-decoration:line-through; }
 .mv-more{ font-size:11px; color:var(--muted); padding-inline-start:5px; }
+/* pinned day title — "the whole day is X", so it outranks the item chips */
+.mv-title{
+  font-size:11px; font-weight:600; line-height:1.3; padding:2px 5px;
+  border-radius:var(--radius-sm); background:var(--accent); color:var(--accent-ink);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
 .mv-empty{ text-align:center; color:var(--muted); font-size:14px; padding:28px 12px 8px; }
 
 /* ---------- day peek ---------- */
@@ -588,7 +597,8 @@ html,body{
 .planner-root.view-only .mini-chip{ pointer-events:none; cursor:default; }
 .planner-root.view-only input[type="checkbox"]{ pointer-events:none; }
 .planner-root.view-only .task-text,
-.planner-root.view-only .event-text{ pointer-events:none; }
+.planner-root.view-only .event-text,
+.planner-root.view-only .day-banner{ pointer-events:none; }
 
 @media (max-width:640px){
   .day{ width:84vw; }
@@ -639,6 +649,9 @@ html,body{
   .mv-chip-text{ display:none; }
   .mv-more{ font-size:10px; padding:0; line-height:6px; }
   .mv-head-cell{ font-size:11px; padding:2px 0; }
+  /* no room for the title text at 45px — keep it as a solid accent bar so the
+     day still reads as "fully booked", and the peek shows the actual words */
+  .mv-title{ height:4px; padding:0; font-size:0; border-radius:2px; }
 }
 /* touch-target sizing keyed to input type, not viewport width — a tablet at
    900px is still a finger, not a mouse, and the 640px breakpoint above never
@@ -1545,10 +1558,11 @@ html,body{
     if('personId' in item) delete item.personId;
     return item;
   }
-  function emptyDayData(){ const d={events:[]}; TASK_SECTIONS.forEach(s=> d[s.key]=[]); return d; }
+  function emptyDayData(){ const d={events:[], title:''}; TASK_SECTIONS.forEach(s=> d[s.key]=[]); return d; }
   function sampleWeekData(){ const data={}; DAY_DEFS.forEach(d=> data[d.key]=emptyDayData()); return data; }
 
   function migrateLegacy(day){
+    if(day.title === undefined) day.title = '';
     // older versions used doron/yuval/routine instead of a unified 'team' list
     if(!day.team){
       day.team = [];
@@ -1796,7 +1810,7 @@ html,body{
         const date = new Date(scope.ws); date.setDate(date.getDate()+idx);
         TASK_SECTIONS.forEach(sec=>{
           (day[sec.key]||[]).forEach(item=>{
-            if(itemMatchesKind(item,kind,id)) out.push({item, dayKey:d.key, dayName:d.name, sectionKey:sec.key, date});
+            if(itemMatchesKind(item,kind,id)) out.push({item, dayKey:d.key, dayName:d.name, sectionKey:sec.key, date, ws:scope.ws});
           });
         });
       });
@@ -1808,7 +1822,7 @@ html,body{
   }
 
   function renderSummaryRow(entry, kind){
-    const {item, dayKey, dayName, sectionKey, date} = entry;
+    const {item, dayKey, dayName, sectionKey, date, ws} = entry;
     const row = document.createElement('div');
     row.className = 'summary-row' + (item.done ? ' done':'');
     row.setAttribute('data-id', item.id);
@@ -1842,24 +1856,47 @@ html,body{
 
     const meta = document.createElement('div');
     meta.className = 'summary-row-meta';
-    if(dayKey!==null){
-      const dayBadge = document.createElement('span');
-      dayBadge.className = 'day-badge';
-      dayBadge.textContent = (currentView === 'month' && date) ? (dayName + ' ' + fmtDate(date)) : dayName;
-      meta.appendChild(dayBadge);
-    }
+
+    const dayChip = makeMetaChip(ICON_CALENDAR, dayKey!==null);
+    // in month view the digest spans several weeks, so the day name alone is
+    // ambiguous — show the date alongside it
+    dayChip.querySelector('.chip-label').textContent = dayKey!==null
+      ? ((currentView === 'month' && date) ? (dayName + ' ' + fmtDate(date)) : dayName)
+      : 'יום';
+    dayChip.onclick = (e)=>{
+      e.preventDefault(); e.stopPropagation();
+      openDayPicker(dayChip, dayKey, (targetDayKey)=>{
+        if(targetDayKey === dayKey) return;
+        // moveTaskToDay works against the focused week (weekData). In month
+        // view this row may belong to a different week, so point the week
+        // context at its own week first — otherwise the item would be removed
+        // from a week that doesn't hold it and added to the wrong one.
+        if(ws) setWeekContext(ws);
+        moveTaskToDay(item, dayKey, sectionKey, targetDayKey);
+        renderBoard();
+        renderSummary();
+      });
+    };
+    meta.appendChild(dayChip);
+
     ['person','topic'].filter(k=>k!==kind).forEach(otherKind=>{
-      let label;
-      if(otherKind==='person'){
-        if(!(item.personIds||[]).length) return;
-        label = personIdsLabel(item.personIds);
-      } else {
-        if(!item.topicId) return;
-        label = nameById(topics, item.topicId) || '⋯';
-      }
-      const chip = document.createElement('span');
-      chip.className = 'mini-chip filled';
-      chip.innerHTML = iconForKind(otherKind) + '<span class="chip-label">'+label+'</span>';
+      const chip = makeMetaChip(iconForKind(otherKind), otherKind==='person' ? !!(item.personIds||[]).length : !!item.topicId);
+      const refreshLabel = ()=>{
+        chip.querySelector('.chip-label').textContent = otherKind==='person'
+          ? personIdsLabel(item.personIds, 'איש צוות')
+          : (item.topicId ? (nameById(topics, item.topicId) || '⋯') : 'מופע');
+      };
+      refreshLabel();
+      chip.onclick = (e)=>{
+        e.preventDefault(); e.stopPropagation();
+        openPicker(otherKind, chip, otherKind==='person' ? item.personIds : item.topicId, (val)=>{
+          if(otherKind==='person') item.personIds = val; else item.topicId = val;
+          refreshLabel();
+          chip.classList.toggle('filled', otherKind==='person' ? !!(item.personIds||[]).length : !!item.topicId);
+          if(dayKey===null) persistState(); else saveWeek(weekStart, weekData);
+          renderSummary();
+        }, otherKind==='person' ? {multi:true} : undefined);
+      };
       meta.appendChild(chip);
     });
     if(dayKey===null){
@@ -2052,6 +2089,18 @@ html,body{
       }, {multi:true});
     };
     meta.appendChild(personChip);
+
+    const dayChip = makeMetaChip(ICON_CALENDAR, false);
+    dayChip.querySelector('.chip-label').textContent = 'יום';
+    dayChip.onclick = (e)=>{ e.preventDefault(); e.stopPropagation();
+      openDayPicker(dayChip, null, (targetDayKey)=>{
+        if(targetDayKey === null) return;
+        moveTaskToDay(item, null, 'unscheduled', targetDayKey);
+        renderBoard();
+        renderSummary();
+      });
+    };
+    meta.appendChild(dayChip);
     row.appendChild(meta);
 
     updateFlag();
@@ -2162,6 +2211,63 @@ html,body{
         renderSummary();
         closePicker();
       };
+      ul.appendChild(row);
+    });
+    pop.appendChild(ul);
+
+    document.body.appendChild(pop);
+    openPickerEl = pop;
+    setTimeout(()=> document.addEventListener('mousedown', onDocClick, true), 0);
+  }
+
+  // Moves a task between "unscheduled" (fromDayKey===null) and a specific
+  // day's task list (always into the 'general' section — reassigning section
+  // is still done by dragging within the day, same as today). Used by the day
+  // chip in the summary/pool rows, which are outside the board's own dropzone
+  // tree and so can't rely on drag-and-drop to move a task into a day.
+  function moveTaskToDay(item, fromDayKey, fromSectionKey, toDayKey){
+    if(fromDayKey===null){
+      const idx = (appState.unscheduled||[]).findIndex(x=>x.id===item.id);
+      if(idx>-1) appState.unscheduled.splice(idx,1);
+    } else {
+      const arr = weekData[fromDayKey][fromSectionKey];
+      const idx = arr.findIndex(x=>x.id===item.id);
+      if(idx>-1) arr.splice(idx,1);
+    }
+    if(toDayKey===null){
+      if(!appState.unscheduled) appState.unscheduled = [];
+      appState.unscheduled.push(item);
+    } else {
+      weekData[toDayKey].general.push(item);
+    }
+    persistState();
+  }
+
+  function openDayPicker(anchorEl, currentDayKey, onPick){
+    closePicker();
+    const pop = document.createElement('div');
+    pop.className = 'picker';
+    const rect = anchorEl.getBoundingClientRect();
+    positionPopover(pop, rect);
+    pop.style.width = '150px';
+
+    const title = document.createElement('div');
+    title.className = 'picker-title';
+    title.textContent = 'שיוך ליום';
+    pop.appendChild(title);
+
+    const ul = document.createElement('div'); ul.className='picker-list';
+    const noneRow = document.createElement('div');
+    noneRow.className = 'picker-item picker-clear' + (currentDayKey===null ? ' selected':'');
+    noneRow.textContent = 'ללא (לא משובץ)';
+    noneRow.onclick = ()=>{ onPick(null); closePicker(); };
+    ul.appendChild(noneRow);
+
+    DAY_DEFS.forEach(d=>{
+      const row = document.createElement('div');
+      row.className = 'picker-item' + (currentDayKey===d.key ? ' selected':'');
+      row.textContent = d.name;
+      row.onclick = ()=>{ onPick(d.key); closePicker(); };
       ul.appendChild(row);
     });
     pop.appendChild(ul);
@@ -2594,6 +2700,38 @@ html,body{
   }
 
   // ---------- rendering ----------
+  function renderDayBanner(dayDef, data){
+    const wrap = document.createElement('div');
+    wrap.className = 'day-banner-wrap';
+    const showBanner = () => {
+      wrap.innerHTML = '';
+      const bar = document.createElement('div');
+      bar.className = 'day-banner';
+      bar.setAttribute('data-ph', 'כותרת יום…');
+      bar.textContent = data.title;
+      makeEditable(bar, 'כותרת יום…', (val)=>{
+        data.title = val;
+        saveWeek(weekStart, weekData);
+        if(!val) showAddLine();
+      });
+      wrap.appendChild(bar);
+    };
+    const showAddLine = () => {
+      wrap.innerHTML = '';
+      const addLine = document.createElement('div');
+      addLine.className = 'add-line day-banner-add';
+      addLine.textContent = '+ הוספת כותרת ליום';
+      addLine.onclick = () => {
+        data.title = '';
+        showBanner();
+        wrap.querySelector('.day-banner').focus();
+      };
+      wrap.appendChild(addLine);
+    };
+    if(data.title) showBanner(); else showAddLine();
+    return wrap;
+  }
+
   function renderDay(dayDef, index){
     const today = new Date();
     // every day is now exactly one date — Friday and Saturday no longer share
@@ -2609,6 +2747,8 @@ html,body{
     head.className = 'day-head';
     head.innerHTML = '<span class="day-name">'+dayDef.name+'</span><span class="day-date">'+fmtDate(date)+'</span>';
     card.appendChild(head);
+
+    card.appendChild(renderDayBanner(dayDef, data));
 
     // events zone
     const evZone = document.createElement('div');
@@ -2731,6 +2871,7 @@ html,body{
   const ICON_TAG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41 13 21l-9-9V4h8z"/><circle cx="8.5" cy="8.5" r="1.3" fill="currentColor" stroke="none"/></svg>';
   const ICON_PERSON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
   const ICON_CLEAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/></svg>';
+  const ICON_CALENDAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>';
 
   function makeMetaChip(icon, filled){
     const chip = document.createElement('span');
@@ -3000,6 +3141,17 @@ html,body{
     num.textContent = String(date.getDate());
     cell.appendChild(num);
 
+    // a day title means "the whole day is X" — exactly the kind of thing a
+    // month overview should surface, so it sits pinned above the items
+    const dayTitle = (dayData && dayData.title) || '';
+    if(dayTitle){
+      const banner = document.createElement('div');
+      banner.className = 'mv-title';
+      banner.textContent = dayTitle;
+      banner.title = dayTitle;
+      cell.appendChild(banner);
+    }
+
     // order is as stored — events carry no time field (their text is free-form
     // "שעה + תיאור"), so there is nothing reliable to sort chronologically by
     const entries = monthCellEntries(dayData);
@@ -3021,9 +3173,10 @@ html,body{
     const taskCount = entries.length - evCount;
     cell.setAttribute('aria-label',
       dayDef.name + ', ' + date.getDate() + ' ב' + HEB_MONTHS[date.getMonth()] +
+      (dayTitle ? ', ' + dayTitle : '') +
       ', ' + evCount + ' אירועים, ' + taskCount + ' משימות');
 
-    if(!entries.length) cell.classList.add('mv-cell--empty');
+    if(!entries.length && !dayTitle) cell.classList.add('mv-cell--empty');
     cell.addEventListener('click', ()=> openDayPeek(ws, dayDef, date));
     cell.__count = entries.length;
     return cell;
@@ -3185,6 +3338,10 @@ html,body{
 
     const body = document.createElement('div');
     body.className = 'peek-body';
+
+    // the day-title banner, reused verbatim — it writes via saveWeek(weekStart,
+    // weekData), which setWeekContext above has already aimed at this week
+    body.appendChild(renderDayBanner(dayDef, data));
 
     const evWrap = document.createElement('div');
     evWrap.className = 'peek-section';
