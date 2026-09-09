@@ -117,7 +117,6 @@ html,body{
 .board::-webkit-scrollbar-track{ background:transparent; }
 
 .day{ scroll-snap-align:start; flex:0 0 auto; width:300px; background:var(--surface); border:1px solid var(--border); border-radius:16px; box-shadow:var(--shadow); display:flex; flex-direction:column; overflow:hidden; }
-.day.day-wide{ width:330px; }
 .day.is-today{ box-shadow:var(--shadow), 0 0 0 2px var(--today-ring); }
 .day.dim{ opacity:.35; filter:saturate(.6); }
 
@@ -502,6 +501,86 @@ html,body{
 }
 .sync-status{ font-size:11px; color:var(--muted); text-align:center; margin-top:2px; }
 
+/* ---------- view toggle (week / month) ---------- */
+.view-toggle{ display:inline-flex; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-pill); padding:2px; gap:2px; }
+.view-toggle-btn{
+  appearance:none; border:0; background:transparent; cursor:pointer;
+  font:inherit; font-size:13px; font-weight:500; color:var(--muted);
+  padding:6px 14px; border-radius:var(--radius-pill); min-height:32px;
+  transition:background .15s ease, color .15s ease;
+}
+.view-toggle-btn.is-active{ background:var(--surface); color:var(--ink); box-shadow:var(--shadow); }
+.view-toggle-btn:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+
+/* ---------- month view ---------- */
+/* the board switches from a horizontal flex strip to a grid; RTL comes from
+   .planner-root, so grid column 1 resolves to the RIGHT edge on its own */
+.board.month-mode{ display:block; overflow-x:hidden; overflow-y:visible; scroll-snap-type:none; }
+.mv-grid{ display:flex; flex-direction:column; gap:6px; }
+.mv-row{ display:grid; grid-template-columns:repeat(7, minmax(0,1fr)); gap:6px; }
+.mv-head-cell{
+  text-align:center; font-size:12px; font-weight:600; color:var(--muted);
+  padding:4px 2px; letter-spacing:.02em;
+}
+.mv-cell{
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg);
+  min-height:104px; padding:6px 6px 8px; display:flex; flex-direction:column; gap:4px;
+  cursor:pointer; overflow:hidden; transition:border-color .15s ease, background .15s ease;
+}
+.mv-cell:hover{ border-color:var(--border-strong); }
+.mv-cell:focus-visible{ outline:2px solid var(--accent); outline-offset:1px; }
+/* empty cells sit back rather than reading as 35 identical blank cards.
+   Class set in JS rather than :has() — no dependency on selector support. */
+.mv-cell--empty{ background:var(--surface-2); }
+.mv-cell--outside{ opacity:.55; }
+.mv-cell--today{ border-color:var(--today-ring); box-shadow:inset 0 0 0 1px var(--today-ring); }
+/* date numeral sits at the cell's inline-start — the RIGHT edge in RTL.
+   Logical property on purpose: never left/right here. */
+.mv-date{ font-size:12px; font-weight:600; color:var(--muted); text-align:start; padding-inline-start:2px; }
+.mv-cell--today .mv-date{ color:var(--today-ring); }
+.mv-items{ display:flex; flex-direction:column; gap:3px; min-width:0; }
+.mv-chip{
+  display:block; font-size:11.5px; line-height:1.35; padding:2px 5px;
+  border-radius:var(--radius-sm); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  min-width:0; transition:opacity .15s ease;
+}
+.mv-chip--event{ background:var(--accent-soft); color:var(--accent-soft-ink); }
+.mv-chip--task{ border:1px solid var(--border-strong); color:var(--ink); }
+.mv-chip.done{ color:var(--done); text-decoration:line-through; }
+.mv-more{ font-size:11px; color:var(--muted); padding-inline-start:5px; }
+.mv-empty{ text-align:center; color:var(--muted); font-size:14px; padding:28px 12px 8px; }
+
+/* ---------- day peek ---------- */
+.peek-overlay{ position:fixed; inset:0; background:rgba(30,20,55,.28); z-index:60; }
+.peek-panel{
+  background:var(--surface); border:1px solid var(--border); border-radius:16px;
+  box-shadow:var(--shadow); display:flex; flex-direction:column; overflow:hidden;
+}
+/* desktop: anchored popover, placed by positionPopover() */
+.peek-panel--anchored{ position:fixed; width:320px; max-height:min(70vh, 460px); }
+.peek-head{
+  display:flex; align-items:center; gap:8px; padding:10px 12px;
+  border-bottom:1px solid var(--border); background:var(--surface-2);
+}
+.peek-title{ font-weight:600; font-size:14px; color:var(--ink); }
+.peek-date{ font-size:12.5px; color:var(--muted); }
+.peek-close{
+  margin-inline-start:auto; appearance:none; border:0; background:transparent; cursor:pointer;
+  font-size:20px; line-height:1; color:var(--muted); width:32px; height:32px; border-radius:var(--radius-sm);
+}
+.peek-close:hover{ background:var(--surface); color:var(--ink); }
+.peek-body{ overflow-y:auto; padding:8px 10px 12px; }
+.peek-section + .peek-section{ margin-top:10px; padding-top:10px; border-top:1px solid var(--border); }
+.peek-section-label{ font-size:12px; font-weight:600; color:var(--muted); padding:2px 2px 4px; }
+
+@media (max-width:640px){
+  /* mobile: bottom sheet instead of a popover */
+  .peek-panel{
+    position:fixed; inset-inline:0; bottom:0; width:100%;
+    max-height:76vh; border-radius:16px 16px 0 0; border-bottom:0;
+  }
+}
+
 /* view-only mode: hide/disable every editing affordance */
 .planner-root.view-only .add-line,
 .planner-root.view-only .drag-handle,
@@ -513,7 +592,6 @@ html,body{
 
 @media (max-width:640px){
   .day{ width:84vw; }
-  .day.day-wide{ width:84vw; }
   .title{ font-size:22px; }
   .top{ padding:14px 14px 8px; }
   .board{ padding:16px 14px 8px; }
@@ -542,6 +620,25 @@ html,body{
 
   .filters-bar{ padding:9px 14px; }
   .highlight-btn{ min-height:42px; max-width:100%; }
+
+  /* Month view on a phone: 7 columns leaves ~50px per cell, so chips become
+     dots — same DOM, same render pass, only the density changes. This is the
+     Apple/Google Calendar mobile model, and it is why there's no separate
+     agenda-list surface: the day peek already is the agenda. */
+  .board.month-mode{ padding:12px 10px 8px; }
+  .mv-row{ gap:4px; }
+  .mv-cell{ min-height:56px; padding:4px 3px 5px; gap:3px; border-radius:var(--radius-md); }
+  .mv-date{ font-size:11px; text-align:center; padding-inline-start:0; }
+  .mv-items{ flex-direction:row; flex-wrap:wrap; justify-content:center; gap:3px; }
+  .mv-chip{
+    width:6px; height:6px; padding:0; border-radius:50%; overflow:visible;
+    background:var(--accent); border:0;
+  }
+  .mv-chip--task{ background:var(--border-strong); }
+  .mv-chip.done{ background:var(--done); text-decoration:none; }
+  .mv-chip-text{ display:none; }
+  .mv-more{ font-size:10px; padding:0; line-height:6px; }
+  .mv-head-cell{ font-size:11px; padding:2px 0; }
 }
 /* touch-target sizing keyed to input type, not viewport width — a tablet at
    900px is still a finger, not a mouse, and the 640px breakpoint above never
@@ -597,6 +694,10 @@ html,body{
       </div>
       <span class="role-badge" id="roleBadge">צפייה בלבד</span>
       <div class="week-nav">
+        <div class="view-toggle" role="group" aria-label="תצוגה">
+          <button class="view-toggle-btn is-active" id="viewWeekBtn" type="button" aria-pressed="true">שבוע</button>
+          <button class="view-toggle-btn" id="viewMonthBtn" type="button" aria-pressed="false">חודש</button>
+        </div>
         <button class="nav-btn" id="prevWeek" title="שבוע קודם" aria-label="שבוע קודם">›</button>
         <span class="week-range" id="weekRange"></span>
         <button class="nav-btn" id="nextWeek" title="שבוע הבא" aria-label="שבוע הבא">‹</button>
@@ -684,9 +785,13 @@ html,body{
 
 <script>
 (function(){
+  // Friday and Saturday used to share one merged 'weekend' bucket. The month
+  // view needs a real 7-column grid, which a merged bucket cannot express, so
+  // they are separate days now — see the migration in loadWeek().
   const DAY_DEFS = [
     {key:'sun', name:'יום א׳'}, {key:'mon', name:'יום ב׳'}, {key:'tue', name:'יום ג׳'},
-    {key:'wed', name:'יום ד׳'}, {key:'thu', name:'יום ה׳'}, {key:'weekend', name:'סופ״ש'}
+    {key:'wed', name:'יום ד׳'}, {key:'thu', name:'יום ה׳'}, {key:'fri', name:'יום ו׳'},
+    {key:'sat', name:'שבת'}
   ];
   const TASK_SECTIONS = [
     {key:'general', label:'משימות'},
@@ -704,6 +809,12 @@ html,body{
   function cacheKeyFor(boardId){ return CACHE_KEY_PREFIX + (boardId || LEGACY_BOARD_ID); }
   function backupCacheKeyFor(boardId){ return cacheKeyFor(boardId) + '__prev'; }
   function lastBoardKeyFor(email){ return 'planner_last_board_id__' + (email || ''); }
+  // View mode is a PER-USER preference, so it lives in localStorage rather than
+  // in appState.settings. settings.showBoard/showSummary/sectionOrder are
+  // deliberately board-wide, shared by everyone; putting the view there would
+  // mean one person switching to month view silently switched it for the whole
+  // staff on the next 20s poll.
+  function lastViewKeyFor(email, boardId){ return 'planner_last_view__' + (email || '') + '__' + (boardId || ''); }
 
   function pad(n){ return String(n).padStart(2,'0'); }
   function fmtDate(d){ return pad(d.getDate())+'.'+pad(d.getMonth()+1); }
@@ -746,6 +857,9 @@ html,body{
 
   function isUserEditing(){
     const ae = document.activeElement;
+    // an open day peek counts as editing: a poll-driven renderAll() would rip
+    // the panel out from under whoever is working in it
+    if(typeof isDayPeekOpen === 'function' && isDayPeekOpen()) return true;
     return !!(ae && (ae.isContentEditable || ae.tagName === 'INPUT'));
   }
 
@@ -766,15 +880,36 @@ html,body{
     saveTimer = setTimeout(pushState, 600);
   }
 
+  // The backend answers with HTTP 200 even when it refuses the write
+  // ({ok:false, error:...}), so a save can fail server-side while the network
+  // call itself succeeds.
+  const SAVE_ERROR_TEXT = {
+    state_too_large: 'הלוח גדול מדי לשמירה — פנו לתמיכה',
+    forbidden: 'אין לכם הרשאת עריכה ללוח הזה',
+    not_found: 'הלוח לא נמצא בשרת',
+    missing_board: 'הלוח לא זוהה'
+  };
+
   async function pushState(){
     if(!currentEmail || currentRole !== 'editor' || !currentBoardId) return;
     const payload = JSON.stringify(appState);
     try{
-      await fetch(API_URL, {
+      const res = await fetch(API_URL, {
         method:'POST',
         headers:{'Content-Type':'text/plain;charset=utf-8'},
         body: JSON.stringify({ action:'saveBoard', board: currentBoardId, email: currentEmail, data: appState })
       });
+      const json = await res.json().catch(()=>null);
+      // This used to report 'מסונכרן ✓' unconditionally, without ever reading
+      // the response — a server-side refusal looked exactly like a success, so
+      // data could stop being saved with nothing on screen to say so.
+      if(!json || !json.ok){
+        const err = json && json.error;
+        setSyncStatus('השמירה נכשלה — ' + (SAVE_ERROR_TEXT[err] || 'שגיאת שרת'));
+        // deliberately leave lastSyncedJson stale: that's what lets the next
+        // poll see the divergence instead of treating the failure as synced.
+        return;
+      }
       lastSyncedJson = payload;
       setSyncStatus('מסונכרן ✓');
     }catch(e){
@@ -882,10 +1017,28 @@ html,body{
     return LEGACY_BOARD_ID;
   }
 
-  function reflectBoardInUrl(boardId, replace){
+  // Mirrors resolveInitialBoardId's precedence: URL wins, then the per-board
+  // remembered choice, then the default.
+  function resolveInitialView(boardId){
+    const params = new URLSearchParams(location.search);
+    const fromUrl = params.get('view');
+    if(fromUrl === 'month' || fromUrl === 'week') return fromUrl;
+    try{
+      const stored = localStorage.getItem(lastViewKeyFor(currentEmail, boardId));
+      if(stored === 'month' || stored === 'week') return stored;
+    }catch(e){}
+    return 'week';
+  }
+
+  // Generalised from reflectBoardInUrl: one writer for both keys, rather than a
+  // second one that could clobber the other's param. Everything it doesn't own
+  // survives, since it edits the existing URL in place.
+  function reflectStateInUrl(boardId, view, replace){
     try{
       const url = new URL(location.href);
-      url.searchParams.set('board', boardId);
+      if(boardId) url.searchParams.set('board', boardId);
+      if(view === 'month') url.searchParams.set('view', 'month');
+      else url.searchParams.delete('view');
       if(replace) history.replaceState(null, '', url); else history.pushState(null, '', url);
     }catch(e){}
   }
@@ -1155,7 +1308,9 @@ html,body{
 
     currentBoardId = boardId;
     localStorage.setItem(lastBoardKeyFor(currentEmail), boardId);
-    reflectBoardInUrl(boardId, !!opts.replace);
+    // view is remembered per board, so re-resolve it for the one we're entering
+    setView(resolveInitialView(boardId), {silent:true});
+    reflectStateInUrl(boardId, currentView, !!opts.replace);
 
     const cachedRaw = localStorage.getItem(cacheKeyFor(boardId));
     appState = null;
@@ -1373,6 +1528,11 @@ html,body{
   // ---------- week data ----------
   let weekStart = startOfWeek(new Date());
   let activeFilter = {type:'all', value:null};
+  // 'week' | 'month'. weekStart keeps its exact meaning in both — the focused
+  // week — which is what the day peek relies on; monthAnchor is the 1st of the
+  // month currently on screen and is only meaningful in month view.
+  let currentView = 'week';
+  let monthAnchor = null;
 
   function weekKey(ws){ return STORAGE_PREFIX + isoKey(ws); }
   function emptyTask(){ return {id:uid(), text:'', done:false, personIds:[], topicId:null}; }
@@ -1423,20 +1583,28 @@ html,body{
     const key = weekKey(ws);
     let data = appState.weeks[key];
     if(!data) data = sampleWeekData();
-    // older versions kept שישי/שבת as separate days — fold them into the merged weekend column
-    if((data.fri || data.sat) && !data.weekend){
-      const merged = emptyDayData();
-      ['fri','sat'].forEach(oldKey=>{
-        const old = data[oldKey];
-        if(old){
-          migrateLegacy(old);
-          merged.events.push(...(old.events||[]));
-          TASK_SECTIONS.forEach(s=> merged[s.key].push(...(old[s.key]||[])));
-        }
-        delete data[oldKey];
-      });
-      data.weekend = merged;
+    // Drain the legacy merged weekend bucket into Friday. This runs on EVERY
+    // load, not just the first — same reasoning as migratePersonIds: a stale
+    // client tab (GitHub Pages caches 10 min, tabs outlive that by a lot) can
+    // still write into `weekend` after this board has been migrated, so this
+    // has to be permanent reconciliation rather than a one-shot migration.
+    //
+    // Which of the two days an item originally belonged to was never stored,
+    // so everything lands on Friday. That loss is not recoverable here.
+    const wk = data.weekend;
+    if(wk && (wk.events || wk.general || wk.team)){
+      migrateLegacy(wk);
+      if(!data.fri) data.fri = emptyDayData();
+      data.fri.events.push(...(wk.events||[]));
+      TASK_SECTIONS.forEach(s=> data.fri[s.key].push(...(wk[s.key]||[])));
     }
+    // Compatibility sentinel, not leftover cruft: an older client folds fri/sat
+    // back together only when `weekend` is absent, so leaving an empty *object*
+    // here stops it from re-merging (and re-saving) days it can no longer
+    // represent. It must be a day object, not [] — the old renderDay calls
+    // data.events.forEach and would crash on an array. Remove this once stale
+    // tabs are gone (~2 weeks after rollout).
+    data.weekend = emptyDayData();
     DAY_DEFS.forEach(d=>{ if(!data[d.key]) data[d.key]=emptyDayData(); migrateLegacy(data[d.key]); });
     if(Array.isArray(appState.unscheduled)) appState.unscheduled.forEach(migratePersonIds);
     appState.weeks[key] = data;
@@ -1464,8 +1632,7 @@ html,body{
         if(!day) return;
         const hasTopic = TASK_SECTIONS.some(sec => (day[sec.key]||[]).some(item => item.topicId === topicId));
         if(!hasTopic) return;
-        const offset = d.key === 'weekend' ? 6 : idx;
-        const dayDate = new Date(weekStart); dayDate.setDate(dayDate.getDate() + offset);
+        const dayDate = new Date(weekStart); dayDate.setDate(dayDate.getDate() + idx);
         if(!latest || dayDate > latest) latest = dayDate;
       });
     });
@@ -1581,6 +1748,16 @@ html,body{
       const match = item ? itemMatchesFilter(item) : true;
       row.style.opacity = match ? '1' : '.22';
     });
+    // Month chips are neither .task-row nor inside a .day, so the selector
+    // above skips them entirely — without this branch the highlight filter
+    // would silently do nothing in month view while still showing as active.
+    // The item reference is stashed on the element at build time, so there's
+    // no lookup across weeks to get wrong.
+    document.querySelectorAll('#board .mv-chip[data-id]').forEach(chip=>{
+      const item = chip.__item;
+      const match = item ? itemMatchesFilter(item) : true;
+      chip.style.opacity = match ? '1' : '.22';
+    });
   }
 
   // ---------- weekly digest: grouped by person / grouped by topic ----------
@@ -1597,13 +1774,30 @@ html,body{
     return (item.topicId||null)===id;
   }
 
+  // Which weeks the summary covers: just the focused one in week view, every
+  // week the displayed month touches in month view. A week-scoped digest under
+  // a month grid reads as a bug, so the scope follows the view.
+  function summaryScopes(){
+    if(currentView === 'month' && monthAnchor){
+      return monthWeekStarts(monthAnchor)
+        .map(ws => ({ws, data: peekWeek(ws)}))
+        .filter(scope => scope.data);
+    }
+    return [{ws: weekStart, data: weekData}];
+  }
+
   function collectItemsFor(kind, id){
     const out = [];
-    DAY_DEFS.forEach(d=>{
-      const day = weekData[d.key];
-      TASK_SECTIONS.forEach(sec=>{
-        (day[sec.key]||[]).forEach(item=>{
-          if(itemMatchesKind(item,kind,id)) out.push({item, dayKey:d.key, dayName:d.name, sectionKey:sec.key});
+    summaryScopes().forEach(scope=>{
+      DAY_DEFS.forEach((d, idx)=>{
+        const day = scope.data[d.key];
+        if(!day) return;
+        // carry the real date: "יום ג׳" alone is ambiguous across five weeks
+        const date = new Date(scope.ws); date.setDate(date.getDate()+idx);
+        TASK_SECTIONS.forEach(sec=>{
+          (day[sec.key]||[]).forEach(item=>{
+            if(itemMatchesKind(item,kind,id)) out.push({item, dayKey:d.key, dayName:d.name, sectionKey:sec.key, date});
+          });
         });
       });
     });
@@ -1614,7 +1808,7 @@ html,body{
   }
 
   function renderSummaryRow(entry, kind){
-    const {item, dayKey, dayName, sectionKey} = entry;
+    const {item, dayKey, dayName, sectionKey, date} = entry;
     const row = document.createElement('div');
     row.className = 'summary-row' + (item.done ? ' done':'');
     row.setAttribute('data-id', item.id);
@@ -1628,7 +1822,10 @@ html,body{
     cb.checked = !!item.done;
     cb.onchange = () => {
       item.done = cb.checked;
-      if(dayKey===null) persistState(); else saveWeek(weekStart, weekData);
+      // `item` is a live reference into appState, so persistState() is enough.
+      // saveWeek() would re-stamp the *focused* week, which in month view isn't
+      // necessarily the week this row actually came from.
+      persistState();
       syncItemVisual(item.id, item.done);
     };
     main.appendChild(cb);
@@ -1648,7 +1845,7 @@ html,body{
     if(dayKey!==null){
       const dayBadge = document.createElement('span');
       dayBadge.className = 'day-badge';
-      dayBadge.textContent = dayName;
+      dayBadge.textContent = (currentView === 'month' && date) ? (dayName + ' ' + fmtDate(date)) : dayName;
       meta.appendChild(dayBadge);
     }
     ['person','topic'].filter(k=>k!==kind).forEach(otherKind=>{
@@ -1920,7 +2117,8 @@ html,body{
     grid.innerHTML = '';
     grid.appendChild(renderPoolCard());
     const kind = summaryMode;
-    title.textContent = kind==='person' ? 'המשימות של כל אחד' : 'המשימות לפי מופע';
+    const scopeSuffix = (currentView === 'month' && monthAnchor) ? ' — ' + monthLabel(monthAnchor) : '';
+    title.textContent = (kind==='person' ? 'המשימות של כל אחד' : 'המשימות לפי מופע') + scopeSuffix;
     const list = listForKind(kind);
     const icon = iconForKind(kind);
     list.forEach(entry => grid.appendChild(renderSummaryGroup(kind, entry.id, entry.name, icon, false)));
@@ -1974,8 +2172,13 @@ html,body{
   }
 
   function updateWeekRange(){
+    const el = document.getElementById('weekRange');
+    if(currentView === 'month' && monthAnchor){
+      el.textContent = monthLabel(monthAnchor);
+      return;
+    }
     const end = new Date(weekStart); end.setDate(end.getDate()+6);
-    document.getElementById('weekRange').textContent = fmtDate(weekStart) + ' – ' + fmtDate(end);
+    el.textContent = fmtDate(weekStart) + ' – ' + fmtDate(end);
   }
 
   function makeEditable(el, placeholder, onCommit){
@@ -2393,25 +2596,18 @@ html,body{
   // ---------- rendering ----------
   function renderDay(dayDef, index){
     const today = new Date();
-    let dates;
-    if(dayDef.key === 'weekend'){
-      const fri = new Date(weekStart); fri.setDate(fri.getDate()+5);
-      const sat = new Date(weekStart); sat.setDate(sat.getDate()+6);
-      dates = [fri, sat];
-    } else {
-      const d = new Date(weekStart); d.setDate(d.getDate()+index);
-      dates = [d];
-    }
+    // every day is now exactly one date — Friday and Saturday no longer share
+    // a double-width merged card, so the old two-date special case is gone
+    const date = new Date(weekStart); date.setDate(date.getDate()+index);
     const data = weekData[dayDef.key];
 
     const card = document.createElement('div');
-    card.className = 'day' + (dayDef.key==='weekend' ? ' day-wide':'') + (dates.some(dt=>sameDay(dt,today)) ? ' is-today':'');
+    card.className = 'day' + (sameDay(date, today) ? ' is-today':'');
     card.setAttribute('data-day', dayDef.key);
 
     const head = document.createElement('div');
     head.className = 'day-head';
-    const dateLabel = dates.length>1 ? (fmtDate(dates[0])+' – '+fmtDate(dates[1])) : fmtDate(dates[0]);
-    head.innerHTML = '<span class="day-name">'+dayDef.name+'</span><span class="day-date">'+dateLabel+'</span>';
+    head.innerHTML = '<span class="day-name">'+dayDef.name+'</span><span class="day-date">'+fmtDate(date)+'</span>';
     card.appendChild(head);
 
     // events zone
@@ -2726,9 +2922,361 @@ html,body{
     document.querySelectorAll('#board .zone-events .events').forEach(el => eventZoneObserver.observe(el));
   }
 
+  /* ---------- month view ---------- */
+
+  const HEB_MONTHS = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+
+  function startOfMonth(d){ const x=new Date(d); x.setHours(0,0,0,0); x.setDate(1); return x; }
+  function monthLabel(d){ return HEB_MONTHS[d.getMonth()] + ' ' + d.getFullYear(); }
+
+  // Sundays of every week the displayed month touches (4–6 of them). Each one
+  // is exactly one existing weekKey, which is the whole trick: a month is a
+  // stack of weeks the data model already has, so there's no new data path.
+  function monthWeekStarts(anchor){
+    const first = startOfMonth(anchor);
+    const last = new Date(first.getFullYear(), first.getMonth()+1, 0);
+    const out = [];
+    const cur = startOfWeek(first);
+    while(cur <= last){ out.push(new Date(cur)); cur.setDate(cur.getDate()+7); }
+    return out;
+  }
+
+  // Read-only week access. Unlike loadWeek() this never inserts an empty week
+  // into appState — otherwise just browsing through months would permanently
+  // add dozens of empty week objects to the saved blob, which is exactly the
+  // unbounded growth the chunked-state work exists to contain.
+  function peekWeek(ws){
+    return appState.weeks[weekKey(ws)] ? loadWeek(ws) : null;
+  }
+
+  // Points the module-level week context at a given week WITHOUT rendering.
+  // This is what lets the day peek reuse renderEventRow/renderTaskRow verbatim:
+  // both close over weekStart/weekData, so aiming those at the right week is
+  // enough for every existing edit/delete/undo path to write to the right place.
+  function setWeekContext(ws){
+    weekStart = startOfWeek(ws);
+    weekData = loadWeek(weekStart);
+  }
+
+  function monthCellMax(){
+    return window.matchMedia('(max-width:640px)').matches ? 4 : 3;
+  }
+
+  function monthCellEntries(dayData){
+    const out = [];
+    ((dayData && dayData.events) || []).forEach(item => out.push({item, kind:'event'}));
+    TASK_SECTIONS.forEach(sec => {
+      ((dayData && dayData[sec.key]) || []).forEach(item => out.push({item, kind:'task', sectionKey:sec.key}));
+    });
+    return out;
+  }
+
+  function buildMonthChip(entry){
+    const chip = document.createElement('span');
+    chip.className = 'mv-chip mv-chip--' + entry.kind + (entry.item.done ? ' done':'');
+    // data-id makes syncItemVisual() update these for free when a task is
+    // ticked off inside the day peek — it already targets [data-id] globally.
+    chip.setAttribute('data-id', entry.item.id);
+    chip.__item = entry.item;
+    const text = document.createElement('span');
+    text.className = 'mv-chip-text';
+    text.textContent = entry.item.text || '(ללא טקסט)';
+    chip.appendChild(text);
+    return chip;
+  }
+
+  function buildMonthCell(dayDef, date, dayData, ws, anchorMonth, today){
+    const cell = document.createElement('div');
+    cell.className = 'mv-cell';
+    cell.setAttribute('role','gridcell');
+    cell.setAttribute('data-day', dayDef.key);
+    cell.setAttribute('data-week', isoKey(ws));
+    cell.tabIndex = -1;
+    if(date.getMonth() !== anchorMonth) cell.classList.add('mv-cell--outside');
+    if(sameDay(date, today)) cell.classList.add('mv-cell--today');
+
+    const num = document.createElement('div');
+    num.className = 'mv-date';
+    num.textContent = String(date.getDate());
+    cell.appendChild(num);
+
+    // order is as stored — events carry no time field (their text is free-form
+    // "שעה + תיאור"), so there is nothing reliable to sort chronologically by
+    const entries = monthCellEntries(dayData);
+    const list = document.createElement('div');
+    list.className = 'mv-items';
+    const max = monthCellMax();
+    entries.slice(0, max).forEach(e => list.appendChild(buildMonthChip(e)));
+    if(entries.length > max){
+      const more = document.createElement('span');
+      more.className = 'mv-more';
+      // "עוד N" rather than "+N": a leading '+' is bidi-neutral, so in an RTL
+      // cell it flips to the far side and reads as "N+"
+      more.textContent = 'עוד ' + (entries.length - max);
+      list.appendChild(more);
+    }
+    cell.appendChild(list);
+
+    const evCount = ((dayData && dayData.events) || []).length;
+    const taskCount = entries.length - evCount;
+    cell.setAttribute('aria-label',
+      dayDef.name + ', ' + date.getDate() + ' ב' + HEB_MONTHS[date.getMonth()] +
+      ', ' + evCount + ' אירועים, ' + taskCount + ' משימות');
+
+    if(!entries.length) cell.classList.add('mv-cell--empty');
+    cell.addEventListener('click', ()=> openDayPeek(ws, dayDef, date));
+    cell.__count = entries.length;
+    return cell;
+  }
+
+  function renderMonthGrid(){
+    const board = document.getElementById('board');
+    board.classList.add('month-mode');
+    const today = new Date();
+    const anchorMonth = monthAnchor.getMonth();
+
+    const grid = document.createElement('div');
+    grid.className = 'mv-grid';
+    grid.setAttribute('role','grid');
+    grid.setAttribute('aria-label','לוח חודשי, ' + monthLabel(monthAnchor));
+
+    // Days render in natural array order — .planner-root is dir:rtl and CSS
+    // Grid honours it, so column 1 lands on the RIGHT by itself. Do not
+    // reverse DAY_DEFS: that would double-flip back to left-to-right.
+    const headRow = document.createElement('div');
+    headRow.className = 'mv-row mv-row--head';
+    headRow.setAttribute('role','row');
+    DAY_DEFS.forEach(d=>{
+      const h = document.createElement('div');
+      h.className = 'mv-head-cell';
+      h.setAttribute('role','columnheader');
+      h.textContent = d.name.replace('יום ','');
+      headRow.appendChild(h);
+    });
+    grid.appendChild(headRow);
+
+    let total = 0;
+    monthWeekStarts(monthAnchor).forEach(ws=>{
+      const data = peekWeek(ws);
+      const row = document.createElement('div');
+      row.className = 'mv-row';
+      row.setAttribute('role','row');
+      DAY_DEFS.forEach((dayDef, idx)=>{
+        const date = new Date(ws); date.setDate(date.getDate()+idx);
+        const cell = buildMonthCell(dayDef, date, data ? data[dayDef.key] : null, ws, anchorMonth, today);
+        total += cell.__count;
+        row.appendChild(cell);
+      });
+      grid.appendChild(row);
+    });
+
+    board.appendChild(grid);
+    wireMonthKeyboard(grid);
+
+    if(total === 0){
+      const empty = document.createElement('div');
+      empty.className = 'mv-empty';
+      empty.textContent = 'אין אירועים או משימות בחודש זה';
+      board.appendChild(empty);
+    }
+    applyFilterVisuals();
+  }
+
+  // Roving tabindex over the grid: one cell in the tab order at a time, arrows
+  // move between them. The layout is RTL, so ArrowRight goes to the EARLIER day
+  // and ArrowLeft to the later one — wiring those the other way round is the
+  // standard RTL grid bug.
+  function wireMonthKeyboard(grid){
+    const cells = Array.from(grid.querySelectorAll('.mv-cell'));
+    if(!cells.length) return;
+    const cols = DAY_DEFS.length;
+    const todayIdx = cells.findIndex(c => c.classList.contains('mv-cell--today'));
+    const startIdx = todayIdx === -1 ? 0 : todayIdx;
+    cells.forEach((c,i)=> { c.tabIndex = (i === startIdx ? 0 : -1); });
+
+    // Resync on focusin rather than only when an arrow key moves us: focus can
+    // also arrive by click or programmatically, and without this the grid ends
+    // up with two cells in the tab order at once.
+    grid.addEventListener('focusin', (e)=>{
+      const el = e.target.closest ? e.target.closest('.mv-cell') : null;
+      if(!el || cells.indexOf(el) === -1) return;
+      cells.forEach(c => { c.tabIndex = (c === el ? 0 : -1); });
+    });
+
+    grid.addEventListener('keydown', (e)=>{
+      const cur = cells.indexOf(document.activeElement);
+      if(cur === -1) return;
+      if(e.key === 'Enter' || e.key === ' '){
+        e.preventDefault();
+        cells[cur].click();
+        return;
+      }
+      let next;
+      if(e.key === 'ArrowRight') next = cur - 1;
+      else if(e.key === 'ArrowLeft') next = cur + 1;
+      else if(e.key === 'ArrowUp') next = cur - cols;
+      else if(e.key === 'ArrowDown') next = cur + cols;
+      else if(e.key === 'Home') next = cur - (cur % cols);
+      else if(e.key === 'End') next = cur - (cur % cols) + (cols - 1);
+      else return;
+      if(next < 0 || next >= cells.length) return;
+      e.preventDefault();
+      // reset the whole row of tabindexes rather than just the pair we know
+      // about, so the "exactly one cell is tabbable" invariant holds even if
+      // focus previously arrived by a route that skipped the focusin handler
+      cells.forEach((c,i)=> { c.tabIndex = (i === next ? 0 : -1); });
+      cells[next].focus();
+    });
+  }
+
+  /* ---------- day peek: full editing without touching the drag system ---------- */
+
+  let dayPeekEl = null;
+  function isDayPeekOpen(){ return !!dayPeekEl; }
+
+  function onDayPeekKeydown(e){ if(e.key === 'Escape') closeDayPeek(); }
+
+  function focusMonthCell(weekIso, dayKey){
+    const el = document.querySelector('#board .mv-cell[data-week="'+weekIso+'"][data-day="'+dayKey+'"]');
+    if(el) el.focus();
+  }
+
+  function closeDayPeek(){
+    if(!dayPeekEl) return;
+    const back = dayPeekEl.__focusBack;
+    dayPeekEl.remove();
+    dayPeekEl = null;
+    document.removeEventListener('keydown', onDayPeekKeydown);
+    if(currentView === 'month'){
+      renderBoard();
+      renderSummary();
+      if(back) focusMonthCell(back.week, back.day);
+    }
+  }
+
+  function openDayPeek(ws, dayDef, date){
+    closeDayPeek();
+    // aim the week context at this cell's week first — everything below then
+    // reuses the existing row renderers unchanged
+    setWeekContext(ws);
+    const data = weekData[dayDef.key];
+
+    const overlay = document.createElement('div');
+    overlay.className = 'peek-overlay';
+    overlay.addEventListener('click', (e)=>{ if(e.target === overlay) closeDayPeek(); });
+
+    const panel = document.createElement('div');
+    panel.className = 'peek-panel';
+    panel.setAttribute('role','dialog');
+    panel.setAttribute('aria-modal','true');
+    panel.setAttribute('aria-label', dayDef.name + ' ' + fmtDate(date));
+
+    const head = document.createElement('div');
+    head.className = 'peek-head';
+    head.innerHTML = '<span class="peek-title">'+dayDef.name+'</span><span class="peek-date">'+fmtDate(date)+'</span>';
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'peek-close';
+    closeBtn.type = 'button';
+    closeBtn.textContent = '×';
+    closeBtn.setAttribute('aria-label','סגירה');
+    closeBtn.onclick = closeDayPeek;
+    head.appendChild(closeBtn);
+    panel.appendChild(head);
+
+    const body = document.createElement('div');
+    body.className = 'peek-body';
+
+    const evWrap = document.createElement('div');
+    evWrap.className = 'peek-section';
+    const evLabel = document.createElement('div');
+    evLabel.className = 'peek-section-label';
+    evLabel.textContent = 'אירועים';
+    evWrap.appendChild(evLabel);
+    const evList = document.createElement('div');
+    evList.className = 'events';
+    evList.setAttribute('data-dropzone','events');
+    evList.setAttribute('data-day', dayDef.key);
+    data.events.forEach(ev => evList.appendChild(renderEventRow(dayDef.key, ev)));
+    evWrap.appendChild(evList);
+    const addEv = document.createElement('div');
+    addEv.className = 'add-line';
+    addEv.textContent = '+ הוספת אירוע';
+    addEv.onclick = () => {
+      const item = {id:uid(), text:''};
+      data.events.push(item);
+      saveWeek(weekStart, weekData);
+      const row = renderEventRow(dayDef.key, item);
+      evList.appendChild(row);
+      row.querySelector('.event-text').focus();
+    };
+    evWrap.appendChild(addEv);
+    body.appendChild(evWrap);
+
+    // flat, deliberately not collapsible: makeCollapsible is for standing
+    // surfaces, and a transient panel that opens closed is a dead end
+    TASK_SECTIONS.forEach(sec => {
+      const wrap = document.createElement('div');
+      wrap.className = 'peek-section';
+      const label = document.createElement('div');
+      label.className = 'peek-section-label';
+      label.textContent = sec.label;
+      wrap.appendChild(label);
+      const list = document.createElement('div');
+      list.className = 'tasks';
+      list.setAttribute('data-dropzone','tasks');
+      list.setAttribute('data-day', dayDef.key);
+      list.setAttribute('data-section', sec.key);
+      (data[sec.key]||[]).forEach(item => list.appendChild(renderTaskRow(dayDef.key, sec.key, item)));
+      wrap.appendChild(list);
+      const add = document.createElement('div');
+      add.className = 'add-line';
+      add.textContent = '+ הוספת משימה';
+      add.onclick = () => {
+        const item = emptyTask();
+        data[sec.key].push(item);
+        saveWeek(weekStart, weekData);
+        renderSummary();
+        const row = renderTaskRow(dayDef.key, sec.key, item);
+        list.appendChild(row);
+        row.querySelector('.task-text').focus();
+      };
+      wrap.appendChild(add);
+      body.appendChild(wrap);
+    });
+
+    panel.appendChild(body);
+    overlay.appendChild(panel);
+    document.body.appendChild(overlay);
+
+    dayPeekEl = overlay;
+    overlay.__focusBack = { week: isoKey(ws), day: dayDef.key };
+
+    // desktop: anchored popover, reusing the shared placement helper that
+    // already clamps horizontally and flips above when there's no room below.
+    // mobile: CSS bottom sheet, no positioning needed.
+    if(!window.matchMedia('(max-width:640px)').matches){
+      const anchor = document.querySelector('#board .mv-cell[data-week="'+isoKey(ws)+'"][data-day="'+dayDef.key+'"]');
+      if(anchor){
+        panel.classList.add('peek-panel--anchored');
+        positionPopover(panel, anchor.getBoundingClientRect(), {width:320});
+      }
+    }
+    document.addEventListener('keydown', onDayPeekKeydown);
+    const firstField = panel.querySelector('.event-text, .task-text');
+    if(firstField) firstField.focus();
+  }
+
   function renderBoard(){
     const board = document.getElementById('board');
     board.innerHTML = '';
+    if(currentView === 'month'){
+      renderMonthGrid();
+      // the event-zone equalizer and its ResizeObserver are week-view only —
+      // both no-op safely here (no .zone-events to find), but skipping them
+      // keeps the intent obvious rather than relying on that
+      return;
+    }
+    board.classList.remove('month-mode');
     DAY_DEFS.forEach((d,i) => board.appendChild(renderDay(d,i)));
     applyFilterVisuals();
     equalizeEventZoneHeights();
@@ -2750,9 +3298,77 @@ html,body{
     if(el) el.scrollIntoView({inline:'center', block:'nearest'});
   }
 
-  document.getElementById('prevWeek').onclick = () => { const ns=new Date(weekStart); ns.setDate(ns.getDate()-7); goToWeek(ns,false); };
-  document.getElementById('nextWeek').onclick = () => { const ns=new Date(weekStart); ns.setDate(ns.getDate()+7); goToWeek(ns,false); };
-  document.getElementById('gotoToday').onclick = () => { goToWeek(startOfWeek(new Date()), true); };
+  // same buttons in both views, branching on currentView — no parallel controls
+  function stepMonth(delta){
+    monthAnchor = new Date(monthAnchor.getFullYear(), monthAnchor.getMonth()+delta, 1);
+    updateWeekRange();
+    renderBoard();
+    renderSummary();
+  }
+
+  document.getElementById('prevWeek').onclick = () => {
+    if(currentView === 'month'){ stepMonth(-1); return; }
+    const ns=new Date(weekStart); ns.setDate(ns.getDate()-7); goToWeek(ns,false);
+  };
+  document.getElementById('nextWeek').onclick = () => {
+    if(currentView === 'month'){ stepMonth(1); return; }
+    const ns=new Date(weekStart); ns.setDate(ns.getDate()+7); goToWeek(ns,false);
+  };
+  document.getElementById('gotoToday').onclick = () => {
+    const today = new Date();
+    if(currentView === 'month'){
+      // in month view "היום" means: show the month containing today, and point
+      // the focused week at today's week so switching back lands sensibly
+      monthAnchor = startOfMonth(today);
+      weekStart = startOfWeek(today);
+      updateWeekRange();
+      renderBoard();
+      renderSummary();
+      const cell = document.querySelector('#board .mv-cell--today');
+      if(cell) cell.scrollIntoView({block:'nearest'});
+      return;
+    }
+    goToWeek(startOfWeek(today), true);
+  };
+
+  /* ---------- week / month switching ---------- */
+
+  function setView(view, opts){
+    opts = opts || {};
+    if(view !== 'week' && view !== 'month') view = 'week';
+    currentView = view;
+    if(view === 'month'){
+      if(!monthAnchor) monthAnchor = startOfMonth(weekStart);
+    } else if(monthAnchor){
+      // leaving month view: keep the focused week if it's inside the month on
+      // screen, otherwise prefer today's week, otherwise the month's first week
+      const inMonth = weekStart.getFullYear() === monthAnchor.getFullYear() &&
+                      weekStart.getMonth() === monthAnchor.getMonth();
+      if(!inMonth){
+        const today = new Date();
+        const todayInMonth = today.getFullYear() === monthAnchor.getFullYear() &&
+                             today.getMonth() === monthAnchor.getMonth();
+        weekStart = startOfWeek(todayInMonth ? today : monthAnchor);
+      }
+      weekData = loadWeek(weekStart);
+    }
+    document.getElementById('viewWeekBtn').classList.toggle('is-active', view === 'week');
+    document.getElementById('viewMonthBtn').classList.toggle('is-active', view === 'month');
+    document.getElementById('viewWeekBtn').setAttribute('aria-pressed', String(view === 'week'));
+    document.getElementById('viewMonthBtn').setAttribute('aria-pressed', String(view === 'month'));
+    if(currentEmail && currentBoardId){
+      try{ localStorage.setItem(lastViewKeyFor(currentEmail, currentBoardId), view); }catch(e){}
+    }
+    if(!opts.silent){
+      reflectStateInUrl(currentBoardId, view, true);
+      updateWeekRange();
+      renderBoard();
+      renderSummary();
+    }
+  }
+
+  document.getElementById('viewWeekBtn').onclick = () => { if(currentView !== 'week') setView('week'); };
+  document.getElementById('viewMonthBtn').onclick = () => { if(currentView !== 'month') setView('month'); };
 
   document.getElementById('drawerExportBtn').onclick = async () => {
     const json = JSON.stringify(appState, null, 2);
@@ -2822,7 +3438,7 @@ html,body{
 
   async function initialLoad(){
     currentBoardId = resolveInitialBoardId();
-    reflectBoardInUrl(currentBoardId, true);
+    reflectStateInUrl(currentBoardId, resolveInitialView(currentBoardId), true);
 
     const cachedRaw = localStorage.getItem(cacheKeyFor(currentBoardId));
     appState = null;
@@ -2834,8 +3450,9 @@ html,body{
     ensureSettings(appState);
     weekStart = startOfWeek(new Date());
     weekData = loadWeek(weekStart);
+    setView(resolveInitialView(currentBoardId), {silent:true});
     renderAll();
-    scrollTodayIntoView();
+    if(currentView === 'week') scrollTodayIntoView();
 
     setSyncStatus('מתחבר…');
     await refreshFromServer(true);
