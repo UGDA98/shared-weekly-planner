@@ -867,6 +867,13 @@ html,body{
   let lastSyncedJson = '';  // last state string confirmed round-tripped with the server
   let saveTimer = null;
   let pollTimer = null;
+  // true from the moment a local edit is queued (scheduleSave) until pushState()
+  // confirms it saved — refreshFromServer must not overwrite appState while this
+  // is true, or a poll landing mid-debounce/mid-request would silently discard
+  // an edit the user just made (isUserEditing() alone misses this: actions like
+  // a checkbox toggle or a drag lose DOM focus immediately, before the 600ms
+  // debounce or the save request itself has finished).
+  let hasPendingLocalChange = false;
 
   function defaultBoardSettings(){
     return { showBoard:true, showSummary:true, sectionOrder:[{id:'board'}, {id:'summary'}] };
@@ -910,6 +917,7 @@ html,body{
 
   function scheduleSave(){
     if(currentRole !== 'editor') return;
+    hasPendingLocalChange = true;
     clearTimeout(saveTimer);
     setSyncStatus('שומר…');
     saveTimer = setTimeout(pushState, 600);
@@ -922,7 +930,8 @@ html,body{
     state_too_large: 'הלוח גדול מדי לשמירה — פנו לתמיכה',
     forbidden: 'אין לכם הרשאת עריכה ללוח הזה',
     not_found: 'הלוח לא נמצא בשרת',
-    missing_board: 'הלוח לא זוהה'
+    missing_board: 'הלוח לא זוהה',
+    locked: 'השרת עמוס כרגע — ננסה שוב בקרוב'
   };
 
   async function pushState(){
@@ -943,12 +952,16 @@ html,body{
         setSyncStatus('השמירה נכשלה — ' + (SAVE_ERROR_TEXT[err] || 'שגיאת שרת'));
         // deliberately leave lastSyncedJson stale: that's what lets the next
         // poll see the divergence instead of treating the failure as synced.
+        // hasPendingLocalChange also stays true: nothing was actually saved,
+        // so refreshFromServer must still not overwrite it.
         return;
       }
       lastSyncedJson = payload;
+      hasPendingLocalChange = false;
       setSyncStatus('מסונכרן ✓');
     }catch(e){
       setSyncStatus('אין חיבור — יישמר מקומית');
+      // hasPendingLocalChange stays true: the request never completed.
     }
   }
 
@@ -988,7 +1001,7 @@ html,body{
       if(serverData){
         const serverJson = JSON.stringify(serverData);
         if(serverJson !== lastSyncedJson){
-          if(!isUserEditing()){
+          if(!isUserEditing() && !hasPendingLocalChange){
             appState = serverData;
             people = appState.people || defaultAppState().people;
             topics = appState.topics || [];
