@@ -176,6 +176,18 @@ html,body{
 .row-del{ display:flex; opacity:0; width:20px; height:20px; border:none; background:none; color:var(--muted); cursor:pointer; font-size:14px; line-height:1; flex-shrink:0; align-items:center; justify-content:center; border-radius:var(--radius-sm); transition:opacity .12s ease; }
 .event-row:hover .row-del, .task-row:hover .row-del, .summary-row:hover .row-del{ opacity:1; }
 .row-del:hover{ color:#c0392b; background:rgba(192,57,43,.08); }
+
+/* "already happened today" toggle on a event row — deliberately NOT a
+   checkbox and NOT a strikethrough (that's the task-done language). Hidden
+   like .row-del until hover, unless active, in which case it stays visible
+   so the state reads without needing to hover. */
+.event-passed-toggle{ display:flex; opacity:0; width:20px; height:20px; border:none; background:none; color:var(--muted); cursor:pointer; flex-shrink:0; align-items:center; justify-content:center; border-radius:var(--radius-sm); transition:opacity .12s ease, background-color .12s ease, color .12s ease; }
+.event-passed-toggle svg{ width:14px; height:14px; }
+.event-row:hover .event-passed-toggle{ opacity:1; }
+.event-passed-toggle:hover{ color:var(--accent); background:var(--accent-soft); }
+.event-row.passed .event-passed-toggle{ opacity:1; background:var(--accent-soft); color:var(--accent-soft-ink); }
+.event-row.passed{ background:var(--surface-2); }
+.event-row.passed .event-text{ color:var(--muted); }
 .add-line{ font-size:12px; color:var(--muted); cursor:pointer; padding:5px 6px; border-radius:var(--radius-sm); display:inline-flex; align-items:center; gap:4px; width:fit-content; margin-top:2px; }
 .add-line:hover{ background:rgba(0,0,0,.04); color:var(--accent); }
 
@@ -593,7 +605,8 @@ html,body{
 /* view-only mode: hide/disable every editing affordance */
 .planner-root.view-only .add-line,
 .planner-root.view-only .drag-handle,
-.planner-root.view-only .row-del{ display:none !important; }
+.planner-root.view-only .row-del,
+.planner-root.view-only .event-passed-toggle{ display:none !important; }
 .planner-root.view-only .mini-chip{ pointer-events:none; cursor:default; }
 .planner-root.view-only input[type="checkbox"]{ pointer-events:none; }
 .planner-root.view-only .task-text,
@@ -620,6 +633,9 @@ html,body{
   .task-text, .event-text{ font-size:14.5px; padding:5px 4px; }
   .event-row{ padding:6px 5px; gap:7px; }
   .row-del{ width:32px; height:32px; font-size:17px; }
+  .event-passed-toggle{ opacity:.4; width:32px; height:32px; }
+  .event-passed-toggle:active{ opacity:1; }
+  .event-row.passed .event-passed-toggle{ opacity:1; }
   .drag-handle{ width:26px; height:28px; font-size:15px; }
   .mini-chip{ min-height:30px; padding:6px 12px 6px 10px; font-size:12.5px; }
   .add-line{ padding:9px 8px; font-size:13px; }
@@ -660,6 +676,9 @@ html,body{
   .drag-handle{ display:flex; opacity:.45; width:26px; height:28px; font-size:15px; }
   .row-del{ display:flex; opacity:.4; width:32px; height:32px; font-size:17px; }
   .row-del:active{ opacity:1; }
+  .event-passed-toggle{ display:flex; opacity:.4; width:32px; height:32px; }
+  .event-passed-toggle:active{ opacity:1; }
+  .event-row.passed .event-passed-toggle{ opacity:1; }
   .task-row input[type="checkbox"],
   .summary-row-main input[type="checkbox"]{ width:24px; height:24px; }
   .mini-chip{ min-height:30px; padding:6px 12px 6px 10px; font-size:12.5px; }
@@ -2827,11 +2846,23 @@ html,body{
 
   function renderEventRow(dayKey, item){
     const row = document.createElement('div');
-    row.className = 'event-row';
+    row.className = 'event-row' + (item.passed ? ' passed' : '');
     row.setAttribute('data-id', item.id);
 
     const handle = dragHandleEl();
     row.appendChild(handle);
+
+    const passedToggle = document.createElement('button');
+    passedToggle.className = 'event-passed-toggle';
+    passedToggle.innerHTML = ICON_HISTORY;
+    passedToggle.title = item.passed ? 'ביטול סימון שהתקיים' : 'סימון שהאירוע כבר התקיים היום';
+    passedToggle.onclick = () => {
+      item.passed = !item.passed;
+      row.classList.toggle('passed', !!item.passed);
+      passedToggle.title = item.passed ? 'ביטול סימון שהתקיים' : 'סימון שהאירוע כבר התקיים היום';
+      saveWeek(weekStart, weekData);
+    };
+    row.appendChild(passedToggle);
 
     const text = document.createElement('div');
     text.className = 'event-text';
@@ -2872,6 +2903,7 @@ html,body{
   const ICON_PERSON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
   const ICON_CLEAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/></svg>';
   const ICON_CALENDAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>';
+  const ICON_HISTORY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>';
 
   function makeMetaChip(icon, filled){
     const chip = document.createElement('span');
