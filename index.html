@@ -353,7 +353,9 @@ html,body{
   flex:1; min-width:0; display:flex; align-items:center; justify-content:space-between; gap:8px;
   padding:6px 6px; border-radius:var(--radius-sm); cursor:pointer; font:inherit; color:inherit;
 }
-.drawer-board-item-name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; outline:none; border-radius:5px; padding:1px 3px; }
+.drawer-board-item-type{ flex-shrink:0; display:flex; color:var(--muted); }
+.drawer-board-item-type svg{ width:14px; height:14px; }
+.drawer-board-item-name{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; outline:none; border-radius:5px; padding:1px 3px; }
 .drawer-board-item-name[contenteditable="true"]{ background:var(--surface); box-shadow:0 0 0 1.5px var(--accent); white-space:normal; }
 .drawer-board-item-role{ font-size:11px; color:var(--muted); flex-shrink:0; }
 .drawer-board-item.active .drawer-board-item-role{ color:var(--accent-soft-ink); opacity:.75; }
@@ -470,6 +472,19 @@ html,body{
 .modal-input:focus{ border-color:var(--accent); box-shadow:0 0 0 2px var(--accent-soft); }
 .modal-error{ color:#c0392b; font-size:12px; margin-top:8px; min-height:14px; }
 .modal-actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:16px; }
+.modal-type-choice{ display:flex; flex-direction:column; gap:8px; margin-bottom:16px; }
+.modal-type-card{
+  display:flex; align-items:center; gap:10px; text-align:start; width:100%;
+  border:1.5px solid var(--border-strong); border-radius:var(--radius-lg); background:var(--surface);
+  padding:10px 12px; cursor:pointer; color:var(--ink); min-height:44px;
+}
+.modal-type-card svg{ flex-shrink:0; width:20px; height:20px; color:var(--muted); }
+.modal-type-card-title{ display:block; font-size:13.5px; font-weight:700; }
+.modal-type-card-sub{ display:block; font-size:11.5px; color:var(--muted); line-height:1.4; margin-top:1px; }
+.modal-type-card:hover{ border-color:var(--accent); }
+.modal-type-card.is-selected{ border-color:var(--accent); background:var(--accent-soft); }
+.modal-type-card.is-selected svg{ color:var(--accent); }
+.modal-type-card.is-selected .modal-type-card-sub{ color:var(--accent-soft-ink); }
 .modal-btn{ min-height:42px; padding:0 18px; border-radius:var(--radius-lg); font-size:13.5px; font-weight:600; cursor:pointer; border:none; }
 .modal-btn-secondary{ background:var(--surface-2); color:var(--ink); }
 .modal-btn-secondary:hover{ background:var(--border); }
@@ -691,6 +706,110 @@ html,body{
 .planner-root.view-only .event-text,
 .planner-root.view-only .day-banner{ pointer-events:none; }
 
+/* ---------- notes boards: gallery + outline editor ---------- */
+.notes-gallery-head{ display:flex; align-items:center; justify-content:space-between; padding:18px 20px 10px; }
+.notes-gallery-title{ font-size:16px; font-weight:700; margin:0; }
+.notes-new-page-btn{
+  display:flex; align-items:center; gap:6px; border:none; background:var(--accent); color:var(--accent-ink);
+  border-radius:var(--radius-lg); padding:9px 14px; font-size:13px; font-weight:600; cursor:pointer; min-height:40px;
+}
+.notes-new-page-btn:hover{ opacity:.92; }
+.notes-gallery{
+  display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:14px;
+  padding:0 20px 24px;
+}
+@media (max-width:480px){ .notes-gallery{ grid-template-columns:1fr; } }
+.notes-card{
+  position:relative; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg);
+  box-shadow:var(--shadow); padding:14px 14px 12px; cursor:pointer; display:flex; flex-direction:column; gap:8px;
+  min-height:150px;
+}
+.notes-card:hover{ border-color:var(--border-strong); }
+.notes-card-title{ font-size:14.5px; font-weight:700; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding-inline-end:24px; }
+.notes-card-title.is-empty{ color:var(--muted); font-weight:600; }
+.notes-card-preview{ flex:1; display:flex; flex-direction:column; gap:3px; overflow:hidden; pointer-events:none; }
+.notes-card-preview-row{ display:flex; align-items:flex-start; gap:5px; font-size:12px; color:var(--muted); line-height:1.4; overflow:hidden; }
+.notes-card-preview-row .cpr-mark{ flex-shrink:0; width:12px; text-align:center; color:var(--muted); opacity:.7; }
+.notes-card-preview-row .cpr-text{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.notes-card-preview-row.is-h1 .cpr-text{ font-weight:700; color:var(--ink); }
+.notes-card-preview-row.is-h2 .cpr-text{ font-weight:600; color:var(--ink); }
+.notes-card-footer{ font-size:11px; color:var(--muted); }
+.notes-card-menu{
+  position:absolute; top:10px; inset-inline-end:10px; border:none; background:none; color:var(--muted);
+  font-size:16px; line-height:1; padding:4px 7px; border-radius:var(--radius-sm); cursor:pointer;
+}
+.notes-card-menu:hover{ background:var(--surface-2); color:var(--ink); }
+.notes-gallery-empty{
+  grid-column:1/-1; text-align:center; color:var(--muted); font-size:13px; padding:40px 20px;
+  border:1.5px dashed var(--border-strong); border-radius:var(--radius-lg); cursor:pointer;
+}
+.notes-gallery-empty:hover{ border-color:var(--accent); color:var(--accent); }
+
+.notes-page-view{ padding:14px 20px 90px; max-width:760px; margin:0 auto; }
+.notes-page-toolbar{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+.notes-back-btn{
+  display:flex; align-items:center; gap:4px; border:none; background:none; color:var(--muted);
+  font-size:13px; font-weight:600; cursor:pointer; padding:6px 4px; border-radius:var(--radius-sm);
+}
+.notes-back-btn svg{ transform:scaleX(-1); } /* rtl: chevron points to the "back" (right) side */
+.notes-back-btn:hover{ color:var(--ink); }
+.notes-page-menu-btn{ border:none; background:none; color:var(--muted); padding:6px 8px; border-radius:var(--radius-sm); cursor:pointer; }
+.notes-page-menu-btn:hover{ background:var(--surface-2); color:var(--ink); }
+.notes-page-title{
+  font-size:26px; font-weight:800; color:var(--ink); outline:none; margin:8px 0 18px; line-height:1.3;
+  min-height:34px;
+}
+.notes-page-title:empty::before{ content:attr(data-ph); color:var(--muted); font-weight:700; }
+.notes-status{ font-size:11.5px; color:var(--muted); margin-top:18px; }
+
+.notes-outline{ display:flex; flex-direction:column; }
+.ob-row{ display:flex; flex-direction:column; }
+.ob-row-main{ display:flex; align-items:flex-start; gap:6px; min-height:30px; padding:2px 0; }
+.ob-toggle{
+  flex-shrink:0; width:22px; height:26px; display:flex; align-items:center; justify-content:center;
+  border:none; background:none; color:var(--muted); cursor:pointer; padding:0; margin-top:1px;
+  transition:transform .15s ease;
+}
+.ob-row.is-collapsed > .ob-row-main > .ob-toggle{ transform:rotate(-90deg); }
+[dir="rtl"] .ob-row.is-collapsed > .ob-row-main > .ob-toggle{ transform:rotate(90deg); }
+.ob-bullet{
+  flex-shrink:0; width:22px; height:26px; display:flex; align-items:center; justify-content:center; color:var(--muted);
+}
+.ob-bullet::before{ content:""; width:5px; height:5px; border-radius:50%; background:var(--muted); display:block; }
+.ob-text{
+  flex:1; min-width:0; outline:none; font-size:14.5px; line-height:1.6; color:var(--ink); padding:2px 2px;
+  word-break:break-word; white-space:pre-wrap;
+}
+.ob-text:empty::before{ content:"כתבו משהו…"; color:var(--muted); opacity:.7; }
+.ob-text.ob-h1{ font-size:21px; font-weight:800; }
+.ob-text.ob-h2{ font-size:17px; font-weight:700; }
+.ob-row-del{
+  flex-shrink:0; border:none; background:none; color:var(--muted); padding:4px 6px; border-radius:var(--radius-sm);
+  cursor:pointer; opacity:0; align-self:flex-start; margin-top:1px;
+}
+.ob-row-main:hover .ob-row-del{ opacity:.6; }
+.ob-row-del:hover{ opacity:1 !important; color:#c0392b; }
+.ob-children{ padding-inline-start:24px; }
+.ob-row.is-collapsed > .ob-children{ display:none; }
+.planner-root.view-only .ob-row-del,
+.planner-root.view-only .ob-toolbar{ display:none !important; }
+.planner-root.view-only .ob-text{ pointer-events:none; }
+
+.ob-toolbar{
+  position:fixed; bottom:0; inset-inline:0; z-index:150; display:none;
+  background:var(--surface); border-top:1px solid var(--border); box-shadow:0 -2px 10px rgba(40,25,70,.08);
+  padding:6px calc(10px + env(safe-area-inset-left, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) calc(10px + env(safe-area-inset-right, 0px));
+  gap:2px; align-items:center; overflow-x:auto;
+}
+.ob-toolbar.is-visible{ display:flex; }
+.ob-toolbar button{
+  flex-shrink:0; min-width:38px; min-height:38px; border:none; background:none; color:var(--ink);
+  border-radius:var(--radius-md); font-size:15px; cursor:pointer; display:flex; align-items:center; justify-content:center;
+}
+.ob-toolbar button:active{ background:var(--surface-2); }
+.ob-toolbar .obt-sep{ width:1px; height:22px; background:var(--border); flex-shrink:0; margin:0 3px; }
+@media (pointer:fine){ .ob-toolbar{ display:none !important; } } /* mouse+keyboard has Tab/shortcuts; only show for touch */
+
 @media (max-width:640px){
   .day{ width:84vw; }
   .title{ font-size:22px; }
@@ -844,6 +963,48 @@ html,body{
     <div class="summary-grid" id="summaryGrid"></div>
   </div>
 
+  <div id="notesSection" style="display:none;">
+    <div class="notes-gallery-head" id="notesGalleryHead">
+      <h2 class="notes-gallery-title" id="notesGalleryTitle">דפים</h2>
+      <button class="notes-new-page-btn" id="notesNewPageBtn" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        דף חדש
+      </button>
+    </div>
+    <div class="notes-gallery" id="notesGallery"></div>
+
+    <div class="notes-page-view" id="notesPageView" style="display:none;">
+      <div class="notes-page-toolbar">
+        <button class="notes-back-btn" id="notesBackBtn" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          כל הדפים
+        </button>
+        <button class="notes-page-menu-btn" id="notesPageMenuBtn" type="button" aria-label="אפשרויות דף" title="אפשרויות דף">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+        </button>
+      </div>
+      <div class="notes-page-title" id="notesPageTitle" data-ph="ללא כותרת"></div>
+      <div class="notes-outline" id="notesOutline"></div>
+      <div class="notes-status" id="notesStatus"></div>
+    </div>
+  </div>
+
+  <div class="ob-toolbar" id="obToolbar">
+    <button type="button" data-action="outdent" title="הזחה החוצה" aria-label="הזחה החוצה"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 8 21 12 17 16"/><line x1="3" y1="12" x2="21" y2="12"/></svg></button>
+    <button type="button" data-action="indent" title="הזחה פנימה" aria-label="הזחה פנימה"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 8 3 12 7 16"/><line x1="21" y1="12" x2="3" y2="12"/></svg></button>
+    <span class="obt-sep"></span>
+    <button type="button" data-action="up" title="הזזה למעלה" aria-label="הזזה למעלה"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg></button>
+    <button type="button" data-action="down" title="הזזה למטה" aria-label="הזזה למטה"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
+    <span class="obt-sep"></span>
+    <button type="button" data-action="heading" title="כותרת" aria-label="כותרת"><b>H</b></button>
+    <button type="button" data-action="bold" title="מודגש" aria-label="מודגש"><b>B</b></button>
+    <button type="button" data-action="italic" title="נטוי" aria-label="נטוי"><i>I</i></button>
+    <button type="button" data-action="underline" title="קו תחתון" aria-label="קו תחתון"><u>U</u></button>
+    <span class="obt-sep"></span>
+    <button type="button" data-action="collapse" title="כיווץ/הרחבה" aria-label="כיווץ/הרחבה">⊟</button>
+    <button type="button" data-action="delete" title="מחיקה" aria-label="מחיקה">🗑</button>
+  </div>
+
 </div>
 
 <div class="drawer-overlay" id="drawerOverlay">
@@ -917,7 +1078,19 @@ html,body{
 <div class="modal-overlay" id="newBoardModal">
   <div class="modal-card">
     <h3>לוח חדש</h3>
-    <p class="modal-sub">תיצרו לוח משימות נפרד. תהיו העורך/ת הראשונ/ה שלו — תוכלו להוסיף אנשים נוספים אחר כך.</p>
+    <p class="modal-sub">תיצרו לוח נפרד. תהיו העורך/ת הראשונ/ה שלו — תוכלו להוסיף אנשים נוספים אחר כך.</p>
+    <div class="modal-type-choice" id="newBoardTypeChoice">
+      <button type="button" class="modal-type-card is-selected" data-type="planner">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <span class="modal-type-card-title">לוח שבועי</span>
+        <span class="modal-type-card-sub">משימות ואירועים לפי ימים, כמו הלוחות הקיימים</span>
+      </button>
+      <button type="button" class="modal-type-card" data-type="notes">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>
+        <span class="modal-type-card-title">דפי הערות</span>
+        <span class="modal-type-card-sub">גלריית דפים עם רשימות מקוננות, כמו ב-Notion</span>
+      </button>
+    </div>
     <label for="newBoardNameInput" class="modal-label">שם הלוח</label>
     <input type="text" id="newBoardNameInput" class="modal-input" placeholder="למשל: לוז שבועי — צוות הדרכה" />
     <div class="modal-error" id="newBoardError"></div>
@@ -978,8 +1151,10 @@ html,body{
   let currentSession = '';  // the token every API call authenticates with post-sign-in
   let currentRole = 'viewer';
   let currentBoardId = '';
-  let boardsList = [];      // [{id, name, role}] — boards the current email can access
-  let appState = null;      // { people, topics, weeks:{ weekKey: dayData } }
+  let currentBoardType = 'planner'; // 'planner' | 'notes' — see isValidStateFor/defaultStateFor
+  let currentNotesPageId = null; // which notes page (if any) is open — null means the gallery is showing
+  let boardsList = [];      // [{id, name, role, type}] — boards the current email can access
+  let appState = null;      // planner: { people, topics, weeks:{ weekKey: dayData } } — notes: { kind:'notes', pages:[...] }
   let lastSyncedJson = '';  // last state string confirmed round-tripped with the server
   let saveTimer = null;
   let pollTimer = null;
@@ -997,6 +1172,31 @@ html,body{
 
   function defaultAppState(){
     return { people:[{id:uid(), name:'דורון'}, {id:uid(), name:'יובל'}], topics:[], weeks:{}, unscheduled:[], settings:defaultBoardSettings() };
+  }
+
+  // ---------- board-type plumbing (planner vs. notes) ----------
+  function defaultNotesState(){ return { kind:'notes', pages:[], settings:{} }; }
+  function defaultStateFor(type){ return type === 'notes' ? defaultNotesState() : defaultAppState(); }
+  // Used everywhere a server/cached blob needs to be trusted before use —
+  // replaces the old `json.data && json.data.weeks` check, which only ever
+  // recognized planner boards.
+  function isValidStateFor(type, data){
+    if(!data) return false;
+    return type === 'notes' ? Array.isArray(data.pages) : !!data.weeks;
+  }
+  function boardTypeCacheKeyFor(boardId){ return 'planner_board_type__' + (boardId || LEGACY_BOARD_ID); }
+  function cacheBoardType(boardId, type){
+    try{ localStorage.setItem(boardTypeCacheKeyFor(boardId), type); }catch(e){}
+  }
+  // Read synchronously before the server has answered, so the very first
+  // paint (before refreshFromServer resolves) already shows the right shape
+  // instead of flashing a planner week view for a notes board or vice versa.
+  function cachedBoardType(boardId){
+    try{
+      const fromList = boardsList.find(b => b.id === boardId);
+      if(fromList && fromList.type) return fromList.type;
+      return localStorage.getItem(boardTypeCacheKeyFor(boardId)) || 'planner';
+    }catch(e){ return 'planner'; }
   }
 
   // boards saved before a given settings field existed are missing just that
@@ -1018,6 +1218,12 @@ html,body{
     // an open day peek counts as editing: a poll-driven renderAll() would rip
     // the panel out from under whoever is working in it
     if(typeof isDayPeekOpen === 'function' && isDayPeekOpen()) return true;
+    // same reasoning for an open notes page — the outline editor has no
+    // equivalent of loadWeek/renderDay that could re-render just the parts
+    // that changed, so a poll-driven overwrite while a page is open (even
+    // between keystrokes, not just mid-focus) would reset scroll position
+    // and any unsaved structural edit (indent/move) not yet in the debounce
+    if(typeof isNotesPageOpen === 'function' && isNotesPageOpen()) return true;
     return !!(ae && (ae.isContentEditable || ae.tagName === 'INPUT'));
   }
 
@@ -1213,17 +1419,25 @@ html,body{
       const roleChanged = json.role !== currentRole;
       currentRole = json.role || 'viewer';
       updateRoleUI();
-      const serverData = (json.data && json.data.weeks) ? json.data : null;
+      currentBoardType = (json.board && json.board.type) || 'planner';
+      cacheBoardType(currentBoardId, currentBoardType);
+      const serverData = isValidStateFor(currentBoardType, json.data) ? json.data : null;
       if(serverData){
         const serverJson = JSON.stringify(serverData);
         if(serverJson !== lastSyncedJson){
           if(!isUserEditing() && !hasPendingLocalChange){
             appState = serverData;
-            people = appState.people || defaultAppState().people;
-            topics = appState.topics || [];
-            if(!appState.unscheduled) appState.unscheduled = [];
-            ensureSettings(appState);
-            weekData = loadWeek(weekStart);
+            if(currentBoardType === 'notes'){
+              if(!Array.isArray(appState.pages)) appState.pages = [];
+              if(!appState.settings) appState.settings = {};
+              sanitizeNotesState(appState);
+            } else {
+              people = appState.people || defaultAppState().people;
+              topics = appState.topics || [];
+              if(!appState.unscheduled) appState.unscheduled = [];
+              ensureSettings(appState);
+              weekData = loadWeek(weekStart);
+            }
             lastSyncedJson = serverJson;
             const prevLocal = localStorage.getItem(cacheKeyFor(currentBoardId));
             if(prevLocal && prevLocal !== serverJson) localStorage.setItem(backupCacheKeyFor(currentBoardId), prevLocal);
@@ -1296,15 +1510,25 @@ html,body{
     return 'week';
   }
 
-  // Generalised from reflectBoardInUrl: one writer for both keys, rather than a
-  // second one that could clobber the other's param. Everything it doesn't own
-  // survives, since it edits the existing URL in place.
-  function reflectStateInUrl(boardId, view, replace){
+  // Mirrors resolveInitialView for notes boards: which page (if any) was open.
+  function resolveInitialPage(){
+    try{
+      const params = new URLSearchParams(location.search);
+      return params.get('page') || null;
+    }catch(e){ return null; }
+  }
+
+  // Generalised from reflectBoardInUrl: one writer for all three keys, rather
+  // than separate writers that could clobber each other's param. Everything
+  // it doesn't own survives, since it edits the existing URL in place.
+  function reflectStateInUrl(boardId, view, replace, pageId){
     try{
       const url = new URL(location.href);
       if(boardId) url.searchParams.set('board', boardId);
       if(view === 'month') url.searchParams.set('view', 'month');
       else url.searchParams.delete('view');
+      if(pageId) url.searchParams.set('page', pageId);
+      else url.searchParams.delete('page');
       if(replace) history.replaceState(null, '', url); else history.pushState(null, '', url);
     }catch(e){}
   }
@@ -1336,6 +1560,13 @@ html,body{
       main.setAttribute('aria-checked', b.id === currentBoardId ? 'true' : 'false');
       main.tabIndex = 0;
 
+      const typeIcon = document.createElement('span');
+      typeIcon.className = 'drawer-board-item-type';
+      typeIcon.title = b.type === 'notes' ? 'דפי הערות' : 'לוח שבועי';
+      typeIcon.innerHTML = b.type === 'notes'
+        ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>'
+        : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
+
       const nameSpan = document.createElement('span');
       nameSpan.className = 'drawer-board-item-name';
       nameSpan.textContent = b.name;
@@ -1344,6 +1575,7 @@ html,body{
       roleSpan.className = 'drawer-board-item-role';
       roleSpan.textContent = b.role === 'editor' ? 'עורך/ת' : 'צפייה';
 
+      main.appendChild(typeIcon);
       main.appendChild(nameSpan);
       main.appendChild(roleSpan);
 
@@ -1401,6 +1633,10 @@ html,body{
   function renderSectionSettingsList(){
     const list = document.getElementById('drawerSectionList');
     if(!list || !appState) return;
+    // notes boards have no board/summary sections to reorder or toggle
+    const wrap = list.closest('.drawer-section');
+    if(currentBoardType === 'notes'){ if(wrap) wrap.style.display = 'none'; return; }
+    if(wrap) wrap.style.display = '';
     ensureSettings(appState);
     const settings = appState.settings;
     list.innerHTML = '';
@@ -1671,17 +1907,26 @@ html,body{
   });
   document.addEventListener('keydown', (e) => { if(e.key === 'Escape' && isDrawerOpen()) closeDrawer(); });
 
+  let newBoardType = 'planner';
   function openNewBoardModal(){
     closeDrawer();
     document.getElementById('newBoardError').textContent = '';
     const input = document.getElementById('newBoardNameInput');
     input.value = '';
+    newBoardType = 'planner';
+    document.querySelectorAll('.modal-type-card').forEach(c => c.classList.toggle('is-selected', c.dataset.type === 'planner'));
     document.getElementById('newBoardModal').style.display = 'flex';
     input.focus();
   }
   function closeNewBoardModal(){
     document.getElementById('newBoardModal').style.display = 'none';
   }
+  document.querySelectorAll('.modal-type-card').forEach(card => {
+    card.addEventListener('click', () => {
+      newBoardType = card.dataset.type;
+      document.querySelectorAll('.modal-type-card').forEach(c => c.classList.toggle('is-selected', c === card));
+    });
+  });
 
   async function submitNewBoard(){
     const input = document.getElementById('newBoardNameInput');
@@ -1699,7 +1944,7 @@ html,body{
       const res = await fetch(API_URL, {
         method:'POST',
         headers:{'Content-Type':'text/plain;charset=utf-8'},
-        body: JSON.stringify(authBody({ action:'createBoard', name }))
+        body: JSON.stringify(authBody({ action:'createBoard', name, type: newBoardType }))
       });
       const json = await res.json();
       if(handleAuthError(json)) return;
@@ -1787,6 +2032,8 @@ html,body{
     clearInterval(pollTimer);
 
     currentBoardId = boardId;
+    currentBoardType = cachedBoardType(boardId);
+    currentNotesPageId = null;
     localStorage.setItem(lastBoardKeyFor(currentEmail), boardId);
     // view is remembered per board, so re-resolve it for the one we're entering
     setView(resolveInitialView(boardId), {silent:true});
@@ -1795,13 +2042,18 @@ html,body{
     const cachedRaw = localStorage.getItem(cacheKeyFor(boardId));
     appState = null;
     if(cachedRaw){ try{ appState = JSON.parse(cachedRaw); }catch(e){} }
-    if(!appState || !appState.weeks) appState = defaultAppState();
-    people = appState.people || defaultAppState().people;
-    topics = appState.topics || [];
-    if(!appState.unscheduled) appState.unscheduled = [];
-    ensureSettings(appState);
+    if(!isValidStateFor(currentBoardType, appState)) appState = defaultStateFor(currentBoardType);
+    if(currentBoardType === 'notes'){
+      if(!appState.settings) appState.settings = {};
+      sanitizeNotesState(appState);
+    } else {
+      people = appState.people || defaultAppState().people;
+      topics = appState.topics || [];
+      if(!appState.unscheduled) appState.unscheduled = [];
+      ensureSettings(appState);
+      weekData = loadWeek(weekStart);
+    }
     lastSyncedJson = '';
-    weekData = loadWeek(weekStart);
     renderAll();
 
     setSyncStatus('מתחבר…');
@@ -1844,6 +2096,18 @@ html,body{
   }
 
   function renderAll(){
+    const weekNav = document.querySelector('.week-nav');
+    const notesSection = document.getElementById('notesSection');
+    if(currentBoardType === 'notes'){
+      if(weekNav) weekNav.style.display = 'none';
+      document.getElementById('boardSection').style.display = 'none';
+      document.getElementById('summarySection').style.display = 'none';
+      if(notesSection) notesSection.style.display = '';
+      renderNotes();
+      return;
+    }
+    if(weekNav) weekNav.style.display = '';
+    if(notesSection) notesSection.style.display = 'none';
     updateWeekRange();
     renderFilters();
     renderBoard();
@@ -1856,7 +2120,7 @@ html,body{
   // second" instead of the fixed default — reorders the two section
   // containers in the DOM to match appState.settings.sectionOrder.
   function applySectionOrder(){
-    if(!appState) return;
+    if(!appState || currentBoardType === 'notes') return;
     const settings = appState.settings || defaultBoardSettings();
     const order = (settings.sectionOrder && settings.sectionOrder.length === 2) ? settings.sectionOrder : defaultBoardSettings().sectionOrder;
     const sections = { board: document.getElementById('boardSection'), summary: document.getElementById('summarySection') };
@@ -1873,7 +2137,7 @@ html,body{
   // logic — a board with both off would just render nothing, which is fine,
   // it's the user's explicit choice via the drawer toggles.
   function applySectionVisibility(){
-    if(!appState) return;
+    if(!appState || currentBoardType === 'notes') return;
     const settings = appState.settings || defaultBoardSettings();
     const showBoard = settings.showBoard !== false;
     const showSummary = settings.showSummary !== false;
@@ -4034,11 +4298,18 @@ html,body{
       confirmLabel: 'שחזור',
       onConfirm: ()=>{
         appState = backup;
-        people = appState.people || defaultAppState().people;
-        topics = appState.topics || [];
-        if(!appState.unscheduled) appState.unscheduled = [];
-        ensureSettings(appState);
-        weekData = loadWeek(weekStart);
+        if(currentBoardType === 'notes'){
+          if(!Array.isArray(appState.pages)) appState.pages = [];
+          if(!appState.settings) appState.settings = {};
+          sanitizeNotesState(appState);
+          currentNotesPageId = null;
+        } else {
+          people = appState.people || defaultAppState().people;
+          topics = appState.topics || [];
+          if(!appState.unscheduled) appState.unscheduled = [];
+          ensureSettings(appState);
+          weekData = loadWeek(weekStart);
+        }
         persistState();
         pushState();
         renderAll();
@@ -4046,6 +4317,583 @@ html,body{
       }
     });
   };
+
+  // ---------- notes boards: gallery + nested outline editor ----------
+  // Data shape (per board, when currentBoardType === 'notes'):
+  //   appState = { kind:'notes', pages:[ Page ], settings:{} }
+  //   Page  = { id, title, createdAt, updatedAt, blocks:[ Block ] }
+  //   Block = { id, html, style:'p'|'h1'|'h2', collapsed, children:[ Block ] }
+  // `html` only ever contains the sanitizeInline() subset (b/i/u/s/br, no
+  // attributes) — enforced on every load AND on every commit, since a board's
+  // schema-less blob can in principle be edited by anything that can reach
+  // the API, not just this client.
+
+  function emptyBlock(){ return { id: uid(), html:'', style:'p', collapsed:false, children:[] }; }
+  function emptyNotesPage(){ return { id: uid(), title:'', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), blocks:[emptyBlock()] }; }
+
+  function sanitizeInline(html){
+    const ALLOWED = { B:1, I:1, U:1, S:1, BR:1 };
+    const tmpl = document.createElement('template');
+    tmpl.innerHTML = html || '';
+    (function walk(node){
+      Array.from(node.childNodes).forEach(child => {
+        if(child.nodeType === 3) return; // plain text — always fine
+        if(child.nodeType !== 1){ child.remove(); return; }
+        walk(child);
+        const tag = child.tagName;
+        if(tag === 'STRONG'){ const b = document.createElement('b'); b.append(...child.childNodes); child.replaceWith(b); return; }
+        if(tag === 'EM'){ const i = document.createElement('i'); i.append(...child.childNodes); child.replaceWith(i); return; }
+        if(tag === 'STRIKE'){ const s = document.createElement('s'); s.append(...child.childNodes); child.replaceWith(s); return; }
+        if(ALLOWED[tag]){
+          while(child.attributes.length) child.removeAttribute(child.attributes[0].name);
+          return;
+        }
+        // unwrap: keep the text/allowed-descendant content, drop the tag itself
+        // (catches DIV/SPAN/IMG/SCRIPT/anything pasted or injected outside this client)
+        const frag = document.createDocumentFragment();
+        frag.append(...child.childNodes);
+        child.replaceWith(frag);
+      });
+    })(tmpl.content);
+    return tmpl.innerHTML;
+  }
+
+  // Defensive re-sanitization on load — the blob can be edited by anything
+  // that can reach the API, not just this client.
+  function sanitizeNotesState(state){
+    (state.pages || []).forEach(page => {
+      (function walk(blocks){
+        blocks.forEach(b => { b.html = sanitizeInline(b.html); walk(b.children || []); });
+      })(page.blocks || []);
+    });
+    return state;
+  }
+
+  function currentNotesPage(){
+    if(!appState || !Array.isArray(appState.pages)) return null;
+    return appState.pages.find(p => p.id === currentNotesPageId) || null;
+  }
+  function isNotesPageOpen(){ return currentBoardType === 'notes' && !!currentNotesPageId; }
+
+  // Depth-first search for a block by id — returns its containing array, its
+  // index in that array, and its parent block (null for a top-level block),
+  // so every structural op (indent/outdent/move/delete) has what it needs
+  // without a second traversal.
+  function findBlockCtx(blocks, id, parentBlock){
+    for(let i = 0; i < blocks.length; i++){
+      if(blocks[i].id === id) return { block: blocks[i], arr: blocks, index: i, parentBlock: parentBlock || null };
+      const found = findBlockCtx(blocks[i].children, id, blocks[i]);
+      if(found) return found;
+    }
+    return null;
+  }
+  // Ordered list of blocks that are actually on screen right now (skips the
+  // children of a collapsed block) — what ArrowUp/ArrowDown and Backspace-merge
+  // navigate through, since a collapsed subtree isn't reachable by cursor.
+  function flattenVisibleBlocks(blocks, out){
+    out = out || [];
+    blocks.forEach(b => { out.push(b); if(!b.collapsed) flattenVisibleBlocks(b.children, out); });
+    return out;
+  }
+
+  function notesTextSelector(blockId){ return '.ob-row[data-id="' + blockId + '"] > .ob-row-main > .ob-text'; }
+  function focusBlock(blockId, atStart){
+    requestAnimationFrame(() => {
+      const el = document.querySelector(notesTextSelector(blockId));
+      if(!el) return;
+      el.focus();
+      placeCaretAt(el, atStart);
+    });
+  }
+  function placeCaretAt(el, atStart){
+    try{
+      const sel = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      range.collapse(atStart === true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }catch(e){}
+  }
+  // Splits an ob-text element's content at the current caret into two
+  // sanitized HTML strings — used by Enter to create a new sibling block.
+  function splitElementAtCaret(el){
+    const sel = window.getSelection();
+    if(!sel.rangeCount) return { before: sanitizeInline(el.innerHTML), after: '' };
+    const range = sel.getRangeAt(0);
+    const beforeRange = document.createRange();
+    beforeRange.selectNodeContents(el);
+    beforeRange.setEnd(range.startContainer, range.startOffset);
+    const afterRange = document.createRange();
+    afterRange.selectNodeContents(el);
+    afterRange.setStart(range.endContainer, range.endOffset);
+    const beforeDiv = document.createElement('div'); beforeDiv.appendChild(beforeRange.cloneContents());
+    const afterDiv = document.createElement('div'); afterDiv.appendChild(afterRange.cloneContents());
+    return { before: sanitizeInline(beforeDiv.innerHTML), after: sanitizeInline(afterDiv.innerHTML) };
+  }
+
+  // Every structural change (split/indent/outdent/move/style/collapse/delete)
+  // funnels through here: bump updatedAt, persist, and re-render the whole
+  // outline. Re-rendering the whole outline rather than just the affected
+  // subtree is a deliberate simplification for a first version — page sizes
+  // in practice (tens of blocks) make this unnoticeable, and it keeps every
+  // op's code short and obviously correct instead of hand-rolling a minimal
+  // DOM patch for each one.
+  function commitNotesChange(){
+    const page = currentNotesPage();
+    if(!page) return;
+    page.updatedAt = new Date().toISOString();
+    persistState();
+    renderNotesOutline(page);
+  }
+
+  function splitBlockAtCaret(blockId){
+    const page = currentNotesPage(); if(!page) return;
+    const ctx = findBlockCtx(page.blocks, blockId); if(!ctx) return;
+    const el = document.querySelector(notesTextSelector(blockId));
+    const { before, after } = el ? splitElementAtCaret(el) : { before: ctx.block.html, after: '' };
+    ctx.block.html = before;
+    const newBlock = emptyBlock();
+    newBlock.html = after;
+    if(ctx.block.children.length && !ctx.block.collapsed) ctx.block.children.unshift(newBlock);
+    else ctx.arr.splice(ctx.index + 1, 0, newBlock);
+    commitNotesChange();
+    focusBlock(newBlock.id, true);
+  }
+
+  function indentBlock(blockId){
+    const page = currentNotesPage(); if(!page) return;
+    const ctx = findBlockCtx(page.blocks, blockId);
+    if(!ctx || ctx.index === 0) return; // no previous sibling to become a child of
+    const prevSibling = ctx.arr[ctx.index - 1];
+    ctx.arr.splice(ctx.index, 1);
+    prevSibling.children.push(ctx.block);
+    prevSibling.collapsed = false; // the moved block must stay visible
+    commitNotesChange();
+    focusBlock(blockId);
+  }
+
+  function outdentBlock(blockId){
+    const page = currentNotesPage(); if(!page) return;
+    const ctx = findBlockCtx(page.blocks, blockId);
+    if(!ctx || !ctx.parentBlock) return; // already top-level
+    const parentCtx = findBlockCtx(page.blocks, ctx.parentBlock.id);
+    if(!parentCtx) return;
+    ctx.arr.splice(ctx.index, 1);
+    parentCtx.arr.splice(parentCtx.index + 1, 0, ctx.block);
+    commitNotesChange();
+    focusBlock(blockId);
+  }
+
+  function moveBlockAmongSiblings(blockId, dir){
+    const page = currentNotesPage(); if(!page) return;
+    const ctx = findBlockCtx(page.blocks, blockId); if(!ctx) return;
+    const newIndex = ctx.index + dir;
+    if(newIndex < 0 || newIndex >= ctx.arr.length) return;
+    const [item] = ctx.arr.splice(ctx.index, 1);
+    ctx.arr.splice(newIndex, 0, item);
+    commitNotesChange();
+    focusBlock(blockId);
+  }
+
+  function toggleCollapse(blockId){
+    const page = currentNotesPage(); if(!page) return;
+    const ctx = findBlockCtx(page.blocks, blockId);
+    if(!ctx || !ctx.block.children.length) return;
+    ctx.block.collapsed = !ctx.block.collapsed;
+    commitNotesChange();
+  }
+
+  // Backspace at the very start of a block's text: merge it into the
+  // previous visible block. Refused (per the plan) when this block has both
+  // its own text and children — an unambiguous merge target doesn't exist
+  // (would the children become the previous block's children, or stay a
+  // subtree under it? — better to make the user resolve it explicitly).
+  function mergeIntoPrevious(blockId){
+    const page = currentNotesPage(); if(!page) return;
+    const ctx = findBlockCtx(page.blocks, blockId); if(!ctx) return;
+    if(ctx.block.children.length && ctx.block.html) return;
+    const flat = flattenVisibleBlocks(page.blocks);
+    const idx = flat.findIndex(b => b.id === blockId);
+    if(idx <= 0) return; // first visible block — nothing above to merge into
+    const prev = flat[idx - 1];
+    const prevPlainLen = (prev.html || '').replace(/<[^>]+>/g, '').length;
+    prev.html = sanitizeInline((prev.html || '') + (ctx.block.html || ''));
+    if(ctx.block.children.length){
+      prev.children = prev.children.concat(ctx.block.children);
+      prev.collapsed = false;
+    }
+    ctx.arr.splice(ctx.index, 1);
+    commitNotesChange();
+    // caret at the join point, not necessarily perfect (rich-text length ≠
+    // plain-text length when tags are present) but close enough in practice
+    requestAnimationFrame(() => {
+      const el = document.querySelector(notesTextSelector(prev.id));
+      if(!el) return;
+      el.focus();
+      try{
+        const sel = window.getSelection();
+        const range = document.createRange();
+        const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+        let node, count = 0, target = null, targetOffset = 0;
+        while((node = walker.nextNode())){
+          if(count + node.length >= prevPlainLen){ target = node; targetOffset = prevPlainLen - count; break; }
+          count += node.length;
+        }
+        if(target){ range.setStart(target, targetOffset); range.collapse(true); sel.removeAllRanges(); sel.addRange(range); }
+        else placeCaretAt(el, false);
+      }catch(e){ placeCaretAt(el, false); }
+    });
+  }
+
+  function setBlockStyleInPlace(el, block, style){
+    block.style = style;
+    if(el){ el.className = 'ob-text' + (style === 'h1' ? ' ob-h1' : style === 'h2' ? ' ob-h2' : ''); }
+    const page = currentNotesPage();
+    if(page){ page.updatedAt = new Date().toISOString(); persistState(); }
+  }
+
+  function deleteBlockWithUndo(blockId){
+    const page = currentNotesPage(); if(!page) return;
+    const ctx = findBlockCtx(page.blocks, blockId); if(!ctx) return;
+    const removedIndex = ctx.index;
+    const removedArr = ctx.arr;
+    const removed = removedArr.splice(ctx.index, 1)[0];
+    let addedPlaceholder = false;
+    if(!page.blocks.length){ page.blocks.push(emptyBlock()); addedPlaceholder = true; }
+    commitNotesChange();
+    showUndoToast('הסעיף נמחק', () => {
+      if(addedPlaceholder && page.blocks.length === 1 && page.blocks[0] !== removed) page.blocks.splice(0, 1);
+      removedArr.splice(Math.min(removedIndex, removedArr.length), 0, removed);
+      commitNotesChange();
+    });
+  }
+
+  // ---------- rendering ----------
+
+  function renderBlockRow(block, page){
+    const row = document.createElement('div');
+    row.className = 'ob-row' + (block.collapsed ? ' is-collapsed' : '');
+    row.setAttribute('data-id', block.id);
+
+    const main = document.createElement('div');
+    main.className = 'ob-row-main';
+
+    if(block.children.length){
+      const toggle = document.createElement('button');
+      toggle.type = 'button'; toggle.className = 'ob-toggle'; toggle.setAttribute('aria-label', 'כיווץ/הרחבה');
+      toggle.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+      toggle.onclick = () => toggleCollapse(block.id);
+      main.appendChild(toggle);
+    } else {
+      main.appendChild(document.createElement('span')).className = 'ob-bullet';
+    }
+
+    const text = document.createElement('div');
+    text.className = 'ob-text' + (block.style === 'h1' ? ' ob-h1' : block.style === 'h2' ? ' ob-h2' : '');
+    text.contentEditable = currentRole === 'editor' ? 'true' : 'false';
+    text.innerHTML = block.html;
+    wireOutlineTextEvents(text, block, page);
+    main.appendChild(text);
+
+    const del = document.createElement('button');
+    del.type = 'button'; del.className = 'ob-row-del'; del.title = 'מחיקה'; del.setAttribute('aria-label', 'מחיקת סעיף'); del.textContent = '🗑';
+    del.onclick = () => deleteBlockWithUndo(block.id);
+    main.appendChild(del);
+
+    row.appendChild(main);
+
+    const childrenWrap = document.createElement('div');
+    childrenWrap.className = 'ob-children';
+    block.children.forEach(child => childrenWrap.appendChild(renderBlockRow(child, page)));
+    row.appendChild(childrenWrap);
+
+    return row;
+  }
+
+  function renderNotesOutline(page){
+    const container = document.getElementById('notesOutline');
+    if(!container) return;
+    container.innerHTML = '';
+    page.blocks.forEach(b => container.appendChild(renderBlockRow(b, page)));
+  }
+
+  let obToolbarTargetId = null;
+  function showObToolbarFor(el){
+    if(currentRole !== 'editor') return;
+    const row = el.closest('.ob-row');
+    obToolbarTargetId = row ? row.dataset.id : null;
+    const bar = document.getElementById('obToolbar');
+    if(bar) bar.classList.add('is-visible');
+  }
+  function hideObToolbarSoon(){
+    setTimeout(() => {
+      const ae = document.activeElement;
+      if(!ae || !ae.classList || !ae.classList.contains('ob-text')){
+        const bar = document.getElementById('obToolbar');
+        if(bar) bar.classList.remove('is-visible');
+        obToolbarTargetId = null;
+      }
+    }, 150);
+  }
+
+  function wireOutlineTextEvents(el, block, page){
+    el.addEventListener('focus', () => showObToolbarFor(el));
+    el.addEventListener('blur', () => {
+      block.html = sanitizeInline(el.innerHTML);
+      hideObToolbarSoon();
+    });
+    // Paste as plain text only — the alternative (sanitizing arbitrary pasted
+    // HTML and reassigning el.innerHTML) risks losing the caret position on
+    // every paste; refusing rich paste up front avoids that entirely and the
+    // block only ever needs the b/i/u/s formatting our own toolbar/shortcuts
+    // apply, which sanitizeInline already covers on commit.
+    el.addEventListener('paste', (e) => {
+      e.preventDefault();
+      const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+      document.execCommand('insertText', false, text);
+    });
+    el.addEventListener('input', () => {
+      const text = el.textContent || '';
+      // "# "/"## " at the start of an empty-style paragraph → heading,
+      // mirrors the same shortcut in Notion/most outliners
+      if(block.style === 'p'){
+        const m = text.match(/^(#{1,2})\s/);
+        if(m){
+          const rest = text.slice(m[0].length);
+          setBlockStyleInPlace(el, block, m[1].length === 1 ? 'h1' : 'h2');
+          el.textContent = rest;
+          block.html = sanitizeInline(el.innerHTML);
+          placeCaretAt(el, false);
+          return;
+        }
+      }
+      block.html = sanitizeInline(el.innerHTML);
+      page.updatedAt = new Date().toISOString();
+      persistState();
+    });
+    el.addEventListener('keydown', (e) => {
+      const mod = e.metaKey || e.ctrlKey;
+      if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); splitBlockAtCaret(block.id); return; }
+      if(e.key === 'Tab'){ e.preventDefault(); if(e.shiftKey) outdentBlock(block.id); else indentBlock(block.id); return; }
+      if(e.altKey && e.shiftKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')){
+        e.preventDefault();
+        moveBlockAmongSiblings(block.id, e.key === 'ArrowUp' ? -1 : 1);
+        return;
+      }
+      if(e.key === 'Backspace'){
+        const sel = window.getSelection();
+        const atStart = !!sel && sel.isCollapsed && sel.getRangeAt(0).startOffset === 0 &&
+          (sel.getRangeAt(0).startContainer === el || sel.getRangeAt(0).startContainer === el.firstChild);
+        if(atStart || el.textContent === ''){ e.preventDefault(); mergeIntoPrevious(block.id); }
+        return;
+      }
+      if((e.key === 'ArrowUp' || e.key === 'ArrowDown') && !e.shiftKey){
+        const sel = window.getSelection();
+        if(!sel || !sel.isCollapsed) return;
+        const range = sel.getRangeAt(0);
+        const atStart = range.startOffset === 0 && (range.startContainer === el || range.startContainer === el.firstChild);
+        const lastChild = el.lastChild;
+        const atEnd = lastChild && range.endContainer === lastChild && range.endOffset === (lastChild.length !== undefined ? lastChild.length : lastChild.childNodes.length);
+        const flat = flattenVisibleBlocks(currentNotesPage().blocks);
+        const idx = flat.findIndex(b => b.id === block.id);
+        if(e.key === 'ArrowUp' && atStart && idx > 0){ e.preventDefault(); focusBlock(flat[idx - 1].id, false); }
+        else if(e.key === 'ArrowDown' && atEnd && idx < flat.length - 1){ e.preventDefault(); focusBlock(flat[idx + 1].id, true); }
+        return;
+      }
+      if(mod && e.key === '.'){ e.preventDefault(); toggleCollapse(block.id); return; }
+      if(mod && e.shiftKey && (e.key === '1' || e.key === '!')){ e.preventDefault(); setBlockStyleInPlace(el, block, 'h1'); return; }
+      if(mod && e.shiftKey && (e.key === '2' || e.key === '@')){ e.preventDefault(); setBlockStyleInPlace(el, block, 'h2'); return; }
+      if(mod && e.shiftKey && (e.key === '0' || e.key === ')')){ e.preventDefault(); setBlockStyleInPlace(el, block, 'p'); return; }
+      if(mod && !e.shiftKey && (e.key === 'b' || e.key === 'B')){ e.preventDefault(); document.execCommand('bold'); block.html = sanitizeInline(el.innerHTML); persistState(); return; }
+      if(mod && !e.shiftKey && (e.key === 'i' || e.key === 'I')){ e.preventDefault(); document.execCommand('italic'); block.html = sanitizeInline(el.innerHTML); persistState(); return; }
+      if(mod && !e.shiftKey && (e.key === 'u' || e.key === 'U')){ e.preventDefault(); document.execCommand('underline'); block.html = sanitizeInline(el.innerHTML); persistState(); return; }
+    });
+  }
+
+  // Mobile/touch toolbar — desktop with a mouse+keyboard already has Tab and
+  // the Ctrl/⌘ shortcuts above; a touch keyboard has neither.
+  (function wireObToolbar(){
+    const bar = document.getElementById('obToolbar');
+    if(!bar) return;
+    bar.addEventListener('mousedown', (e) => e.preventDefault()); // keep the text selection/focus alive through the click
+    bar.addEventListener('click', (e) => {
+      const btn = e.target.closest('button');
+      if(!btn || !obToolbarTargetId) return;
+      const page = currentNotesPage(); if(!page) return;
+      const ctx = findBlockCtx(page.blocks, obToolbarTargetId);
+      if(!ctx) return;
+      const action = btn.dataset.action;
+      if(action === 'outdent') outdentBlock(obToolbarTargetId);
+      else if(action === 'indent') indentBlock(obToolbarTargetId);
+      else if(action === 'up') moveBlockAmongSiblings(obToolbarTargetId, -1);
+      else if(action === 'down') moveBlockAmongSiblings(obToolbarTargetId, 1);
+      else if(action === 'collapse') toggleCollapse(obToolbarTargetId);
+      else if(action === 'delete') deleteBlockWithUndo(obToolbarTargetId);
+      else if(action === 'heading'){
+        const el = document.querySelector(notesTextSelector(obToolbarTargetId));
+        const next = ctx.block.style === 'p' ? 'h1' : ctx.block.style === 'h1' ? 'h2' : 'p';
+        setBlockStyleInPlace(el, ctx.block, next);
+        if(el) el.className = 'ob-text' + (next === 'h1' ? ' ob-h1' : next === 'h2' ? ' ob-h2' : '');
+      } else if(action === 'bold' || action === 'italic' || action === 'underline'){
+        document.execCommand(action);
+        const el = document.querySelector(notesTextSelector(obToolbarTargetId));
+        if(el){ ctx.block.html = sanitizeInline(el.innerHTML); persistState(); }
+      }
+    });
+  })();
+
+  // ---------- page view + gallery ----------
+
+  function renderNotesPageView(page){
+    const titleEl = document.getElementById('notesPageTitle');
+    titleEl.textContent = page.title || '';
+    titleEl.contentEditable = currentRole === 'editor' ? 'true' : 'false';
+    titleEl.oninput = () => {
+      page.title = titleEl.textContent.trim();
+      page.updatedAt = new Date().toISOString();
+      persistState();
+    };
+    titleEl.onkeydown = (e) => {
+      if(e.key === 'Enter'){ e.preventDefault(); if(page.blocks[0]) focusBlock(page.blocks[0].id, true); }
+    };
+    renderNotesOutline(page);
+    document.getElementById('notesPageMenuBtn').onclick = () => {
+      showConfirmModal({
+        title: 'מחיקת דף',
+        message: 'למחוק את הדף "' + (page.title || 'ללא כותרת') + '"? הפעולה ניתנת לביטול לזמן קצר.',
+        confirmLabel: 'מחיקה',
+        onConfirm: () => deletePageWithUndo(page.id)
+      });
+    };
+  }
+
+  function openNotesPage(pageId){
+    currentNotesPageId = pageId;
+    reflectStateInUrl(currentBoardId, currentView, false, pageId);
+    renderNotes();
+  }
+  function closeNotesPage(){
+    currentNotesPageId = null;
+    reflectStateInUrl(currentBoardId, currentView, false, null);
+    renderNotes();
+  }
+  document.getElementById('notesBackBtn').onclick = closeNotesPage;
+
+  function createNewNotesPage(){
+    if(!appState.pages) appState.pages = [];
+    const page = emptyNotesPage();
+    appState.pages.push(page);
+    persistState();
+    openNotesPage(page.id);
+  }
+  document.getElementById('notesNewPageBtn').onclick = createNewNotesPage;
+
+  function deletePageWithUndo(pageId){
+    const idx = appState.pages.findIndex(p => p.id === pageId);
+    if(idx === -1) return;
+    const removed = appState.pages.splice(idx, 1)[0];
+    if(currentNotesPageId === pageId) currentNotesPageId = null;
+    persistState();
+    renderNotes();
+    showUndoToast('הדף נמחק', () => {
+      appState.pages.splice(Math.min(idx, appState.pages.length), 0, removed);
+      persistState();
+      renderNotes();
+    });
+  }
+
+  function renderNotesCard(page){
+    const card = document.createElement('div');
+    card.className = 'notes-card';
+    card.onclick = () => openNotesPage(page.id);
+
+    const title = document.createElement('div');
+    title.className = 'notes-card-title' + (page.title ? '' : ' is-empty');
+    title.textContent = page.title || 'ללא כותרת';
+    card.appendChild(title);
+
+    const preview = document.createElement('div');
+    preview.className = 'notes-card-preview';
+    const flat = [];
+    (function walk(blocks, depth){
+      blocks.forEach(b => {
+        if(flat.length >= 6) return;
+        flat.push({ b, depth });
+        if(depth < 2) walk(b.children, depth + 1);
+      });
+    })(page.blocks || [], 0);
+    flat.forEach(({ b, depth }) => {
+      const row = document.createElement('div');
+      row.className = 'notes-card-preview-row' + (b.style === 'h1' ? ' is-h1' : b.style === 'h2' ? ' is-h2' : '');
+      row.style.paddingInlineStart = (depth * 10) + 'px';
+      const mark = document.createElement('span'); mark.className = 'cpr-mark';
+      mark.textContent = b.children.length ? (b.collapsed ? '▶' : '▼') : '•';
+      const text = document.createElement('span'); text.className = 'cpr-text';
+      text.textContent = stripHtmlPreview(b.html, 60) || ' ';
+      row.appendChild(mark); row.appendChild(text);
+      preview.appendChild(row);
+    });
+    card.appendChild(preview);
+
+    const footer = document.createElement('div');
+    footer.className = 'notes-card-footer';
+    footer.textContent = 'עודכן ' + relTime(page.updatedAt);
+    card.appendChild(footer);
+
+    if(currentRole === 'editor'){
+      const menu = document.createElement('button');
+      menu.type = 'button'; menu.className = 'notes-card-menu'; menu.textContent = '⋯'; menu.title = 'אפשרויות';
+      menu.onclick = (e) => {
+        e.stopPropagation();
+        showConfirmModal({
+          title: 'מחיקת דף',
+          message: 'למחוק את הדף "' + (page.title || 'ללא כותרת') + '"?',
+          confirmLabel: 'מחיקה',
+          onConfirm: () => deletePageWithUndo(page.id)
+        });
+      };
+      card.appendChild(menu);
+    }
+    return card;
+  }
+
+  function renderNotesGallery(){
+    const grid = document.getElementById('notesGallery');
+    const titleEl = document.getElementById('notesGalleryTitle');
+    const newBtn = document.getElementById('notesNewPageBtn');
+    if(newBtn) newBtn.style.display = currentRole === 'editor' ? '' : 'none';
+    const pages = (appState.pages || []).slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    titleEl.textContent = 'דפים' + (pages.length ? ' (' + pages.length + ')' : '');
+    grid.innerHTML = '';
+    if(!pages.length){
+      const empty = document.createElement('div');
+      empty.className = 'notes-gallery-empty';
+      empty.textContent = currentRole === 'editor' ? 'עדיין אין דפים — לחצו כדי ליצור את הראשון' : 'עדיין אין דפים בלוח הזה';
+      if(currentRole === 'editor') empty.onclick = createNewNotesPage;
+      grid.appendChild(empty);
+      return;
+    }
+    pages.forEach(page => grid.appendChild(renderNotesCard(page)));
+  }
+
+  function renderNotes(){
+    if(!appState || !Array.isArray(appState.pages)) appState = defaultNotesState();
+    const galleryHead = document.getElementById('notesGalleryHead');
+    const gallery = document.getElementById('notesGallery');
+    const pageView = document.getElementById('notesPageView');
+    const page = currentNotesPage();
+    if(page){
+      galleryHead.style.display = 'none'; gallery.style.display = 'none';
+      pageView.style.display = '';
+      renderNotesPageView(page);
+    } else {
+      if(currentNotesPageId){ currentNotesPageId = null; reflectStateInUrl(currentBoardId, currentView, true, null); } // page was deleted remotely — back to gallery, not an error
+      galleryHead.style.display = ''; gallery.style.display = '';
+      pageView.style.display = 'none';
+      renderNotesGallery();
+    }
+  }
 
   // ---------- Google sign-in / boot ----------
   // Replaces the old free-text email gate: identity now comes from a Google
@@ -4167,21 +5015,28 @@ html,body{
 
   async function initialLoad(){
     currentBoardId = resolveInitialBoardId();
+    currentBoardType = cachedBoardType(currentBoardId);
+    currentNotesPageId = resolveInitialPage();
     reflectStateInUrl(currentBoardId, resolveInitialView(currentBoardId), true);
 
     const cachedRaw = localStorage.getItem(cacheKeyFor(currentBoardId));
     appState = null;
     if(cachedRaw){ try{ appState = JSON.parse(cachedRaw); }catch(e){} }
-    if(!appState || !appState.weeks) appState = defaultAppState();
-    people = appState.people || defaultAppState().people;
-    topics = appState.topics || [];
-    if(!appState.unscheduled) appState.unscheduled = [];
-    ensureSettings(appState);
-    weekStart = startOfWeek(new Date());
-    weekData = loadWeek(weekStart);
+    if(!isValidStateFor(currentBoardType, appState)) appState = defaultStateFor(currentBoardType);
+    if(currentBoardType === 'notes'){
+      if(!appState.settings) appState.settings = {};
+      sanitizeNotesState(appState);
+    } else {
+      people = appState.people || defaultAppState().people;
+      topics = appState.topics || [];
+      if(!appState.unscheduled) appState.unscheduled = [];
+      ensureSettings(appState);
+      weekStart = startOfWeek(new Date());
+      weekData = loadWeek(weekStart);
+    }
     setView(resolveInitialView(currentBoardId), {silent:true});
     renderAll();
-    if(currentView === 'week') scrollTodayIntoView();
+    if(currentBoardType !== 'notes' && currentView === 'week') scrollTodayIntoView();
 
     setSyncStatus('מתחבר…');
     await refreshFromServer(true);
