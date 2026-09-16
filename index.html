@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>יומן ומשימות</title>
+<script src="https://accounts.google.com/gsi/client" async defer
+        onload="window.__gsiLoaded = true;"
+        onerror="window.__gsiLoadError = true;"></script>
 </head>
 <body>
 <style>
@@ -380,6 +383,67 @@ html,body{
 .drawer-section-row .drag-handle:hover{ opacity:1; }
 .drawer-section-row-label{ flex:1; }
 .drawer-section-row input[type="checkbox"]{ width:20px; height:20px; accent-color:var(--accent); cursor:pointer; flex-shrink:0; }
+
+/* access management + activity (editor-only drawer sections, shown/hidden via
+   updateRoleUI — the drawer lives outside .planner-root so .view-only doesn't
+   reach it, same reason the per-board rename/delete buttons are built
+   conditionally in JS rather than styled away in CSS) */
+.drawer-section-label{ display:flex; align-items:center; justify-content:space-between; }
+.drawer-activity-refresh{
+  border:none; background:none; color:var(--muted); font-size:14px; cursor:pointer;
+  padding:2px 6px; border-radius:var(--radius-sm); line-height:1;
+}
+.drawer-activity-refresh:hover{ background:var(--surface-2); color:var(--ink); }
+.drawer-access-list{ display:flex; flex-direction:column; gap:2px; max-height:160px; overflow-y:auto; }
+.drawer-access-item{
+  display:flex; align-items:center; gap:6px; min-height:36px; padding:2px 4px;
+  font-size:12.5px; color:var(--ink); border-radius:var(--radius-md);
+}
+.drawer-access-item:hover{ background:var(--surface-2); }
+.drawer-access-item-email{ flex:1; direction:ltr; text-align:start; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.drawer-access-item select{
+  border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--surface);
+  color:var(--ink); font-size:12px; padding:3px 4px;
+}
+.drawer-access-item .adel{
+  border:none; background:none; color:var(--muted); font-size:16px; line-height:1; cursor:pointer;
+  padding:4px 6px; border-radius:var(--radius-sm); flex-shrink:0;
+}
+.drawer-access-item .adel:hover{ background:var(--surface-2); color:#c0392b; }
+.drawer-access-add{ display:flex; gap:6px; margin-top:6px; }
+.drawer-access-add input{
+  flex:1; min-width:0; border:1px solid var(--border-strong); border-radius:var(--radius-md);
+  padding:7px 8px; font-size:12.5px; background:var(--bg); color:var(--ink); direction:ltr; text-align:start;
+}
+.drawer-access-add select{
+  border:1px solid var(--border-strong); border-radius:var(--radius-md); background:var(--bg);
+  color:var(--ink); font-size:12.5px; padding:7px 4px;
+}
+.drawer-access-add button{
+  border:none; background:var(--accent); color:var(--accent-ink); border-radius:var(--radius-md);
+  padding:7px 10px; font-size:12.5px; font-weight:600; cursor:pointer; flex-shrink:0;
+}
+.drawer-access-add button:hover{ opacity:.92; }
+.drawer-access-default{
+  display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:10px;
+  font-size:12px; color:var(--muted);
+}
+.drawer-access-default select{
+  border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--surface);
+  color:var(--ink); font-size:12px; padding:4px 6px;
+}
+.drawer-access-error{ color:#c0392b; font-size:11.5px; margin-top:6px; min-height:14px; }
+.drawer-activity-list{ display:flex; flex-direction:column; gap:2px; max-height:220px; overflow-y:auto; }
+.drawer-activity-item{
+  display:flex; flex-direction:column; gap:1px; padding:5px 4px; border-radius:var(--radius-md);
+  font-size:11.5px; color:var(--muted);
+}
+.drawer-activity-item:hover{ background:var(--surface-2); }
+.drawer-activity-item .a-top{ display:flex; justify-content:space-between; gap:6px; color:var(--ink); }
+.drawer-activity-item .a-email{ direction:ltr; text-align:start; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.drawer-activity-item .a-time{ flex-shrink:0; }
+.drawer-activity-item .a-detail{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.drawer-activity-empty{ font-size:12px; color:var(--muted); padding:6px 4px; }
 .drawer-action{
   display:block; width:100%; min-height:44px; padding:10px; text-align:start;
   border-radius:var(--radius-md); border:1px solid var(--border); background:var(--surface-2);
@@ -510,6 +574,17 @@ html,body{
 .email-gate-card button:hover{ opacity:.92; }
 .email-gate-error{ color:#c0392b; font-size:12px; margin-top:8px; min-height:14px; }
 .email-gate-note{ font-size:11.5px !important; color:var(--muted); margin-top:14px !important; margin-bottom:0 !important; }
+.email-gate-migrate-note{
+  background:var(--accent-soft); color:var(--accent-soft-ink); border-radius:var(--radius-md);
+  padding:8px 10px; font-size:12.5px !important; margin-bottom:14px !important;
+}
+#gsiButton{ display:flex; justify-content:center; min-height:44px; margin-bottom:4px; }
+.email-gate-retry{
+  width:100%; border:1px solid var(--border-strong); background:var(--surface); color:var(--ink);
+  border-radius:var(--radius-lg); padding:10px 14px; font-size:13.5px; font-weight:600; cursor:pointer;
+  margin-top:4px;
+}
+.email-gate-retry:hover{ background:var(--surface-2); }
 
 /* role badge + sync status */
 .role-badge{
@@ -708,10 +783,11 @@ html,body{
   <div class="email-gate" id="emailGate">
     <div class="email-gate-card">
       <h2>יומן ומשימות</h2>
-      <p>כדי להתחבר, הזינו את כתובת המייל שלכם. זה משמש לזיהוי בלבד — אין צורך בסיסמה או חשבון.</p>
-      <input type="email" id="emailInput" placeholder="name@example.com" autocomplete="email" />
-      <button id="emailSubmit">כניסה</button>
-      <div class="email-gate-error" id="emailError"></div>
+      <p id="signinIntro">כדי להתחבר, השתמשו בחשבון Google שלכם.</p>
+      <p class="email-gate-migrate-note" id="signinMigrateNote" style="display:none;">מעכשיו נכנסים עם חשבון Google — בפעם הראשונה בלבד.</p>
+      <div id="gsiButton"></div>
+      <div class="email-gate-error" id="signinError"></div>
+      <button class="email-gate-retry" id="signinRetryBtn" type="button" style="display:none;">נסו שוב</button>
       <p class="email-gate-note">מי שקיבל הרשאת עריכה יוכל לערוך; כל השאר יראו את הלוח בתצוגה בלבד.</p>
     </div>
   </div>
@@ -793,6 +869,40 @@ html,body{
       <div class="drawer-section-list" id="drawerSectionList"></div>
     </div>
 
+    <div class="drawer-divider editor-only"></div>
+
+    <div class="drawer-section editor-only" id="drawerAccessSection">
+      <div class="drawer-section-label">הרשאות ללוח הזה</div>
+      <div class="drawer-access-list" id="drawerAccessList"></div>
+      <div class="drawer-access-add">
+        <input type="email" id="accessAddEmail" placeholder="דוא״ל" autocomplete="email" />
+        <select id="accessAddRole">
+          <option value="viewer">צפייה</option>
+          <option value="editor">עריכה</option>
+        </select>
+        <button type="button" id="accessAddBtn">הוספה</button>
+      </div>
+      <div class="drawer-access-default">
+        <span>כל מי שיש לו קישור:</span>
+        <select id="accessDefaultRole">
+          <option value="">ללא גישה</option>
+          <option value="viewer">צפייה</option>
+          <option value="editor">עריכה</option>
+        </select>
+      </div>
+      <div class="drawer-access-error" id="accessError"></div>
+    </div>
+
+    <div class="drawer-divider editor-only"></div>
+
+    <div class="drawer-section editor-only" id="drawerActivitySection">
+      <div class="drawer-section-label">
+        <span>פעילות אחרונה</span>
+        <button type="button" class="drawer-activity-refresh" id="activityRefreshBtn" title="רענון">⟳</button>
+      </div>
+      <div class="drawer-activity-list" id="drawerActivityList"></div>
+    </div>
+
     <div class="drawer-divider"></div>
 
     <div class="drawer-section">
@@ -836,7 +946,12 @@ html,body{
   const PEOPLE_KEY = 'people';
   const TOPICS_KEY = 'topics';
   const API_URL = 'https://script.google.com/macros/s/AKfycbxO8tTn_6c1CxqcFSB35kgjQ3LYrmdzfjixTEdADlLCYyPB7sgL3Kw-UgCdwVXCkUU/exec';
-  const EMAIL_KEY = 'planner_user_email';
+  // Google Cloud OAuth Web client ID (public identifier, not a secret) —
+  // authorizes accounts.google.com/gsi/client to issue ID tokens for this
+  // origin. See frontend NOTES.md for how to create/rotate this.
+  const GOOGLE_CLIENT_ID = '390736656651-20hi3gk5n986592gtjqvunl9drsb721r.apps.googleusercontent.com';
+  const EMAIL_KEY = 'planner_user_email'; // legacy — only read once, to detect an old client and show the migration note
+  const SESSION_KEY = 'planner_session';
   const CACHE_KEY_PREFIX = 'planner_shared_cache_v1__';
   const LEGACY_BOARD_ID = 'board-1';
   const POLL_MS = 20000;
@@ -859,7 +974,8 @@ html,body{
   function startOfWeek(d){ const x=new Date(d); x.setHours(0,0,0,0); x.setDate(x.getDate()-x.getDay()); return x; }
 
   // ---------- shared state (synced through the Apps Script backend) ----------
-  let currentEmail = '';
+  let currentEmail = '';    // label only (from the login/getBoard response) — never sent as an auth credential once currentSession exists
+  let currentSession = '';  // the token every API call authenticates with post-sign-in
   let currentRole = 'viewer';
   let currentBoardId = '';
   let boardsList = [];      // [{id, name, role}] — boards the current email can access
@@ -905,6 +1021,31 @@ html,body{
     return !!(ae && (ae.isContentEditable || ae.tagName === 'INPUT'));
   }
 
+  // ---------- auth: every API call authenticates via these two helpers ----------
+  // (replaces the old `email: currentEmail` / `&email=...` sent on every call —
+  // see backend NOTES.md "Google sign-in" for resolveIdentity() on the server)
+  function authQuery(){ return '&session=' + encodeURIComponent(currentSession); }
+  function authBody(obj){ return Object.assign({ session: currentSession }, obj); }
+
+  // Shared handling for a response whose `error` means the session is no
+  // longer valid ('session_expired' — token missing/expired server-side;
+  // 'auth_required' — no session and REQUIRE_AUTH is now on). Any call site
+  // that talks to the API should route a failed response through this before
+  // treating it as an ordinary error, so an expired session always lands back
+  // on the sign-in card instead of spinning silently.
+  function handleAuthError(json){
+    const err = json && json.error;
+    if(err !== 'session_expired' && err !== 'auth_required') return false;
+    clearInterval(pollTimer);
+    currentSession = '';
+    localStorage.removeItem(SESSION_KEY);
+    if(typeof google !== 'undefined' && google.accounts && google.accounts.id){
+      try{ google.accounts.id.disableAutoSelect(); }catch(e){}
+    }
+    showSigninCard({ note: 'החיבור פג — התחברו שוב', retryable:false });
+    return true;
+  }
+
   function persistState(){
     // keep a one-step-back copy of whatever was cached *before* this write,
     // so a bad local write (or a save that raced with something else) always
@@ -934,20 +1075,93 @@ html,body{
     locked: 'השרת עמוס כרגע — ננסה שוב בקרוב'
   };
 
+  // Diffs two state blobs by item id and produces a short human-readable
+  // change note, sent to the server as `note` on every save and shown in the
+  // drawer's "פעילות אחרונה" (activity) list — see backend NOTES.md.
+  // Purely cosmetic for the audit trail; a failure here never blocks a save.
+  function dayLabel(key){
+    const d = DAY_DEFS.find(x=>x.key===key);
+    return d ? d.name : key;
+  }
+  function stripHtmlPreview(html, max){
+    const div = document.createElement('div');
+    div.innerHTML = html || '';
+    let text = (div.textContent || '').trim();
+    if(text.length > max) text = text.slice(0, max) + '…';
+    return text;
+  }
+  function collectChangeItems(state){
+    const items = {};
+    if(!state) return items;
+    if(state.kind === 'notes'){
+      (state.pages || []).forEach(page=>{
+        const walk = (blocks)=>{
+          (blocks || []).forEach(b=>{
+            items[b.id] = { text: stripHtmlPreview(b.html, 30), kind:'block' };
+            walk(b.children);
+          });
+        };
+        walk(page.blocks);
+      });
+      return items;
+    }
+    const weeks = state.weeks || {};
+    Object.keys(weeks).forEach(wk=>{
+      const wd = weeks[wk];
+      DAY_DEFS.forEach(d=>{
+        const day = wd[d.key];
+        if(!day) return;
+        (day.events || []).forEach(it=> items[it.id] = { text: it.text, dayKey: d.key, kind:'event' });
+        TASK_SECTIONS.forEach(sec=>{
+          (day[sec.key] || []).forEach(it=> items[it.id] = { text: it.text, done: !!it.done, dayKey: d.key, kind:'task' });
+        });
+      });
+    });
+    (state.unscheduled || []).forEach(it=> items[it.id] = { text: it.text, done: !!it.done, dayKey: null, kind:'task' });
+    return items;
+  }
+  function summarizeChange(prevState, nextState){
+    try{
+      const before = collectChangeItems(prevState);
+      const after = collectChangeItems(nextState);
+      const notes = [];
+      Object.keys(after).forEach(id=>{
+        if(!(id in before)){
+          const it = after[id];
+          notes.push('נוסף: "' + it.text + '"' + (it.dayKey ? ' (' + dayLabel(it.dayKey) + ')' : ''));
+        }
+      });
+      Object.keys(before).forEach(id=>{
+        if(!(id in after)) notes.push('נמחק: "' + before[id].text + '"');
+      });
+      Object.keys(after).forEach(id=>{
+        if(!(id in before)) return;
+        const a = after[id], b = before[id];
+        if(a.kind === 'task' && a.done && !b.done) notes.push('סומן כבוצע: "' + a.text + '"');
+        else if(a.dayKey !== undefined && a.dayKey !== b.dayKey) notes.push('הועבר: "' + a.text + '" ' + (b.dayKey ? dayLabel(b.dayKey) : '—') + '→' + (a.dayKey ? dayLabel(a.dayKey) : '—'));
+      });
+      if(!notes.length) return '';
+      return notes.slice(0, 3).join('; ').slice(0, 200);
+    }catch(e){ return ''; }
+  }
+
   async function pushState(){
-    if(!currentEmail || currentRole !== 'editor' || !currentBoardId) return;
+    if(!currentSession || currentRole !== 'editor' || !currentBoardId) return;
     const payload = JSON.stringify(appState);
+    let note = '';
+    try{ note = summarizeChange(lastSyncedJson ? JSON.parse(lastSyncedJson) : null, appState); }catch(e){}
     try{
       const res = await fetch(API_URL, {
         method:'POST',
         headers:{'Content-Type':'text/plain;charset=utf-8'},
-        body: JSON.stringify({ action:'saveBoard', board: currentBoardId, email: currentEmail, data: appState })
+        body: JSON.stringify(authBody({ action:'saveBoard', board: currentBoardId, data: appState, note }))
       });
       const json = await res.json().catch(()=>null);
       // This used to report 'מסונכרן ✓' unconditionally, without ever reading
       // the response — a server-side refusal looked exactly like a success, so
       // data could stop being saved with nothing on screen to say so.
       if(!json || !json.ok){
+        if(handleAuthError(json)) return;
         const err = json && json.error;
         setSyncStatus('השמירה נכשלה — ' + (SAVE_ERROR_TEXT[err] || 'שגיאת שרת'));
         // deliberately leave lastSyncedJson stale: that's what lets the next
@@ -973,9 +1187,9 @@ html,body{
   // about to go away — sendBeacon is specifically designed to still deliver
   // during unload, where a normal fetch would get cancelled mid-flight.
   function flushPendingSaveOnExit(){
-    if(!currentEmail || currentRole !== 'editor' || !currentBoardId) return;
+    if(!currentSession || currentRole !== 'editor' || !currentBoardId) return;
     clearTimeout(saveTimer);
-    const payload = JSON.stringify({ action:'saveBoard', board: currentBoardId, email: currentEmail, data: appState });
+    const payload = JSON.stringify(authBody({ action:'saveBoard', board: currentBoardId, data: appState }));
     try{
       navigator.sendBeacon(API_URL, new Blob([payload], {type:'text/plain;charset=utf-8'}));
     }catch(e){}
@@ -984,15 +1198,17 @@ html,body{
   window.addEventListener('pagehide', flushPendingSaveOnExit);
 
   async function refreshFromServer(isInitial){
-    if(!currentEmail || !currentBoardId) return;
+    if(!currentSession || !currentBoardId) return;
     try{
-      const url = API_URL + '?action=getBoard&board=' + encodeURIComponent(currentBoardId) + '&email=' + encodeURIComponent(currentEmail) + '&t=' + Date.now();
+      const url = API_URL + '?action=getBoard&board=' + encodeURIComponent(currentBoardId) + authQuery() + '&t=' + Date.now();
       const res = await fetch(url);
       const json = await res.json();
       if(!json || !json.ok){
+        if(handleAuthError(json)) return;
         if(isInitial) showNoAccess(json && json.error);
         return;
       }
+      if(json.email) currentEmail = json.email;
       hideNoAccess();
       const roleChanged = json.role !== currentRole;
       currentRole = json.role || 'viewer';
@@ -1046,11 +1262,13 @@ html,body{
   /* ---------- multi-board: list / switch / create ---------- */
 
   async function fetchBoardsList(){
-    if(!currentEmail) return [];
+    if(!currentSession) return [];
     try{
-      const url = API_URL + '?action=listBoards&email=' + encodeURIComponent(currentEmail) + '&t=' + Date.now();
+      const url = API_URL + '?action=listBoards' + authQuery() + '&t=' + Date.now();
       const res = await fetch(url);
       const json = await res.json();
+      if(handleAuthError(json)) return [];
+      if(json && json.email) currentEmail = json.email;
       if(json && json.ok && Array.isArray(json.boards)) return json.boards;
     }catch(e){}
     return [];
@@ -1218,8 +1436,216 @@ html,body{
     });
   }
 
+  /* ---------- access management (drawer, editors only) ---------- */
+
+  async function fetchAccessList(){
+    try{
+      const url = API_URL + '?action=listAccess&board=' + encodeURIComponent(currentBoardId) + authQuery() + '&t=' + Date.now();
+      const res = await fetch(url);
+      const json = await res.json();
+      if(handleAuthError(json)) return null;
+      if(json && json.ok) return json;
+    }catch(e){}
+    return null;
+  }
+
+  async function callSetAccess(targetEmail, role){
+    try{
+      const res = await fetch(API_URL, {
+        method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body: JSON.stringify(authBody({ action:'setAccess', board: currentBoardId, targetEmail, role }))
+      });
+      const json = await res.json();
+      if(handleAuthError(json)) return null;
+      return json;
+    }catch(e){ return null; }
+  }
+  async function callRemoveAccess(targetEmail){
+    try{
+      const res = await fetch(API_URL, {
+        method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body: JSON.stringify(authBody({ action:'removeAccess', board: currentBoardId, targetEmail }))
+      });
+      const json = await res.json();
+      if(handleAuthError(json)) return null;
+      return json;
+    }catch(e){ return null; }
+  }
+  async function callSetDefaultRole(role){
+    try{
+      const res = await fetch(API_URL, {
+        method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body: JSON.stringify(authBody({ action:'setDefaultRole', board: currentBoardId, role }))
+      });
+      const json = await res.json();
+      if(handleAuthError(json)) return null;
+      return json;
+    }catch(e){ return null; }
+  }
+
+  async function renderAccessList(){
+    const list = document.getElementById('drawerAccessList');
+    const defaultSel = document.getElementById('accessDefaultRole');
+    const errEl = document.getElementById('accessError');
+    if(!list || currentRole !== 'editor' || !currentBoardId) return;
+    list.innerHTML = '';
+    errEl.textContent = '';
+    const data = await fetchAccessList();
+    if(!data){ errEl.textContent = 'טעינת ההרשאות נכשלה'; return; }
+    defaultSel.value = data.defaultRole || '';
+    data.rows.forEach(row => {
+      const item = document.createElement('div');
+      item.className = 'drawer-access-item';
+
+      const emailSpan = document.createElement('span');
+      emailSpan.className = 'drawer-access-item-email';
+      emailSpan.textContent = row.email;
+      item.appendChild(emailSpan);
+
+      const roleSel = document.createElement('select');
+      ['viewer','editor'].forEach(r => {
+        const opt = document.createElement('option');
+        opt.value = r; opt.textContent = r === 'editor' ? 'עריכה' : 'צפייה';
+        if(r === row.role) opt.selected = true;
+        roleSel.appendChild(opt);
+      });
+      roleSel.addEventListener('change', async () => {
+        errEl.textContent = '';
+        const res = await callSetAccess(row.email, roleSel.value);
+        if(!res || !res.ok){
+          errEl.textContent = (res && res.error === 'last_editor') ? 'לא ניתן להשאיר לוח בלי עורך/ת אחד/ת לפחות' : 'העדכון נכשל';
+          roleSel.value = row.role;
+          return;
+        }
+        renderAccessList();
+      });
+      item.appendChild(roleSel);
+
+      const delBtn = document.createElement('button');
+      delBtn.type = 'button'; delBtn.className = 'adel'; delBtn.textContent = '×'; delBtn.title = 'הסרת הרשאה';
+      delBtn.onclick = () => {
+        showConfirmModal({
+          title: 'הסרת הרשאה',
+          message: 'להסיר את הגישה של ' + row.email + ' ללוח הזה?',
+          confirmLabel: 'הסרה',
+          onConfirm: async () => {
+            errEl.textContent = '';
+            const res = await callRemoveAccess(row.email);
+            if(!res || !res.ok){
+              errEl.textContent = (res && res.error === 'last_editor') ? 'לא ניתן להסיר את העורך/ת האחרון/ה' : 'ההסרה נכשלה';
+              return;
+            }
+            renderAccessList();
+          }
+        });
+      };
+      item.appendChild(delBtn);
+
+      list.appendChild(item);
+    });
+    if(!data.rows.length){
+      const empty = document.createElement('div');
+      empty.className = 'drawer-activity-empty';
+      empty.textContent = 'אין עדיין הרשאות מפורשות';
+      list.appendChild(empty);
+    }
+  }
+
+  document.getElementById('accessAddBtn').onclick = async () => {
+    const input = document.getElementById('accessAddEmail');
+    const roleSel = document.getElementById('accessAddRole');
+    const errEl = document.getElementById('accessError');
+    const email = input.value.trim();
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ errEl.textContent = 'כתובת מייל לא תקינה'; return; }
+    errEl.textContent = '';
+    const res = await callSetAccess(email, roleSel.value);
+    if(!res || !res.ok){ errEl.textContent = 'ההוספה נכשלה'; return; }
+    input.value = '';
+    renderAccessList();
+  };
+  document.getElementById('accessDefaultRole').addEventListener('change', async (e) => {
+    const errEl = document.getElementById('accessError');
+    const res = await callSetDefaultRole(e.target.value);
+    if(!res || !res.ok) errEl.textContent = 'העדכון נכשל';
+  });
+
+  /* ---------- activity log (drawer, editors only) ---------- */
+
+  function relTime(iso){
+    const t = new Date(iso).getTime();
+    if(!t) return '';
+    const diffSec = Math.max(0, Math.round((Date.now() - t) / 1000));
+    if(diffSec < 60) return 'לפני רגע';
+    const mins = Math.round(diffSec / 60);
+    if(mins < 60) return 'לפני ' + mins + ' דק׳';
+    const hours = Math.round(mins / 60);
+    if(hours < 24) return 'לפני ' + hours + ' שע׳';
+    const days = Math.round(hours / 24);
+    return 'לפני ' + days + ' ימים';
+  }
+
+  const ACTIVITY_ACTION_LABELS = {
+    login:'התחברות', logout:'התנתקות', login_failed:'התחברות נכשלה',
+    saveBoard:'שמירה', createBoard:'יצירת לוח', renameBoard:'שינוי שם לוח', deleteBoard:'מחיקת לוח',
+    setAccess:'שינוי הרשאה', removeAccess:'הסרת הרשאה', setDefaultRole:'שינוי הרשאת ברירת מחדל',
+    setScriptConfig:'שינוי הגדרות מערכת'
+  };
+
+  async function renderActivityList(){
+    const list = document.getElementById('drawerActivityList');
+    if(!list || currentRole !== 'editor' || !currentBoardId) return;
+    list.innerHTML = '<div class="drawer-activity-empty">טוען…</div>';
+    try{
+      const url = API_URL + '?action=getActivity&board=' + encodeURIComponent(currentBoardId) + authQuery() + '&limit=30&t=' + Date.now();
+      const res = await fetch(url);
+      const json = await res.json();
+      if(handleAuthError(json)) return;
+      list.innerHTML = '';
+      if(!json || !json.ok || !json.rows.length){
+        const empty = document.createElement('div');
+        empty.className = 'drawer-activity-empty';
+        empty.textContent = 'אין עדיין פעילות';
+        list.appendChild(empty);
+        return;
+      }
+      json.rows.forEach(row => {
+        const item = document.createElement('div');
+        item.className = 'drawer-activity-item';
+
+        const top = document.createElement('div');
+        top.className = 'a-top';
+        const emailSpan = document.createElement('span');
+        emailSpan.className = 'a-email';
+        emailSpan.textContent = row.email || '—';
+        const timeSpan = document.createElement('span');
+        timeSpan.className = 'a-time';
+        timeSpan.textContent = relTime(row.timestamp);
+        top.appendChild(emailSpan);
+        top.appendChild(timeSpan);
+        item.appendChild(top);
+
+        const detail = document.createElement('div');
+        detail.className = 'a-detail';
+        const actionLabel = ACTIVITY_ACTION_LABELS[row.action] || row.action;
+        const resultSuffix = (row.result && row.result !== 'ok') ? ' — נכשל' : '';
+        detail.textContent = actionLabel + resultSuffix + (row.details ? ': ' + row.details : '');
+        item.appendChild(detail);
+
+        list.appendChild(item);
+      });
+    }catch(e){
+      list.innerHTML = '';
+      const empty = document.createElement('div');
+      empty.className = 'drawer-activity-empty';
+      empty.textContent = 'הטעינה נכשלה';
+      list.appendChild(empty);
+    }
+  }
+  document.getElementById('activityRefreshBtn').onclick = renderActivityList;
+
   function openDrawer(){
     renderSectionSettingsList();
+    if(currentRole === 'editor'){ renderAccessList(); renderActivityList(); }
     const restoreBtn = document.getElementById('drawerRestoreBackupBtn');
     restoreBtn.style.display = localStorage.getItem(backupCacheKeyFor(currentBoardId)) ? '' : 'none';
     const overlay = document.getElementById('drawerOverlay');
@@ -1273,9 +1699,10 @@ html,body{
       const res = await fetch(API_URL, {
         method:'POST',
         headers:{'Content-Type':'text/plain;charset=utf-8'},
-        body: JSON.stringify({ action:'createBoard', email: currentEmail, name })
+        body: JSON.stringify(authBody({ action:'createBoard', name }))
       });
       const json = await res.json();
+      if(handleAuthError(json)) return;
       if(json && json.ok && json.board){
         closeNewBoardModal();
         boardsList = await fetchBoardsList();
@@ -1297,10 +1724,12 @@ html,body{
       const res = await fetch(API_URL, {
         method:'POST',
         headers:{'Content-Type':'text/plain;charset=utf-8'},
-        body: JSON.stringify({ action:'renameBoard', email: currentEmail, board: boardId, name: newName })
+        body: JSON.stringify(authBody({ action:'renameBoard', board: boardId, name: newName }))
       });
       const json = await res.json();
-      if(!(json && json.ok)) setSyncStatus('שינוי שם הלוח נכשל');
+      if(!(json && json.ok)){
+        if(!handleAuthError(json)) setSyncStatus('שינוי שם הלוח נכשל');
+      }
     }catch(e){
       setSyncStatus('אין חיבור — שינוי השם נכשל');
     }
@@ -1313,10 +1742,13 @@ html,body{
       const res = await fetch(API_URL, {
         method:'POST',
         headers:{'Content-Type':'text/plain;charset=utf-8'},
-        body: JSON.stringify({ action:'deleteBoard', email: currentEmail, board: boardId })
+        body: JSON.stringify(authBody({ action:'deleteBoard', board: boardId }))
       });
       const json = await res.json();
-      if(!(json && json.ok)){ setSyncStatus('מחיקת הלוח נכשלה'); return; }
+      if(!(json && json.ok)){
+        if(!handleAuthError(json)) setSyncStatus('מחיקת הלוח נכשלה');
+        return;
+      }
     }catch(e){
       setSyncStatus('אין חיבור — מחיקת הלוח נכשלה');
       return;
@@ -1405,6 +1837,10 @@ html,body{
     if(badge) badge.style.display = currentRole === 'editor' ? 'none' : 'inline-flex';
     const switchBtn = document.getElementById('drawerSwitchUserBtn');
     if(switchBtn) switchBtn.textContent = 'מחובר/ת כ־' + currentEmail + ' (החלפה)';
+    // the drawer lives outside #root, so .view-only (scoped to #root) never
+    // reaches it — toggle its editor-only sections here instead.
+    const isEditor = currentRole === 'editor';
+    document.querySelectorAll('.editor-only').forEach(el => { el.style.display = isEditor ? '' : 'none'; });
   }
 
   function renderAll(){
@@ -3611,34 +4047,122 @@ html,body{
     });
   };
 
-  // ---------- email gate / boot ----------
+  // ---------- Google sign-in / boot ----------
+  // Replaces the old free-text email gate: identity now comes from a Google
+  // ID token, verified server-side and exchanged for a 90-day session token
+  // (see backend NOTES.md "Google sign-in"). EMAIL_KEY is only ever *read*
+  // below, to detect a pre-upgrade browser and show a one-time migration
+  // note — it's never written again.
   function showEmailGate(){ document.getElementById('emailGate').style.display = 'flex'; }
   function hideEmailGate(){ document.getElementById('emailGate').style.display = 'none'; }
 
-  function submitEmail(){
-    const val = document.getElementById('emailInput').value.trim();
-    const errEl = document.getElementById('emailError');
-    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)){
-      errEl.textContent = 'כתובת מייל לא תקינה — נסו שוב';
+  function showSigninCard(opts){
+    opts = opts || {};
+    document.getElementById('signinMigrateNote').style.display = opts.migrate ? 'block' : 'none';
+    document.getElementById('signinError').textContent = opts.note || '';
+    document.getElementById('signinRetryBtn').style.display = opts.retryable ? 'block' : 'none';
+    document.getElementById('gsiButton').style.display = opts.hideButton ? 'none' : 'flex';
+    showEmailGate();
+  }
+
+  // The GIS script tag has `defer`, so it may not have run yet when boot()
+  // fires — poll briefly for `google.accounts.id` rather than assuming it's
+  // ready, and give up with a clear error (not a silent hang) if it never
+  // loads (blocked script, offline, etc).
+  function waitForGsi(timeoutMs){
+    return new Promise((resolve)=>{
+      const start = Date.now();
+      (function check(){
+        if(window.google && google.accounts && google.accounts.id){ resolve(true); return; }
+        if(window.__gsiLoadError){ resolve(false); return; }
+        if(Date.now() - start > timeoutMs){ resolve(false); return; }
+        setTimeout(check, 150);
+      })();
+    });
+  }
+
+  async function initGoogleSignin(migrate){
+    if(!GOOGLE_CLIENT_ID){
+      showSigninCard({ note:'ההתחברות עם Google עדיין לא הוגדרה — פנו למנהל/ת המערכת', retryable:false, hideButton:true, migrate });
       return;
     }
-    errEl.textContent = '';
-    currentEmail = val.toLowerCase();
-    localStorage.setItem(EMAIL_KEY, currentEmail);
-    hideEmailGate();
-    initialLoad();
+    const ready = await waitForGsi(6000);
+    if(!ready){
+      showSigninCard({ note:'לא ניתן לטעון את ההתחברות של Google — בדקו את החיבור ונסו שוב', retryable:true, hideButton:true, migrate });
+      return;
+    }
+    showSigninCard({ migrate, hideButton:false });
+    try{
+      google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: onGoogleCredential,
+        auto_select: true,
+        itp_support: true,
+        use_fedcm_for_prompt: true,
+        // Without this, the rendered button (not just One Tap) falls back to
+        // the legacy popup + window.postMessage flow, which current Chrome
+        // blocks by default ("Cross-Origin-Opener-Policy policy would block
+        // the window.postMessage call") — the credential callback then never
+        // fires and the sign-in card is stuck on "מתחבר…" with no error and
+        // no server-side trace. FedCM button mode avoids that path entirely.
+        use_fedcm_for_button: true
+      });
+      const btnHost = document.getElementById('gsiButton');
+      btnHost.innerHTML = '';
+      google.accounts.id.renderButton(btnHost, { theme:'outline', size:'large', shape:'pill', text:'signin_with', locale:'he', width:280 });
+    }catch(e){
+      showSigninCard({ note:'לא ניתן לטעון את ההתחברות של Google — בדקו את החיבור ונסו שוב', retryable:true, hideButton:true, migrate });
+    }
   }
-  document.getElementById('emailSubmit').onclick = submitEmail;
-  document.getElementById('emailInput').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); submitEmail(); } });
 
-  document.getElementById('drawerSwitchUserBtn').onclick = () => {
+  async function onGoogleCredential(response){
+    document.getElementById('signinError').textContent = 'מתחבר…';
+    document.getElementById('signinRetryBtn').style.display = 'none';
+    try{
+      const res = await fetch(API_URL, {
+        method:'POST',
+        headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body: JSON.stringify({ action:'login', credential: response.credential })
+      });
+      const json = await res.json();
+      if(!json || !json.ok){
+        const err = json && json.error;
+        const text = err === 'not_configured'
+          ? 'ההתחברות עם Google עדיין לא הוגדרה — פנו למנהל/ת המערכת'
+          : 'ההתחברות נכשלה — נסו שוב';
+        showSigninCard({ note:text, retryable:true });
+        return;
+      }
+      currentSession = json.session;
+      currentEmail = json.email;
+      localStorage.setItem(SESSION_KEY, currentSession);
+      localStorage.removeItem(EMAIL_KEY); // migration from the old email-gate is complete
+      hideEmailGate();
+      initialLoad();
+    }catch(e){
+      showSigninCard({ note:'אין חיבור — נסו שוב', retryable:true });
+    }
+  }
+  document.getElementById('signinRetryBtn').onclick = () => {
+    initGoogleSignin(!!localStorage.getItem(EMAIL_KEY));
+  };
+
+  document.getElementById('drawerSwitchUserBtn').onclick = async () => {
     clearInterval(pollTimer);
-    localStorage.removeItem(EMAIL_KEY);
-    currentEmail = ''; currentRole = 'viewer'; currentBoardId = ''; boardsList = [];
+    const session = currentSession;
+    currentSession = ''; currentEmail = ''; currentRole = 'viewer'; currentBoardId = ''; boardsList = [];
+    localStorage.removeItem(SESSION_KEY);
+    if(window.google && google.accounts && google.accounts.id){
+      try{ google.accounts.id.disableAutoSelect(); }catch(e){}
+    }
     closeDrawer();
     renderBoardSwitcher();
-    document.getElementById('emailInput').value = '';
-    showEmailGate();
+    if(session){
+      try{
+        await fetch(API_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify({ action:'logout', session }) });
+      }catch(e){}
+    }
+    initGoogleSignin(false);
   };
 
   async function initialLoad(){
@@ -3668,8 +4192,12 @@ html,body{
   }
 
   function boot(){
-    currentEmail = (localStorage.getItem(EMAIL_KEY) || '').trim();
-    if(!currentEmail){ showEmailGate(); return; }
+    currentSession = (localStorage.getItem(SESSION_KEY) || '').trim();
+    const hadOldEmail = !!localStorage.getItem(EMAIL_KEY);
+    if(!currentSession){
+      initGoogleSignin(hadOldEmail);
+      return;
+    }
     hideEmailGate();
     initialLoad();
   }
