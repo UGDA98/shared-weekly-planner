@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- full-bleed background (no corner radius) — the OS applies its own mask
+       shape (circle/squircle/rounded-square) to maskable icons, so content
+       must sit inside the ~80% safe zone (already true of this glyph) and
+       the background must extend to every edge with no assumed shape. -->
+  <rect width="512" height="512" fill="#5b4b8a"/>
+  <rect x="176" y="173" width="210" height="34" rx="17" fill="#ffffff"/>
+  <rect x="126" y="239" width="260" height="34" rx="17" fill="#ffffff"/>
+  <rect x="206" y="305" width="180" height="34" rx="17" fill="#ffffff"/>
+  <path d="M 344 256 L 356 268 L 378 246" fill="none" stroke="#5b4b8a" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

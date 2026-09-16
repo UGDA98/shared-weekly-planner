@@ -2,8 +2,18 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>יומן ומשימות</title>
+<!-- PWA manifest + icons — no service worker on purpose: this is a live-data
+     app on a 20s poll, a SW would only risk serving a stale index.html for
+     no offline benefit worth having (see NOTES.md Decisions). -->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="theme-color" content="#5b4b8a">
+<meta name="apple-mobile-web-app-title" content="יומן ומשימות">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <script src="https://accounts.google.com/gsi/client" async defer
         onload="window.__gsiLoaded = true;"
         onerror="window.__gsiLoadError = true;"></script>
