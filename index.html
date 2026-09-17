@@ -744,7 +744,7 @@ html,body{
 .notes-card-title.is-empty{ color:var(--muted); font-weight:600; }
 .notes-card-preview{ flex:1; display:flex; flex-direction:column; gap:3px; overflow:hidden; pointer-events:none; }
 .notes-card-preview-row{ display:flex; align-items:flex-start; gap:5px; font-size:12px; color:var(--muted); line-height:1.4; overflow:hidden; }
-.notes-card-preview-row .cpr-mark{ flex-shrink:0; width:12px; text-align:center; color:var(--muted); opacity:.7; }
+.notes-card-preview-row .cpr-mark{ flex-shrink:0; width:16px; text-align:center; color:var(--muted); opacity:.7; font-size:11px; }
 .notes-card-preview-row .cpr-text{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .notes-card-preview-row.is-h1 .cpr-text{ font-weight:700; color:var(--ink); }
 .notes-card-preview-row.is-h2 .cpr-text{ font-weight:600; color:var(--ink); }
@@ -813,6 +813,23 @@ html,body{
   flex-shrink:0; width:22px; height:26px; display:flex; align-items:center; justify-content:center; color:var(--muted);
 }
 .ob-bullet::before{ content:""; width:5px; height:5px; border-radius:50%; background:var(--muted); display:block; }
+.ob-olnum{
+  flex-shrink:0; width:22px; height:26px; display:flex; align-items:center; justify-content:center;
+  color:var(--muted); font-size:13.5px; font-variant-numeric:tabular-nums;
+}
+.ob-checkbox{
+  flex-shrink:0; width:22px; height:26px; display:flex; align-items:center; justify-content:center;
+  border:none; background:none; padding:0; cursor:pointer;
+}
+.ob-checkbox::before{
+  content:""; width:16px; height:16px; border-radius:5px; border:1.5px solid var(--border-strong);
+  background:var(--surface); display:block; transition:background-color .12s ease, border-color .12s ease;
+}
+.ob-checkbox.is-checked::before{
+  background:var(--accent); border-color:var(--accent);
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:center; background-size:11px;
+}
 .ob-text{
   flex:1; min-width:0; outline:none; font-size:15.5px; line-height:1.65; color:var(--ink); padding:2px 2px;
   word-break:break-word; white-space:pre-wrap;
@@ -820,6 +837,9 @@ html,body{
 .ob-text:empty::before{ content:"כתבו משהו…"; color:var(--muted); opacity:.7; }
 .ob-text.ob-h1{ font-size:24px; font-weight:800; letter-spacing:-.005em; }
 .ob-text.ob-h2{ font-size:19px; font-weight:700; }
+.ob-row.is-checked > .ob-row-main > .ob-text{
+  color:var(--muted); text-decoration:line-through; text-decoration-color:var(--border-strong); text-decoration-thickness:1.5px;
+}
 .ob-row-del{
   flex-shrink:0; border:none; background:none; color:var(--muted); padding:4px 6px; border-radius:var(--radius-sm);
   cursor:pointer; opacity:0; align-self:flex-start; margin-top:1px;
@@ -845,7 +865,21 @@ html,body{
 }
 .ob-toolbar button:active{ background:var(--surface-2); }
 .ob-toolbar .obt-sep{ width:1px; height:22px; background:var(--border); flex-shrink:0; margin:0 3px; }
-@media (pointer:fine){ .ob-toolbar{ display:none !important; } } /* mouse+keyboard has Tab/shortcuts; only show for touch */
+.ob-toolbar .obt-blocktype{ width:auto; min-width:auto; gap:5px; padding:0 8px; font-size:13px; font-weight:600; }
+/* A mouse also has Tab/shortcuts, but per user feedback those aren't
+   discoverable on their own — the toolbar is now shown for both input
+   types. On a fine pointer it's narrower, centered over the page-view
+   column, and less finger-sized (a mouse doesn't need 38px targets),
+   so it reads as a floating format bar rather than a full-bleed mobile
+   sheet. */
+@media (pointer:fine){
+  .ob-toolbar{
+    inset-inline:auto; left:50%; transform:translateX(-50%); bottom:18px;
+    border:1px solid var(--border); border-top:1px solid var(--border); border-radius:var(--radius-lg);
+    box-shadow:var(--shadow-lift); padding:4px; max-width:min(90vw, 520px);
+  }
+  .ob-toolbar button{ min-width:32px; min-height:32px; font-size:13.5px; }
+}
 
 @media (max-width:640px){
   .day{ width:84vw; }
@@ -1045,7 +1079,10 @@ html,body{
     <button type="button" data-action="up" title="הזזה למעלה" aria-label="הזזה למעלה"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg></button>
     <button type="button" data-action="down" title="הזזה למטה" aria-label="הזזה למטה"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
     <span class="obt-sep"></span>
-    <button type="button" data-action="heading" title="כותרת" aria-label="כותרת"><b>H</b></button>
+    <button type="button" class="obt-blocktype" id="obBlockTypeBtn" data-action="blocktype" title="סוג טקסט" aria-label="סוג טקסט" aria-haspopup="true">
+      <span id="obBlockTypeLabel">טקסט</span>
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
     <button type="button" data-action="bold" title="מודגש" aria-label="מודגש"><b>B</b></button>
     <button type="button" data-action="italic" title="נטוי" aria-label="נטוי"><i>I</i></button>
     <button type="button" data-action="underline" title="קו תחתון" aria-label="קו תחתון"><u>U</u></button>
@@ -4400,7 +4437,11 @@ html,body{
   // schema-less blob can in principle be edited by anything that can reach
   // the API, not just this client.
 
-  function emptyBlock(){ return { id: uid(), html:'', style:'p', collapsed:false, children:[] }; }
+  // block.style: 'p' | 'h1' | 'h2' | 'ol' (numbered list) | 'todo' (checkbox).
+  // block.checked only means anything when style === 'todo'.
+  const BLOCK_STYLES = { p:1, h1:1, h2:1, ol:1, todo:1 };
+  function normalizeBlockStyle(style){ return BLOCK_STYLES[style] ? style : 'p'; }
+  function emptyBlock(){ return { id: uid(), html:'', style:'p', checked:false, collapsed:false, children:[] }; }
   function emptyNotesPage(){ return { id: uid(), title:'', icon:'', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), blocks:[emptyBlock()] }; }
   // Caps an icon string at 8 UTF-16 code units — generous for a single emoji
   // even with a skin-tone modifier or a multi-codepoint ZWJ sequence (family
@@ -4408,7 +4449,7 @@ html,body{
   // preserving byte-for-byte if someone pastes something huge into it).
   function sanitizeNotesIcon(raw){ return String(raw || '').trim().slice(0, 8); }
   function cloneBlockWithNewIds(block){
-    return { id: uid(), html: block.html, style: block.style, collapsed: block.collapsed, children: (block.children || []).map(cloneBlockWithNewIds) };
+    return { id: uid(), html: block.html, style: block.style, checked: !!block.checked, collapsed: block.collapsed, children: (block.children || []).map(cloneBlockWithNewIds) };
   }
 
   function sanitizeInline(html){
@@ -4444,7 +4485,12 @@ html,body{
     (state.pages || []).forEach(page => {
       page.icon = sanitizeNotesIcon(page.icon);
       (function walk(blocks){
-        blocks.forEach(b => { b.html = sanitizeInline(b.html); walk(b.children || []); });
+        blocks.forEach(b => {
+          b.html = sanitizeInline(b.html);
+          b.style = normalizeBlockStyle(b.style);
+          b.checked = b.style === 'todo' ? !!b.checked : false;
+          walk(b.children || []);
+        });
       })(page.blocks || []);
     });
     return state;
@@ -4585,6 +4631,53 @@ html,body{
     commitNotesChange();
   }
 
+  function toggleBlockChecked(blockId){
+    const page = currentNotesPage(); if(!page) return;
+    const ctx = findBlockCtx(page.blocks, blockId);
+    if(!ctx || ctx.block.style !== 'todo') return;
+    ctx.block.checked = !ctx.block.checked;
+    commitNotesChange();
+  }
+
+  // A block's displayed number among a numbered-list run: consecutive
+  // 'ol'-style siblings in the SAME array count up together; any other style
+  // (including a nested list one level down, which has its own array) resets
+  // the count — same rule Markdown/most outliners use for auto-numbering.
+  function computeOlIndex(arr, blockId){
+    let n = 0;
+    for(const b of arr){
+      n = (b.style === 'ol') ? n + 1 : 0;
+      if(b.id === blockId) return n || 1;
+    }
+    return 1;
+  }
+
+  // The marker shown when a block has no children (children show a
+  // collapse/expand toggle instead — see renderBlockRow). One element per
+  // style, built fresh here so both a full render and setBlockStyleInPlace's
+  // in-place marker swap (markdown autoformat, mid-typing) share one
+  // definition of what each style looks like.
+  function buildBlockMarker(block, olIndex){
+    if(block.style === 'todo'){
+      const cb = document.createElement('button');
+      cb.type = 'button';
+      cb.className = 'ob-checkbox' + (block.checked ? ' is-checked' : '');
+      cb.setAttribute('aria-label', block.checked ? 'סימון כלא בוצע' : 'סימון כבוצע');
+      cb.onmousedown = (e) => e.preventDefault(); // don't steal focus from the text being edited
+      cb.onclick = (e) => { e.stopPropagation(); toggleBlockChecked(block.id); };
+      return cb;
+    }
+    if(block.style === 'ol'){
+      const num = document.createElement('span');
+      num.className = 'ob-olnum';
+      num.textContent = (olIndex || 1) + '.';
+      return num;
+    }
+    const dot = document.createElement('span');
+    dot.className = 'ob-bullet';
+    return dot;
+  }
+
   // Backspace at the very start of a block's text: merge it into the
   // previous visible block. Refused (per the plan) when this block has both
   // its own text and children — an unambiguous merge target doesn't exist
@@ -4627,11 +4720,45 @@ html,body{
     });
   }
 
+  // Used by the markdown-style autoformat ("# ", "1. ", "[] " while actively
+  // typing) — patches the text className and the marker sibling in place
+  // instead of a full outline re-render, so the caret/IME state mid-keystroke
+  // is never disturbed. Numbered-list renumbering of LATER siblings is a full
+  // re-render's job (every structural op already does one); this only needs
+  // this one block's own marker to be right immediately.
   function setBlockStyleInPlace(el, block, style){
     block.style = style;
-    if(el){ el.className = 'ob-text' + (style === 'h1' ? ' ob-h1' : style === 'h2' ? ' ob-h2' : ''); }
+    if(style !== 'todo') block.checked = false;
+    if(el){
+      el.className = blockTextClassName(style);
+      const main = el.parentElement;
+      if(main && !block.children.length){
+        const oldMarker = main.querySelector('.ob-bullet, .ob-checkbox, .ob-olnum');
+        if(oldMarker){
+          const page = currentNotesPage();
+          const ctx = page && findBlockCtx(page.blocks, block.id);
+          const olIndex = ctx ? computeOlIndex(ctx.arr, block.id) : 1;
+          oldMarker.replaceWith(buildBlockMarker(block, olIndex));
+        }
+      }
+      const row = el.closest('.ob-row');
+      if(row) row.classList.toggle('is-checked', style === 'todo' && !!block.checked);
+    }
     const page = currentNotesPage();
     if(page){ page.updatedAt = new Date().toISOString(); persistState(); }
+  }
+
+  // Used by keyboard shortcuts and the toolbar's block-type dropdown — a
+  // full commit + re-render (so numbered-list siblings renumber correctly
+  // and the row's marker/checked state is never stale), then refocus the
+  // same block so the user can keep typing right after the shortcut.
+  function setBlockStyleAndRefresh(blockId, style){
+    const page = currentNotesPage(); if(!page) return;
+    const ctx = findBlockCtx(page.blocks, blockId); if(!ctx) return;
+    ctx.block.style = style;
+    if(style !== 'todo') ctx.block.checked = false;
+    commitNotesChange();
+    focusBlock(blockId, false);
   }
 
   function deleteBlockWithUndo(blockId){
@@ -4652,9 +4779,13 @@ html,body{
 
   // ---------- rendering ----------
 
-  function renderBlockRow(block, page){
+  function blockTextClassName(style){
+    return 'ob-text' + (style === 'h1' ? ' ob-h1' : style === 'h2' ? ' ob-h2' : '');
+  }
+
+  function renderBlockRow(block, page, olIndex){
     const row = document.createElement('div');
-    row.className = 'ob-row' + (block.collapsed ? ' is-collapsed' : '');
+    row.className = 'ob-row' + (block.collapsed ? ' is-collapsed' : '') + (block.style === 'todo' && block.checked ? ' is-checked' : '');
     row.setAttribute('data-id', block.id);
 
     const main = document.createElement('div');
@@ -4667,11 +4798,11 @@ html,body{
       toggle.onclick = () => toggleCollapse(block.id);
       main.appendChild(toggle);
     } else {
-      main.appendChild(document.createElement('span')).className = 'ob-bullet';
+      main.appendChild(buildBlockMarker(block, olIndex));
     }
 
     const text = document.createElement('div');
-    text.className = 'ob-text' + (block.style === 'h1' ? ' ob-h1' : block.style === 'h2' ? ' ob-h2' : '');
+    text.className = blockTextClassName(block.style);
     text.contentEditable = currentRole === 'editor' ? 'true' : 'false';
     text.innerHTML = block.html;
     wireOutlineTextEvents(text, block, page);
@@ -4686,19 +4817,31 @@ html,body{
 
     const childrenWrap = document.createElement('div');
     childrenWrap.className = 'ob-children';
-    block.children.forEach(child => childrenWrap.appendChild(renderBlockRow(child, page)));
+    renderBlockList(block.children, page, childrenWrap);
     row.appendChild(childrenWrap);
 
     return row;
+  }
+
+  // Shared by the top-level outline and every nested .ob-children wrap —
+  // tracks the running numbered-list count across one sibling array so 'ol'
+  // blocks number correctly regardless of nesting depth.
+  function renderBlockList(blocks, page, container){
+    let olCounter = 0;
+    blocks.forEach(b => {
+      olCounter = (b.style === 'ol') ? olCounter + 1 : 0;
+      container.appendChild(renderBlockRow(b, page, olCounter));
+    });
   }
 
   function renderNotesOutline(page){
     const container = document.getElementById('notesOutline');
     if(!container) return;
     container.innerHTML = '';
-    page.blocks.forEach(b => container.appendChild(renderBlockRow(b, page)));
+    renderBlockList(page.blocks, page, container);
   }
 
+  const BLOCK_TYPE_LABELS = { p:'טקסט', h1:'כותרת 1', h2:'כותרת 2', ol:'רשימה ממוספרת', todo:'משימה' };
   let obToolbarTargetId = null;
   function showObToolbarFor(el){
     if(currentRole !== 'editor') return;
@@ -4706,6 +4849,10 @@ html,body{
     obToolbarTargetId = row ? row.dataset.id : null;
     const bar = document.getElementById('obToolbar');
     if(bar) bar.classList.add('is-visible');
+    const page = currentNotesPage();
+    const ctx = page && obToolbarTargetId && findBlockCtx(page.blocks, obToolbarTargetId);
+    const label = document.getElementById('obBlockTypeLabel');
+    if(label) label.textContent = BLOCK_TYPE_LABELS[ctx ? ctx.block.style : 'p'] || 'טקסט';
   }
   function hideObToolbarSoon(){
     setTimeout(() => {
@@ -4736,13 +4883,18 @@ html,body{
     });
     el.addEventListener('input', () => {
       const text = el.textContent || '';
-      // "# "/"## " at the start of an empty-style paragraph → heading,
-      // mirrors the same shortcut in Notion/most outliners
+      // Markdown-style autoformat at the start of an empty paragraph — "# "/
+      // "## " → heading, "1. " → numbered list, "[] "/"[ ] " → checkbox.
+      // Mirrors the same shortcuts in Notion/most outliners.
       if(block.style === 'p'){
-        const m = text.match(/^(#{1,2})\s/);
+        const headingMatch = text.match(/^(#{1,2})\s/);
+        const olMatch = !headingMatch && text.match(/^1\.\s/);
+        const todoMatch = !headingMatch && !olMatch && text.match(/^\[\s?\]\s/);
+        const m = headingMatch || olMatch || todoMatch;
         if(m){
           const rest = text.slice(m[0].length);
-          setBlockStyleInPlace(el, block, m[1].length === 1 ? 'h1' : 'h2');
+          const style = headingMatch ? (headingMatch[1].length === 1 ? 'h1' : 'h2') : olMatch ? 'ol' : 'todo';
+          setBlockStyleInPlace(el, block, style);
           el.textContent = rest;
           block.html = sanitizeInline(el.innerHTML);
           placeCaretAt(el, false);
@@ -4783,9 +4935,13 @@ html,body{
         return;
       }
       if(mod && e.key === '.'){ e.preventDefault(); toggleCollapse(block.id); return; }
-      if(mod && e.shiftKey && (e.key === '1' || e.key === '!')){ e.preventDefault(); setBlockStyleInPlace(el, block, 'h1'); return; }
-      if(mod && e.shiftKey && (e.key === '2' || e.key === '@')){ e.preventDefault(); setBlockStyleInPlace(el, block, 'h2'); return; }
-      if(mod && e.shiftKey && (e.key === '0' || e.key === ')')){ e.preventDefault(); setBlockStyleInPlace(el, block, 'p'); return; }
+      if(mod && e.shiftKey && (e.key === '1' || e.key === '!')){ e.preventDefault(); setBlockStyleAndRefresh(block.id, 'h1'); return; }
+      if(mod && e.shiftKey && (e.key === '2' || e.key === '@')){ e.preventDefault(); setBlockStyleAndRefresh(block.id, 'h2'); return; }
+      if(mod && e.shiftKey && (e.key === '0' || e.key === ')')){ e.preventDefault(); setBlockStyleAndRefresh(block.id, 'p'); return; }
+      // 7/9 match Notion's own numbered-list/to-do shortcuts, so anyone
+      // coming from there already knows these.
+      if(mod && e.shiftKey && (e.key === '7' || e.key === '&')){ e.preventDefault(); setBlockStyleAndRefresh(block.id, 'ol'); return; }
+      if(mod && e.shiftKey && (e.key === '9' || e.key === '(')){ e.preventDefault(); setBlockStyleAndRefresh(block.id, 'todo'); return; }
       if(mod && !e.shiftKey && (e.key === 'b' || e.key === 'B')){ e.preventDefault(); document.execCommand('bold'); block.html = sanitizeInline(el.innerHTML); persistState(); return; }
       if(mod && !e.shiftKey && (e.key === 'i' || e.key === 'I')){ e.preventDefault(); document.execCommand('italic'); block.html = sanitizeInline(el.innerHTML); persistState(); return; }
       if(mod && !e.shiftKey && (e.key === 'u' || e.key === 'U')){ e.preventDefault(); document.execCommand('underline'); block.html = sanitizeInline(el.innerHTML); persistState(); return; }
@@ -4794,6 +4950,32 @@ html,body{
 
   // Mobile/touch toolbar — desktop with a mouse+keyboard already has Tab and
   // the Ctrl/⌘ shortcuts above; a touch keyboard has neither.
+  // Block-type dropdown — same .picker popover component used elsewhere
+  // (openNotesPageMenu, openHighlightMenu), triggered from the toolbar's
+  // "טקסט ▾" button.
+  function openBlockTypeMenu(anchorEl){
+    if(!obToolbarTargetId) return;
+    closePicker();
+    const page = currentNotesPage(); if(!page) return;
+    const ctx = findBlockCtx(page.blocks, obToolbarTargetId); if(!ctx) return;
+    const pop = document.createElement('div');
+    pop.className = 'picker';
+    const rect = anchorEl.getBoundingClientRect();
+    positionPopover(pop, rect, { width: 180 });
+    const list = document.createElement('div'); list.className = 'picker-list';
+    ['p', 'h1', 'h2', 'ol', 'todo'].forEach(style => {
+      const r = document.createElement('div');
+      r.className = 'picker-item' + (style === ctx.block.style ? ' selected' : '');
+      r.textContent = BLOCK_TYPE_LABELS[style];
+      r.onclick = () => { closePicker(); setBlockStyleAndRefresh(obToolbarTargetId, style); };
+      list.appendChild(r);
+    });
+    pop.appendChild(list);
+    document.body.appendChild(pop);
+    openPickerEl = pop;
+    setTimeout(() => document.addEventListener('mousedown', onDocClick, true), 0);
+  }
+
   (function wireObToolbar(){
     const bar = document.getElementById('obToolbar');
     if(!bar) return;
@@ -4811,12 +4993,8 @@ html,body{
       else if(action === 'down') moveBlockAmongSiblings(obToolbarTargetId, 1);
       else if(action === 'collapse') toggleCollapse(obToolbarTargetId);
       else if(action === 'delete') deleteBlockWithUndo(obToolbarTargetId);
-      else if(action === 'heading'){
-        const el = document.querySelector(notesTextSelector(obToolbarTargetId));
-        const next = ctx.block.style === 'p' ? 'h1' : ctx.block.style === 'h1' ? 'h2' : 'p';
-        setBlockStyleInPlace(el, ctx.block, next);
-        if(el) el.className = 'ob-text' + (next === 'h1' ? ' ob-h1' : next === 'h2' ? ' ob-h2' : '');
-      } else if(action === 'bold' || action === 'italic' || action === 'underline'){
+      else if(action === 'blocktype'){ openBlockTypeMenu(btn); }
+      else if(action === 'bold' || action === 'italic' || action === 'underline'){
         document.execCommand(action);
         const el = document.querySelector(notesTextSelector(obToolbarTargetId));
         if(el){ ctx.block.html = sanitizeInline(el.innerHTML); persistState(); }
@@ -5000,19 +5178,24 @@ html,body{
     const preview = document.createElement('div');
     preview.className = 'notes-card-preview';
     const flat = [];
+    const olCounters = {}; // running numbered-list count per depth, same rule as renderBlockList
     (function walk(blocks, depth){
       blocks.forEach(b => {
         if(flat.length >= 6) return;
-        flat.push({ b, depth });
+        olCounters[depth] = (b.style === 'ol') ? (olCounters[depth] || 0) + 1 : 0;
+        flat.push({ b, depth, olIndex: olCounters[depth] });
         if(depth < 2) walk(b.children, depth + 1);
       });
     })(page.blocks || [], 0);
-    flat.forEach(({ b, depth }) => {
+    flat.forEach(({ b, depth, olIndex }) => {
       const row = document.createElement('div');
       row.className = 'notes-card-preview-row' + (b.style === 'h1' ? ' is-h1' : b.style === 'h2' ? ' is-h2' : '');
       row.style.paddingInlineStart = (depth * 10) + 'px';
       const mark = document.createElement('span'); mark.className = 'cpr-mark';
-      mark.textContent = b.children.length ? (b.collapsed ? '▶' : '▼') : '•';
+      mark.textContent = b.children.length ? (b.collapsed ? '▶' : '▼')
+        : b.style === 'todo' ? (b.checked ? '☑' : '☐')
+        : b.style === 'ol' ? (olIndex + '.')
+        : '•';
       const text = document.createElement('span'); text.className = 'cpr-text';
       text.textContent = stripHtmlPreview(b.html, 60) || ' ';
       row.appendChild(mark); row.appendChild(text);
