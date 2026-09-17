@@ -3,6 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<!-- App build version, compared against version.txt to detect a new deploy in
+     installed standalone PWA windows (which have no reload affordance). MUST be
+     bumped together with version.txt on every deploy — see NOTES.md deploy step. -->
+<meta name="app-version" content="20260917-1436">
 <title>יומן ומשימות</title>
 <!-- PWA manifest + icons — no service worker on purpose: this is a live-data
      app on a 20s poll, a SW would only risk serving a stale index.html for
@@ -330,6 +334,26 @@ html,body{
 .menu-btn svg{ width:19px; height:19px; }
 .title-group{ display:flex; flex-direction:column; gap:1px; min-width:0; }
 .board-subtitle{ font-size:12px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* ---------- new-version banner (PWA stale-code notice) ---------- */
+.version-banner{
+  position:fixed; left:50%; top:12px; transform:translateX(-50%);
+  display:flex; align-items:center; gap:12px; max-width:calc(100vw - 24px);
+  background:var(--accent); color:var(--accent-ink); border-radius:var(--radius-lg); box-shadow:var(--shadow-lift);
+  padding:9px 10px 9px 16px; font-size:13px; z-index:320; direction:rtl;
+  padding-top:calc(9px + env(safe-area-inset-top, 0px));
+}
+.version-banner-msg{ min-width:0; }
+.version-banner-btn{
+  border:none; background:var(--accent-ink); color:var(--accent); font:inherit; font-weight:700; cursor:pointer;
+  padding:6px 12px; border-radius:var(--radius-sm); flex-shrink:0;
+}
+.version-banner-btn:focus-visible{ outline:2px solid var(--accent-ink); outline-offset:2px; }
+.version-banner-dismiss{
+  border:none; background:none; color:var(--accent-ink); font-size:18px; line-height:1; cursor:pointer;
+  padding:2px 6px; border-radius:var(--radius-sm); opacity:.8; flex-shrink:0;
+}
+.version-banner-dismiss:hover{ opacity:1; }
 
 /* ---------- undo toast (task/event delete) ---------- */
 .undo-toast{
@@ -1616,10 +1640,59 @@ html,body{
     }
   }
 
+  // ---------- new-version detection (PWA stale-code notice) ----------
+  // An installed standalone PWA window has no address bar, reload button, or
+  // pull-to-refresh, so it can keep running stale app code for days after a
+  // deploy — GitHub Pages' max-age=600 only bounds a normal *tab* that gets
+  // re-navigated, not a standalone window that never reloads. We piggyback on
+  // the existing poll: every VERSION_CHECK_EVERY ticks, fetch version.txt and,
+  // if it differs from the version baked into THIS page, show a dismissible
+  // "new version — tap to refresh" banner. Deliberately NO auto-reload (would
+  // risk an unsaved mid-edit). Fails safe: any error, or a missing/equal
+  // version, shows nothing. (audit Domain 6 / B4.1)
+  const APP_VERSION = (document.querySelector('meta[name="app-version"]') || {}).content || '';
+  const VERSION_CHECK_EVERY = 5; // poll ticks between checks (~100s at 20s poll)
+  let versionCheckTick = 0;
+  let versionBannerShown = false;
+  async function checkForNewVersion(){
+    if(versionBannerShown || !APP_VERSION) return;
+    try{
+      const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
+      if(!res.ok) return;
+      const latest = (await res.text()).trim();
+      if(latest && latest !== APP_VERSION) showVersionBanner();
+    }catch(e){ /* offline / blocked — try again next interval */ }
+  }
+  function showVersionBanner(){
+    if(versionBannerShown) return;
+    versionBannerShown = true;
+    const bar = document.createElement('div');
+    bar.className = 'version-banner';
+    bar.setAttribute('role', 'status');
+    bar.setAttribute('aria-live', 'polite');
+    const msg = document.createElement('span');
+    msg.className = 'version-banner-msg';
+    msg.textContent = 'יש גרסה חדשה של האפליקציה';
+    const reload = document.createElement('button');
+    reload.type = 'button';
+    reload.className = 'version-banner-btn';
+    reload.textContent = 'רענון';
+    reload.onclick = () => location.reload();
+    const dismiss = document.createElement('button');
+    dismiss.type = 'button';
+    dismiss.className = 'version-banner-dismiss';
+    dismiss.setAttribute('aria-label', 'סגירה');
+    dismiss.textContent = '×';
+    dismiss.onclick = () => { bar.remove(); }; // versionBannerShown stays true → no re-nag this session
+    bar.appendChild(msg); bar.appendChild(reload); bar.appendChild(dismiss);
+    document.body.appendChild(bar);
+  }
+
   function startPolling(){
     clearInterval(pollTimer);
     pollTimer = setInterval(async ()=> {
       refreshFromServer(false);
+      if(++versionCheckTick % VERSION_CHECK_EVERY === 0) checkForNewVersion();
       // self-heal the board list on the same cadence as everything else — a single
       // failed fetch at initial load (network hiccup) would otherwise leave the
       // picker permanently empty for the rest of the session with no retry.

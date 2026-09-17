@@ -45,6 +45,12 @@ The system spans **two separate local folders on this machine — do not confuse
 
 **Deployment behavior**: frontend push → live in ~1-2 min, but GitHub Pages serves with `max-age=600` (~10 min cache) — a stale-looking page right after push is usually cache, not a bug; hard-refresh or wait.
 
+**Deploy step — bump the app version (REQUIRED on every frontend deploy, added Batch 4 / 2026-09-17).** Installed standalone PWA windows have no reload affordance, so they detect a new deploy by comparing the `<meta name="app-version">` baked into their loaded page against `version.txt` fetched on the poll; a mismatch shows a "רענון" banner. **Both must be stamped to the same new value before you push**, or the banner never fires (fails safe — no false reloads, but also no notice). One-liner (run in `frontend/` before committing):
+```
+V=$(date -u +%Y%m%d-%H%M); printf '%s\n' "$V" > version.txt; sed -i '' "s/name=\"app-version\" content=\"[^\"]*\"/name=\"app-version\" content=\"$V\"/" index.html
+```
+(GNU `sed`: drop the `''` after `-i`.) No service worker — this is the deliberately-lightweight alternative (see Decisions "PWA manifest with no service worker"). The literal "banner appears in a real installed PWA after a deploy" can only be confirmed on an actual device (like the icon check, Watch Out #27).
+
 ### Key frontend functions (verify with `grep -n` before editing — line numbers drift)
 
 | Area | Functions | ~Lines |
