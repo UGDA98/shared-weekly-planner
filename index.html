@@ -1438,8 +1438,12 @@ html,body{
     }catch(e){ return ''; }
   }
 
+  // Returns true when there is nothing to save or the save succeeded, false
+  // when a save was attempted and failed (server refusal or network) — callers
+  // like switchToBoard use this to decide whether it's safe to move on.
   async function pushState(){
-    if(!currentSession || currentRole !== 'editor' || !currentBoardId) return;
+    if(!currentSession || currentRole !== 'editor' || !currentBoardId) return true;
+    const reqBoard = currentBoardId;               // this save is FOR this board
     const payload = JSON.stringify(appState);
     let note = '';
     try{ note = summarizeChange(lastSyncedJson ? JSON.parse(lastSyncedJson) : null, appState); }catch(e){}
@@ -1447,28 +1451,36 @@ html,body{
       const res = await fetch(API_URL, {
         method:'POST',
         headers:{'Content-Type':'text/plain;charset=utf-8'},
-        body: JSON.stringify(authBody({ action:'saveBoard', board: currentBoardId, data: appState, note }))
+        body: JSON.stringify(authBody({ action:'saveBoard', board: reqBoard, data: appState, note }))
       });
       const json = await res.json().catch(()=>null);
       // This used to report 'מסונכרן ✓' unconditionally, without ever reading
       // the response — a server-side refusal looked exactly like a success, so
       // data could stop being saved with nothing on screen to say so.
       if(!json || !json.ok){
-        if(handleAuthError(json)) return;
+        if(handleAuthError(json)) return false;
         const err = json && json.error;
         setSyncStatus('השמירה נכשלה — ' + (SAVE_ERROR_TEXT[err] || 'שגיאת שרת'));
         // deliberately leave lastSyncedJson stale: that's what lets the next
         // poll see the divergence instead of treating the failure as synced.
         // hasPendingLocalChange also stays true: nothing was actually saved,
         // so refreshFromServer must still not overwrite it.
-        return;
+        return false;
       }
+      // If the user switched boards while this save was in flight, the response
+      // came back for a board we've left — don't write its result into the
+      // now-current board's sync globals (would poison the new board's baseline
+      // and could drop its pending edit). The POST itself already targeted the
+      // right board via the captured reqBoard, so the save still landed.
+      if(currentBoardId !== reqBoard) return true;
       lastSyncedJson = payload;
       hasPendingLocalChange = false;
       setSyncStatus('מסונכרן ✓');
+      return true;
     }catch(e){
       setSyncStatus('אין חיבור — יישמר מקומית');
       // hasPendingLocalChange stays true: the request never completed.
+      return false;
     }
   }
 
@@ -1481,6 +1493,11 @@ html,body{
   // during unload, where a normal fetch would get cancelled mid-flight.
   function flushPendingSaveOnExit(){
     if(!currentSession || currentRole !== 'editor' || !currentBoardId) return;
+    // Only flush when there's a genuine unsaved edit. Without this, a tab that
+    // merely loaded a board (or ended up with a default/empty appState after a
+    // failed or corrupt load) would beacon that empty state back over the real
+    // board on close (audit 2026-09-17 #6, frontend half of B2.4).
+    if(!hasPendingLocalChange) return;
     clearTimeout(saveTimer);
     const payload = JSON.stringify(authBody({ action:'saveBoard', board: currentBoardId, data: appState }));
     try{
@@ -1511,13 +1528,28 @@ html,body{
 
   async function refreshFromServer(isInitial){
     if(!currentSession || !currentBoardId) return;
+    // Capture the board this request is FOR. currentBoardId is a global that a
+    // board switch reassigns synchronously; if the user switches boards while
+    // this fetch is in flight, applying the (now-stale) response below would
+    // overwrite the newly-entered board's state and localStorage cache with
+    // this board's data — a cross-board data-corruption race. So after every
+    // await we bail out if the current board is no longer the one we asked for.
+    const reqBoard = currentBoardId;
     try{
       if(!isInitial && await boardUnchangedSinceLastSync()) return;
-      const url = API_URL + '?action=getBoard&board=' + encodeURIComponent(currentBoardId) + authQuery() + '&t=' + Date.now();
+      if(currentBoardId !== reqBoard) return;
+      const url = API_URL + '?action=getBoard&board=' + encodeURIComponent(reqBoard) + authQuery() + '&t=' + Date.now();
       const res = await fetch(url);
       const json = await res.json();
+      if(currentBoardId !== reqBoard) return; // switched away while awaiting — response is stale
       if(!json || !json.ok){
         if(handleAuthError(json)) return;
+        if(json && json.error === 'state_corrupt'){
+          // Server couldn't parse the stored blob (mid-write race or a corrupt
+          // cell). Keep our local copy; never overwrite appState with a default.
+          setSyncStatus('שגיאת נתונים זמנית בשרת — עובדים מהעותק המקומי');
+          return;
+        }
         if(isInitial) showNoAccess(json && json.error);
         return;
       }
@@ -1528,7 +1560,7 @@ html,body{
       currentRole = json.role || 'viewer';
       updateRoleUI();
       currentBoardType = (json.board && json.board.type) || 'planner';
-      cacheBoardType(currentBoardId, currentBoardType);
+      cacheBoardType(reqBoard, currentBoardType);
       const serverData = isValidStateFor(currentBoardType, json.data) ? json.data : null;
       if(serverData){
         const serverJson = JSON.stringify(serverData);
@@ -1547,9 +1579,9 @@ html,body{
               weekData = loadWeek(weekStart);
             }
             lastSyncedJson = serverJson;
-            const prevLocal = localStorage.getItem(cacheKeyFor(currentBoardId));
-            if(prevLocal && prevLocal !== serverJson) localStorage.setItem(backupCacheKeyFor(currentBoardId), prevLocal);
-            localStorage.setItem(cacheKeyFor(currentBoardId), serverJson);
+            const prevLocal = localStorage.getItem(cacheKeyFor(reqBoard));
+            if(prevLocal && prevLocal !== serverJson) localStorage.setItem(backupCacheKeyFor(reqBoard), prevLocal);
+            localStorage.setItem(cacheKeyFor(reqBoard), serverJson);
             renderAll();
             setSyncStatus('עודכן ממכשיר אחר');
           }
@@ -2176,7 +2208,17 @@ html,body{
     // paid for a full saveBoard round-trip to Apps Script even when nothing
     // had changed, which is what made switching boards feel slow (reported
     // 2026-09-17).
-    if(currentRole === 'editor' && currentBoardId && hasPendingLocalChange) await pushState();
+    // If there's a pending edit, flush it BEFORE leaving — and if that flush
+    // fails, stay put rather than switching away and losing the unsaved edit
+    // (the edit lives only in appState/localStorage; entering the new board
+    // would replace appState). The user sees the failure and can retry.
+    if(currentRole === 'editor' && currentBoardId && hasPendingLocalChange){
+      const ok = await pushState();
+      if(!ok){
+        setSyncStatus('השמירה נכשלה — נשארים בלוח הנוכחי, נסו שוב');
+        return;
+      }
+    }
     clearInterval(pollTimer);
 
     currentBoardId = boardId;
@@ -2334,6 +2376,39 @@ html,body{
       for(let i=appState.unscheduled.length-1;i>=0;i--){ if(appState.unscheduled[i].topicId===topicId) appState.unscheduled.splice(i,1); }
     }
     persistState();
+  }
+
+  // Clears every task's reference to a deleted person/topic (keeps the task,
+  // only drops the association) — the behavior the delete dialog promises
+  // ("המשימות יישארו אך יאבדו את השיוך"). Without this, the dead id lingered in
+  // personIds[]/topicId forever: the task showed a broken "⋯" chip, was
+  // excluded from the "ללא שיוך" bucket and from highlight filtering, and
+  // couldn't be individually cleared (audit 2026-09-17 #7 / B2.7). Scope
+  // matches countReferencesFor/clearTasksForTopic: task sections + unscheduled.
+  function clearItemRefs(kind, id){
+    const scrub = (arr)=>{
+      if(!Array.isArray(arr)) return;
+      arr.forEach(item=>{
+        if(kind==='topic'){
+          if(item.topicId===id) item.topicId = null;
+        } else {
+          if(Array.isArray(item.personIds)){
+            const i = item.personIds.indexOf(id);
+            if(i>-1) item.personIds.splice(i,1);
+          }
+          if(item.personId===id) item.personId = null;
+        }
+      });
+    };
+    Object.keys(appState.weeks).forEach(wk=>{
+      const wdata = appState.weeks[wk];
+      DAY_DEFS.forEach(d=>{
+        const day = wdata[d.key];
+        if(!day) return;
+        TASK_SECTIONS.forEach(sec=> scrub(day[sec.key]));
+      });
+    });
+    scrub(appState.unscheduled);
   }
 
   // counts how many tasks/unscheduled items still point at a person/topic —
@@ -3284,6 +3359,7 @@ html,body{
         del.onclick = (e)=>{
           e.stopPropagation();
           const doDelete = ()=>{
+            clearItemRefs(kind, p.id); // drop dangling refs first (dialog's promise)
             const idx = list.findIndex(x=>x.id===p.id);
             if(idx>-1) list.splice(idx,1);
             saveList(storeKey, list);
@@ -4540,16 +4616,25 @@ html,body{
   // Defensive re-sanitization on load — the blob can be edited by anything
   // that can reach the API, not just this client.
   function sanitizeNotesState(state){
-    (state.pages || []).forEach(page => {
+    // Backfill missing array fields as we go. The backend stores the blob
+    // opaquely, so a page/block that arrives without `blocks`/`children` (a
+    // non-client API write, an old schema, a hand-edited Sheet) would otherwise
+    // reach renderBlockRow's `block.children.length` and throw, making the page
+    // permanently un-openable for everyone. Writing the arrays back here (not
+    // just `|| []` on the recursive call) neutralizes that on load (B2.6).
+    if(!Array.isArray(state.pages)) state.pages = [];
+    state.pages.forEach(page => {
       page.icon = sanitizeNotesIcon(page.icon);
+      if(!Array.isArray(page.blocks)) page.blocks = [];
       (function walk(blocks){
         blocks.forEach(b => {
           b.html = sanitizeInline(b.html);
           b.style = normalizeBlockStyle(b.style);
           b.checked = b.style === 'todo' ? !!b.checked : false;
-          walk(b.children || []);
+          if(!Array.isArray(b.children)) b.children = [];
+          walk(b.children);
         });
-      })(page.blocks || []);
+      })(page.blocks);
     });
     return state;
   }
@@ -4944,6 +5029,22 @@ html,body{
     el.addEventListener('paste', (e) => {
       e.preventDefault();
       const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+      document.execCommand('insertText', false, text);
+    });
+    // Drag-and-drop bypasses the paste handler: the browser's DEFAULT drop
+    // inserts the dragged text/html straight into the live contentEditable, so
+    // an <img src=x onerror=...> dragged in from another page would execute on
+    // insertion, before the input handler's sanitizeInline ever runs. Intercept
+    // the drop and insert only the plain-text payload, like paste (B2.8).
+    el.addEventListener('dragover', (e) => { e.preventDefault(); });
+    el.addEventListener('drop', (e) => {
+      e.preventDefault();
+      const dt = e.dataTransfer;
+      const text = dt ? dt.getData('text/plain') : '';
+      if(!text) return;
+      el.focus();
+      const r = document.caretRangeFromPoint ? document.caretRangeFromPoint(e.clientX, e.clientY) : null;
+      if(r){ const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); }
       document.execCommand('insertText', false, text);
     });
     el.addEventListener('input', () => {
@@ -5425,6 +5526,13 @@ html,body{
 
   document.getElementById('drawerSwitchUserBtn').onclick = async () => {
     clearInterval(pollTimer);
+    // Flush a pending edit before tearing down the session — otherwise an edit
+    // made in the last ~600ms (still in the scheduleSave debounce) is lost:
+    // clearing currentSession makes the queued pushState no-op (B2.3).
+    clearTimeout(saveTimer);
+    if(hasPendingLocalChange && currentRole === 'editor' && currentBoardId){
+      try{ await pushState(); }catch(e){}
+    }
     const session = currentSession;
     currentSession = ''; currentEmail = ''; currentRole = 'viewer'; currentBoardId = ''; boardsList = [];
     localStorage.removeItem(SESSION_KEY);
