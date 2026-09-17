@@ -44,6 +44,7 @@
   --done:#3f9464;
   --today-ring:#b8842a;
   --shadow: 0 1px 2px rgba(40,25,70,.06), 0 8px 24px -12px rgba(40,25,70,.18);
+  --shadow-lift: 0 2px 6px rgba(40,25,70,.08), 0 12px 28px -10px rgba(40,25,70,.22);
   color-scheme: light;
   /* radius scale — consolidates the values that already repeated identically
      across many one-off components (buttons, rows, chips) into one place.
@@ -720,10 +721,12 @@ html,body{
 .notes-gallery-head{ display:flex; align-items:center; justify-content:space-between; padding:18px 20px 10px; }
 .notes-gallery-title{ font-size:16px; font-weight:700; margin:0; }
 .notes-new-page-btn{
-  display:flex; align-items:center; gap:6px; border:none; background:var(--accent); color:var(--accent-ink);
-  border-radius:var(--radius-lg); padding:9px 14px; font-size:13px; font-weight:600; cursor:pointer; min-height:40px;
+  display:flex; align-items:center; gap:5px; border:1px solid var(--border-strong); background:var(--surface); color:var(--accent);
+  border-radius:var(--radius-pill); padding:6px 13px 6px 10px; font-size:12.5px; font-weight:600; cursor:pointer;
+  transition:background-color .12s ease, border-color .12s ease;
 }
-.notes-new-page-btn:hover{ opacity:.92; }
+.notes-new-page-btn svg{ width:14px; height:14px; }
+.notes-new-page-btn:hover{ background:var(--accent-soft); border-color:var(--accent); }
 .notes-gallery{
   display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:14px;
   padding:0 20px 24px;
@@ -732,9 +735,9 @@ html,body{
 .notes-card{
   position:relative; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg);
   box-shadow:var(--shadow); padding:14px 14px 12px; cursor:pointer; display:flex; flex-direction:column; gap:8px;
-  min-height:150px;
+  min-height:150px; transition:box-shadow .15s ease, border-color .15s ease, transform .15s ease;
 }
-.notes-card:hover{ border-color:var(--border-strong); }
+.notes-card:hover{ border-color:var(--border-strong); box-shadow:var(--shadow-lift); transform:translateY(-2px); }
 .notes-card-title{ font-size:14.5px; font-weight:700; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding-inline-end:24px; }
 .notes-card-title.is-empty{ color:var(--muted); font-weight:600; }
 .notes-card-preview{ flex:1; display:flex; flex-direction:column; gap:3px; overflow:hidden; pointer-events:none; }
@@ -747,8 +750,13 @@ html,body{
 .notes-card-menu{
   position:absolute; top:10px; inset-inline-end:10px; border:none; background:none; color:var(--muted);
   font-size:16px; line-height:1; padding:4px 7px; border-radius:var(--radius-sm); cursor:pointer;
+  opacity:0; transition:opacity .12s ease, background-color .12s ease;
 }
+.notes-card:hover .notes-card-menu,
+.notes-card-menu:focus{ opacity:1; }
 .notes-card-menu:hover{ background:var(--surface-2); color:var(--ink); }
+.picker-item.is-danger{ color:#c0392b; }
+.picker-item.is-danger:hover{ background:rgba(192,57,43,.08); }
 .notes-gallery-empty{
   grid-column:1/-1; text-align:center; color:var(--muted); font-size:13px; padding:40px 20px;
   border:1.5px dashed var(--border-strong); border-radius:var(--radius-lg); cursor:pointer;
@@ -901,6 +909,7 @@ html,body{
   .picker-item .pedit,
   .picker-item .pdel{ opacity:.5; padding:6px; }
   .drawer-board-item-actions{ opacity:.6; }
+  .notes-card-menu{ opacity:.55; }
 }
 @media (prefers-reduced-motion: reduce){
   .nav-btn{ transition:none; }
@@ -4363,6 +4372,9 @@ html,body{
 
   function emptyBlock(){ return { id: uid(), html:'', style:'p', collapsed:false, children:[] }; }
   function emptyNotesPage(){ return { id: uid(), title:'', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), blocks:[emptyBlock()] }; }
+  function cloneBlockWithNewIds(block){
+    return { id: uid(), html: block.html, style: block.style, collapsed: block.collapsed, children: (block.children || []).map(cloneBlockWithNewIds) };
+  }
 
   function sanitizeInline(html){
     const ALLOWED = { B:1, I:1, U:1, S:1, BR:1 };
@@ -4791,14 +4803,9 @@ html,body{
       if(e.key === 'Enter'){ e.preventDefault(); if(page.blocks[0]) focusBlock(page.blocks[0].id, true); }
     };
     renderNotesOutline(page);
-    document.getElementById('notesPageMenuBtn').onclick = () => {
-      showConfirmModal({
-        title: 'מחיקת רשומה',
-        message: 'למחוק את הרשומה "' + (page.title || 'ללא כותרת') + '"? הפעולה ניתנת לביטול לזמן קצר.',
-        confirmLabel: 'מחיקה',
-        onConfirm: () => deletePageWithUndo(page.id)
-      });
-    };
+    const pageMenuBtn = document.getElementById('notesPageMenuBtn');
+    pageMenuBtn.style.display = currentRole === 'editor' ? '' : 'none';
+    pageMenuBtn.onclick = (e) => { e.stopPropagation(); openNotesPageMenu(page, pageMenuBtn); };
   }
 
   function openNotesPage(pageId){
@@ -4821,6 +4828,75 @@ html,body{
     openNotesPage(page.id);
   }
   document.getElementById('notesNewPageBtn').onclick = createNewNotesPage;
+
+  function duplicateNotesPage(pageId){
+    const page = (appState.pages || []).find(p => p.id === pageId);
+    if(!page) return;
+    const now = new Date().toISOString();
+    const copy = {
+      id: uid(),
+      title: page.title ? page.title + ' (עותק)' : '',
+      createdAt: now,
+      updatedAt: now,
+      blocks: (page.blocks || []).map(cloneBlockWithNewIds)
+    };
+    appState.pages.push(copy);
+    persistState();
+    renderNotes();
+  }
+
+  // "Rename" reuses the page's own already-editable title field (same as
+  // clicking into it manually) rather than a separate prompt/modal — opens
+  // the page and selects the current title so typing immediately replaces it.
+  function renameNotesPage(pageId){
+    openNotesPage(pageId);
+    requestAnimationFrame(() => {
+      const titleEl = document.getElementById('notesPageTitle');
+      if(!titleEl) return;
+      titleEl.focus();
+      const range = document.createRange();
+      range.selectNodeContents(titleEl);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    });
+  }
+
+  // Shared "⋯" dropdown for a notes page — used by both the gallery card and
+  // the in-page menu button, same .picker popover infrastructure as
+  // openHighlightMenu (positionPopover/closePicker/onDocClick).
+  function openNotesPageMenu(page, anchorEl){
+    closePicker();
+    const pop = document.createElement('div');
+    pop.className = 'picker';
+    const rect = anchorEl.getBoundingClientRect();
+    positionPopover(pop, rect, { width: 170 });
+
+    const list = document.createElement('div'); list.className = 'picker-list';
+    function item(label, onClick, danger){
+      const r = document.createElement('div');
+      r.className = 'picker-item' + (danger ? ' is-danger' : '');
+      r.textContent = label;
+      r.onclick = () => { closePicker(); onClick(); };
+      list.appendChild(r);
+    }
+    item('שכפול', () => duplicateNotesPage(page.id));
+    item('שינוי שם', () => renameNotesPage(page.id));
+    list.appendChild(Object.assign(document.createElement('div'), { className: 'picker-divider' }));
+    item('מחיקה', () => {
+      showConfirmModal({
+        title: 'מחיקת רשומה',
+        message: 'למחוק את הרשומה "' + (page.title || 'ללא כותרת') + '"? הפעולה ניתנת לביטול לזמן קצר.',
+        confirmLabel: 'מחיקה',
+        onConfirm: () => deletePageWithUndo(page.id)
+      });
+    }, true);
+
+    pop.appendChild(list);
+    document.body.appendChild(pop);
+    openPickerEl = pop;
+    setTimeout(() => document.addEventListener('mousedown', onDocClick, true), 0);
+  }
 
   function deletePageWithUndo(pageId){
     const idx = appState.pages.findIndex(p => p.id === pageId);
@@ -4879,12 +4955,7 @@ html,body{
       menu.type = 'button'; menu.className = 'notes-card-menu'; menu.textContent = '⋯'; menu.title = 'אפשרויות';
       menu.onclick = (e) => {
         e.stopPropagation();
-        showConfirmModal({
-          title: 'מחיקת רשומה',
-          message: 'למחוק את הרשומה "' + (page.title || 'ללא כותרת') + '"?',
-          confirmLabel: 'מחיקה',
-          onConfirm: () => deletePageWithUndo(page.id)
-        });
+        openNotesPageMenu(page, menu);
       };
       card.appendChild(menu);
     }
