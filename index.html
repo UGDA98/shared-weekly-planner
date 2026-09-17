@@ -5043,8 +5043,11 @@ html,body{
       const text = dt ? dt.getData('text/plain') : '';
       if(!text) return;
       el.focus();
+      // Drop the caret at the drop point — but only if that point resolves to
+      // a spot inside THIS block; otherwise keep the current caret so text can
+      // never land outside the editable.
       const r = document.caretRangeFromPoint ? document.caretRangeFromPoint(e.clientX, e.clientY) : null;
-      if(r){ const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); }
+      if(r && el.contains(r.startContainer)){ const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); }
       document.execCommand('insertText', false, text);
     });
     el.addEventListener('input', () => {
