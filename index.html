@@ -96,7 +96,7 @@ html,body{
 .top{ position:sticky; top:0; z-index:20; background:var(--bg); padding:18px 20px 10px; border-bottom:1px solid var(--border); box-shadow:var(--shadow); }
 .top-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
 .title{ font-weight:700; font-size:26px; letter-spacing:.2px; margin:0; text-wrap:balance; }
-.week-nav{ display:flex; align-items:center; gap:10px; }
+.week-nav{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
 .week-range{ font-size:14px; color:var(--muted); min-width:140px; text-align:center; }
 .nav-btn{ width:32px;height:32px;border-radius:9px;border:1px solid var(--border); background:var(--surface); color:var(--ink); cursor:pointer; font-size:15px; display:flex;align-items:center;justify-content:center; transition:background .12s ease, transform .08s ease; }
 .nav-btn:hover{ background:var(--accent-soft); }
@@ -875,6 +875,13 @@ html,body{
   .add-line{ padding:9px 8px; font-size:13px; }
   .nav-btn{ width:40px; height:40px; }
   .nav-btn.today-btn{ padding:0 14px; }
+  /* .week-nav's content (view toggle + 3 nav buttons + range text) doesn't
+     fit on one line under ~420px even after wrapping is allowed — shrinking
+     the range text's min-width (it never actually needed 140px; the date
+     string itself is ~90px) lets it wrap to a clean 2-line group instead of
+     forcing the whole page to scroll horizontally. */
+  .week-range{ min-width:0; font-size:13px; }
+  .week-nav{ gap:8px; }
   .board-subtitle{ max-width:38vw; }
   .drawer-panel{ width:min(300px, 86vw); padding:16px; }
 
