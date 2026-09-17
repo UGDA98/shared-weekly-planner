@@ -1606,8 +1606,24 @@ html,body{
   // boardsList + a re-render — every call site should go through this
   // instead of assigning boardsList directly, so a transient failure never
   // blanks the board switcher out from under the user.
+  //
+  // When we currently have NOTHING to show (boardsList still empty — the
+  // common case being the very first load of the page), a single failed
+  // fetch used to leave the drawer stuck on "עדיין אין לכם לוחות" for the
+  // rest of that page view, since nothing ever retried it (reported
+  // 2026-09-17: "כל פעם שאני מרעננת הלוחות מתאפסים"). Retry a couple of
+  // times with a short backoff in that specific case only — once we have a
+  // real list, a transient miss is already handled by "keep showing what we
+  // had" and doesn't need a retry loop.
   async function refreshBoardsList(){
-    const result = await fetchBoardsList();
+    let result = await fetchBoardsList();
+    if(result === null && boardsList.length === 0){
+      for(const delayMs of [1000, 2500]){
+        await new Promise(r => setTimeout(r, delayMs));
+        result = await fetchBoardsList();
+        if(result !== null) break;
+      }
+    }
     if(result !== null) boardsList = result;
     renderBoardSwitcher();
   }
@@ -2155,7 +2171,12 @@ html,body{
     opts = opts || {};
     if(boardId === currentBoardId) return;
     clearTimeout(saveTimer);
-    if(currentRole === 'editor' && currentBoardId) await pushState(); // flush pending edit before leaving
+    // Only flush when there's actually something unsaved — this used to await
+    // pushState() unconditionally on every switch, meaning every board change
+    // paid for a full saveBoard round-trip to Apps Script even when nothing
+    // had changed, which is what made switching boards feel slow (reported
+    // 2026-09-17).
+    if(currentRole === 'editor' && currentBoardId && hasPendingLocalChange) await pushState();
     clearInterval(pollTimer);
 
     currentBoardId = boardId;
