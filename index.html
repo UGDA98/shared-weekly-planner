@@ -1575,14 +1575,20 @@ html,body{
       // failed fetch at initial load (network hiccup) would otherwise leave the
       // picker permanently empty for the rest of the session with no retry.
       if(!isDrawerOpen()){
-        boardsList = await fetchBoardsList();
-        renderBoardSwitcher();
+        await refreshBoardsList();
       }
     }, POLL_MS);
   }
 
   /* ---------- multi-board: list / switch / create ---------- */
 
+  // Returns the real board list on success or an explicit auth failure
+  // (both are "the true state, show it"); returns null when the fetch
+  // itself failed or the response was malformed — a transient interstitial
+  // or network hiccup (Watch Out #18), NOT evidence the account has zero
+  // boards. Callers must treat null as "couldn't ask right now, keep
+  // showing what we already had" rather than overwriting boardsList with
+  // an empty array — see refreshBoardsList.
   async function fetchBoardsList(){
     if(!currentSession) return [];
     try{
@@ -1593,7 +1599,17 @@ html,body{
       if(json && json.email) currentEmail = json.email;
       if(json && json.ok && Array.isArray(json.boards)) return json.boards;
     }catch(e){}
-    return [];
+    return null;
+  }
+
+  // The one place that turns a fetchBoardsList() result into the live
+  // boardsList + a re-render — every call site should go through this
+  // instead of assigning boardsList directly, so a transient failure never
+  // blanks the board switcher out from under the user.
+  async function refreshBoardsList(){
+    const result = await fetchBoardsList();
+    if(result !== null) boardsList = result;
+    renderBoardSwitcher();
   }
 
   function resolveInitialBoardId(){
@@ -2058,8 +2074,7 @@ html,body{
       if(handleAuthError(json)) return;
       if(json && json.ok && json.board){
         closeNewBoardModal();
-        boardsList = await fetchBoardsList();
-        renderBoardSwitcher();
+        await refreshBoardsList();
         await switchToBoard(json.board.id, {});
       } else {
         errEl.textContent = 'יצירת הלוח נכשלה, נסו שוב.';
@@ -2086,8 +2101,7 @@ html,body{
     }catch(e){
       setSyncStatus('אין חיבור — שינוי השם נכשל');
     }
-    boardsList = await fetchBoardsList();
-    renderBoardSwitcher();
+    await refreshBoardsList();
   }
 
   async function deleteBoard(boardId){
@@ -2106,7 +2120,12 @@ html,body{
       setSyncStatus('אין חיבור — מחיקת הלוח נכשלה');
       return;
     }
-    boardsList = await fetchBoardsList();
+    const freshList = await fetchBoardsList();
+    // We already know the delete succeeded (checked above) — on a transient
+    // refetch failure, fall back to splicing the deleted board out of what
+    // we already had rather than either keeping it (misleading) or
+    // blanking the whole switcher (see refreshBoardsList's null contract).
+    boardsList = freshList !== null ? freshList : boardsList.filter(b => b.id !== boardId);
     if(boardId === currentBoardId){
       clearInterval(pollTimer);
       currentBoardId = '';
@@ -2525,15 +2544,22 @@ html,body{
   // before, and now also flips above the anchor when there isn't room below (a picker
   // opened from a row near the bottom of a short viewport used to render partly
   // off-screen with no way to reach its lower items).
+  // Call this AFTER pop's real content is built AND it's already appended
+  // to the document — it measures pop's actual rendered height to decide
+  // whether to flip above the anchor. A short menu (e.g. 4-5 plain items)
+  // positioned using a fixed worst-case height assumption instead of its
+  // real one left a large empty gap between the menu and its anchor
+  // whenever it flipped above (reported live, a real UX bug — the menu
+  // rendered at its natural short height but was placed as if it were
+  // .picker's full max-height, ~280px, tall).
   function positionPopover(pop, rect, opts){
     opts = opts || {};
     const width = opts.width || 208;
     const leftOffset = opts.leftOffset || 0;
-    const assumedHeight = 280; // matches .picker's CSS max-height — a conservative
-                                // estimate so we flip early rather than clip
+    const height = pop.offsetHeight || 280; // 280 fallback only if measured before insertion — shouldn't happen
     let top = rect.bottom + 6;
-    if(top + assumedHeight > window.innerHeight){
-      top = Math.max(8, rect.top - assumedHeight - 6);
+    if(top + height > window.innerHeight){
+      top = Math.max(8, rect.top - height - 6);
     }
     pop.style.top = top + 'px';
     pop.style.left = Math.max(8, Math.min(window.innerWidth - width, rect.left + leftOffset)) + 'px';
@@ -2546,7 +2572,6 @@ html,body{
     const pop = document.createElement('div');
     pop.className = 'picker';
     const rect = anchorEl.getBoundingClientRect();
-    positionPopover(pop, rect);
 
     const title = document.createElement('div');
     title.className = 'picker-title';
@@ -2575,6 +2600,7 @@ html,body{
 
     pop.appendChild(list);
     document.body.appendChild(pop);
+    positionPopover(pop, rect);
     openPickerEl = pop;
     setTimeout(()=> document.addEventListener('mousedown', onDocClick, true), 0);
   }
@@ -3036,7 +3062,6 @@ html,body{
     const pop = document.createElement('div');
     pop.className = 'picker';
     const rect = anchorEl.getBoundingClientRect();
-    positionPopover(pop, rect);
     pop.style.width = '170px';
 
     const title = document.createElement('div');
@@ -3060,6 +3085,7 @@ html,body{
     pop.appendChild(ul);
 
     document.body.appendChild(pop);
+    positionPopover(pop, rect);
     openPickerEl = pop;
     setTimeout(()=> document.addEventListener('mousedown', onDocClick, true), 0);
   }
@@ -3092,7 +3118,6 @@ html,body{
     const pop = document.createElement('div');
     pop.className = 'picker';
     const rect = anchorEl.getBoundingClientRect();
-    positionPopover(pop, rect);
     pop.style.width = '150px';
 
     const title = document.createElement('div');
@@ -3117,6 +3142,7 @@ html,body{
     pop.appendChild(ul);
 
     document.body.appendChild(pop);
+    positionPopover(pop, rect);
     openPickerEl = pop;
     setTimeout(()=> document.addEventListener('mousedown', onDocClick, true), 0);
   }
@@ -3162,7 +3188,6 @@ html,body{
     const pop = document.createElement('div');
     pop.className = 'picker';
     const rect = anchorEl.getBoundingClientRect();
-    positionPopover(pop, rect, {leftOffset:-100});
 
     const title = document.createElement('div');
     title.className = 'picker-title';
@@ -3281,6 +3306,7 @@ html,body{
     pop.appendChild(addRow);
 
     document.body.appendChild(pop);
+    positionPopover(pop, rect, {leftOffset:-100});
     openPickerEl = pop;
     setTimeout(()=> document.addEventListener('mousedown', onDocClick, true), 0);
   }
@@ -4842,6 +4868,13 @@ html,body{
   }
 
   const BLOCK_TYPE_LABELS = { p:'טקסט', h1:'כותרת 1', h2:'כותרת 2', ol:'רשימה ממוספרת', todo:'משימה' };
+  const BLOCK_TYPE_DESCRIPTIONS = {
+    p: 'שורת טקסט רגילה',
+    h1: 'כותרת ראשית, גדולה ובולטת',
+    h2: 'כותרת משנה, קטנה יותר',
+    ol: 'רשימה עם מספור אוטומטי',
+    todo: 'שורה עם תיבת סימון (צ׳קליסט)'
+  };
   let obToolbarTargetId = null;
   function showObToolbarFor(el){
     if(currentRole !== 'editor') return;
@@ -4961,17 +4994,18 @@ html,body{
     const pop = document.createElement('div');
     pop.className = 'picker';
     const rect = anchorEl.getBoundingClientRect();
-    positionPopover(pop, rect, { width: 180 });
     const list = document.createElement('div'); list.className = 'picker-list';
     ['p', 'h1', 'h2', 'ol', 'todo'].forEach(style => {
       const r = document.createElement('div');
       r.className = 'picker-item' + (style === ctx.block.style ? ' selected' : '');
       r.textContent = BLOCK_TYPE_LABELS[style];
+      r.title = BLOCK_TYPE_DESCRIPTIONS[style];
       r.onclick = () => { closePicker(); setBlockStyleAndRefresh(obToolbarTargetId, style); };
       list.appendChild(r);
     });
     pop.appendChild(list);
     document.body.appendChild(pop);
+    positionPopover(pop, rect, { width: 180 });
     openPickerEl = pop;
     setTimeout(() => document.addEventListener('mousedown', onDocClick, true), 0);
   }
@@ -5114,7 +5148,6 @@ html,body{
     const pop = document.createElement('div');
     pop.className = 'picker';
     const rect = anchorEl.getBoundingClientRect();
-    positionPopover(pop, rect, { width: 170 });
 
     const list = document.createElement('div'); list.className = 'picker-list';
     function item(label, onClick, danger){
@@ -5138,6 +5171,7 @@ html,body{
 
     pop.appendChild(list);
     document.body.appendChild(pop);
+    positionPopover(pop, rect, { width: 170 });
     openPickerEl = pop;
     setTimeout(() => document.addEventListener('mousedown', onDocClick, true), 0);
   }
@@ -5404,8 +5438,7 @@ html,body{
     await refreshFromServer(true);
     startPolling();
 
-    boardsList = await fetchBoardsList();
-    renderBoardSwitcher();
+    await refreshBoardsList();
   }
 
   function boot(){
