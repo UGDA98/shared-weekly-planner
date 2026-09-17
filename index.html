@@ -1166,6 +1166,7 @@ html,body{
   let boardsList = [];      // [{id, name, role, type}] — boards the current email can access
   let appState = null;      // planner: { people, topics, weeks:{ weekKey: dayData } } — notes: { kind:'notes', pages:[...] }
   let lastSyncedJson = '';  // last state string confirmed round-tripped with the server
+  let lastKnownHash = '';   // last board StateHash seen (getBoard/getBoardMeta); '' = unknown, always do a full fetch
   let saveTimer = null;
   let pollTimer = null;
   // true from the moment a local edit is queued (scheduleSave) until pushState()
@@ -1413,9 +1414,29 @@ html,body{
   document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState === 'hidden') flushPendingSaveOnExit(); });
   window.addEventListener('pagehide', flushPendingSaveOnExit);
 
+  // Background polls (isInitial=false) ask getBoardMeta for just the board's
+  // hash first — ~40 bytes — and skip the full getBoard fetch when it matches
+  // what we already have. An empty/missing hash on either side means
+  // "unknown" and always falls through to the full fetch below; this only
+  // ever saves work, never skips a real change (2026-09-16 storage research,
+  // hardening item 3).
+  async function boardUnchangedSinceLastSync(){
+    if(!lastKnownHash) return false;
+    try{
+      const metaUrl = API_URL + '?action=getBoardMeta&board=' + encodeURIComponent(currentBoardId) + authQuery() + '&t=' + Date.now();
+      const res = await fetch(metaUrl);
+      const json = await res.json();
+      if(!json || !json.ok) return false; // includes auth errors — let the full fetch below surface them as before
+      return !!(json.hash && json.hash === lastKnownHash);
+    }catch(e){
+      return false; // network hiccup on the cheap check — fall through to the full fetch
+    }
+  }
+
   async function refreshFromServer(isInitial){
     if(!currentSession || !currentBoardId) return;
     try{
+      if(!isInitial && await boardUnchangedSinceLastSync()) return;
       const url = API_URL + '?action=getBoard&board=' + encodeURIComponent(currentBoardId) + authQuery() + '&t=' + Date.now();
       const res = await fetch(url);
       const json = await res.json();
@@ -1425,6 +1446,7 @@ html,body{
         return;
       }
       if(json.email) currentEmail = json.email;
+      lastKnownHash = json.hash || '';
       hideNoAccess();
       const roleChanged = json.role !== currentRole;
       currentRole = json.role || 'viewer';
@@ -2064,6 +2086,7 @@ html,body{
       weekData = loadWeek(weekStart);
     }
     lastSyncedJson = '';
+    lastKnownHash = '';
     renderAll();
 
     setSyncStatus('מתחבר…');
