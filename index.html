@@ -735,7 +735,7 @@ html,body{
 .notes-card{
   position:relative; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg);
   box-shadow:var(--shadow); padding:14px 14px 12px; cursor:pointer; display:flex; flex-direction:column; gap:8px;
-  min-height:150px; transition:box-shadow .15s ease, border-color .15s ease, transform .15s ease;
+  min-height:150px; min-width:0; transition:box-shadow .15s ease, border-color .15s ease, transform .15s ease;
 }
 .notes-card:hover{ border-color:var(--border-strong); box-shadow:var(--shadow-lift); transform:translateY(-2px); }
 .notes-card-title-row{ display:flex; align-items:center; gap:6px; padding-inline-end:24px; min-width:0; }
@@ -777,7 +777,8 @@ html,body{
 .notes-breadcrumb-current{
   color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0;
 }
-.notes-page-menu-btn{ border:none; background:none; color:var(--muted); padding:6px 8px; border-radius:var(--radius-sm); cursor:pointer; }
+.notes-page-menu-btn{ border:none; background:none; color:var(--muted); padding:6px 8px; border-radius:var(--radius-sm); cursor:pointer; display:flex; align-items:center; }
+.notes-page-menu-btn svg{ width:18px; height:18px; display:block; }
 .notes-page-menu-btn:hover{ background:var(--surface-2); color:var(--ink); }
 .notes-page-head{ display:flex; align-items:flex-start; gap:8px; margin:4px 0 6px; }
 .notes-page-icon{
