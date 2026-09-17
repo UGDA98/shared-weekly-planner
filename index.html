@@ -738,7 +738,9 @@ html,body{
   min-height:150px; transition:box-shadow .15s ease, border-color .15s ease, transform .15s ease;
 }
 .notes-card:hover{ border-color:var(--border-strong); box-shadow:var(--shadow-lift); transform:translateY(-2px); }
-.notes-card-title{ font-size:14.5px; font-weight:700; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding-inline-end:24px; }
+.notes-card-title-row{ display:flex; align-items:center; gap:6px; padding-inline-end:24px; min-width:0; }
+.notes-card-icon{ flex-shrink:0; font-size:16px; line-height:1; }
+.notes-card-title{ font-size:14.5px; font-weight:700; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
 .notes-card-title.is-empty{ color:var(--muted); font-weight:600; }
 .notes-card-preview{ flex:1; display:flex; flex-direction:column; gap:3px; overflow:hidden; pointer-events:none; }
 .notes-card-preview-row{ display:flex; align-items:flex-start; gap:5px; font-size:12px; color:var(--muted); line-height:1.4; overflow:hidden; }
@@ -763,26 +765,42 @@ html,body{
 }
 .notes-gallery-empty:hover{ border-color:var(--accent); color:var(--accent); }
 
-.notes-page-view{ padding:14px 20px 90px; max-width:760px; margin:0 auto; }
-.notes-page-toolbar{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+.notes-page-view{ padding:24px 20px 90px; max-width:760px; margin:0 auto; }
+.notes-page-toolbar{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+.notes-breadcrumb{ display:flex; align-items:center; gap:5px; min-width:0; font-size:13px; }
 .notes-back-btn{
-  display:flex; align-items:center; gap:4px; border:none; background:none; color:var(--muted);
-  font-size:13px; font-weight:600; cursor:pointer; padding:6px 4px; border-radius:var(--radius-sm);
+  border:none; background:none; color:var(--muted); font-size:13px; font-weight:600; cursor:pointer;
+  padding:6px 4px; border-radius:var(--radius-sm); flex-shrink:0;
 }
-.notes-back-btn svg{ transform:scaleX(-1); } /* rtl: chevron points to the "back" (right) side */
 .notes-back-btn:hover{ color:var(--ink); }
+.notes-breadcrumb-sep{ color:var(--muted); opacity:.5; flex-shrink:0; }
+.notes-breadcrumb-current{
+  color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0;
+}
 .notes-page-menu-btn{ border:none; background:none; color:var(--muted); padding:6px 8px; border-radius:var(--radius-sm); cursor:pointer; }
 .notes-page-menu-btn:hover{ background:var(--surface-2); color:var(--ink); }
+.notes-page-head{ display:flex; align-items:flex-start; gap:8px; margin:4px 0 6px; }
+.notes-page-icon{
+  flex-shrink:0; width:40px; height:40px; margin-top:2px; display:flex; align-items:center; justify-content:center;
+  font-size:26px; line-height:1; border-radius:var(--radius-md); cursor:pointer; outline:none; user-select:none;
+  transition:background-color .12s ease;
+}
+.notes-page-icon:empty::before{ content:attr(data-ph); color:var(--muted); opacity:.45; font-size:19px; font-weight:300; }
+.notes-page-icon:hover{ background:var(--surface-2); }
+.notes-page-icon[contenteditable="false"]{ cursor:default; }
+.notes-page-icon[contenteditable="false"]:empty::before{ content:""; }
 .notes-page-title{
-  font-size:26px; font-weight:800; color:var(--ink); outline:none; margin:8px 0 18px; line-height:1.3;
-  min-height:34px;
+  flex:1; min-width:0; font-size:32px; font-weight:800; color:var(--ink); outline:none; margin:6px 0 22px;
+  line-height:1.25; letter-spacing:-.01em; min-height:40px;
 }
 .notes-page-title:empty::before{ content:attr(data-ph); color:var(--muted); font-weight:700; }
 .notes-status{ font-size:11.5px; color:var(--muted); margin-top:18px; }
 
 .notes-outline{ display:flex; flex-direction:column; }
 .ob-row{ display:flex; flex-direction:column; }
-.ob-row-main{ display:flex; align-items:flex-start; gap:6px; min-height:30px; padding:2px 0; }
+.ob-row-main{ display:flex; align-items:flex-start; gap:6px; min-height:30px; padding:3px 0; }
+.ob-row-main:has(.ob-h1){ margin-top:14px; }
+.ob-row-main:has(.ob-h2){ margin-top:10px; }
 .ob-toggle{
   flex-shrink:0; width:22px; height:26px; display:flex; align-items:center; justify-content:center;
   border:none; background:none; color:var(--muted); cursor:pointer; padding:0; margin-top:1px;
@@ -795,12 +813,12 @@ html,body{
 }
 .ob-bullet::before{ content:""; width:5px; height:5px; border-radius:50%; background:var(--muted); display:block; }
 .ob-text{
-  flex:1; min-width:0; outline:none; font-size:14.5px; line-height:1.6; color:var(--ink); padding:2px 2px;
+  flex:1; min-width:0; outline:none; font-size:15.5px; line-height:1.65; color:var(--ink); padding:2px 2px;
   word-break:break-word; white-space:pre-wrap;
 }
 .ob-text:empty::before{ content:"כתבו משהו…"; color:var(--muted); opacity:.7; }
-.ob-text.ob-h1{ font-size:21px; font-weight:800; }
-.ob-text.ob-h2{ font-size:17px; font-weight:700; }
+.ob-text.ob-h1{ font-size:24px; font-weight:800; letter-spacing:-.005em; }
+.ob-text.ob-h2{ font-size:19px; font-weight:700; }
 .ob-row-del{
   flex-shrink:0; border:none; background:none; color:var(--muted); padding:4px 6px; border-radius:var(--radius-sm);
   cursor:pointer; opacity:0; align-self:flex-start; margin-top:1px;
@@ -994,15 +1012,19 @@ html,body{
 
     <div class="notes-page-view" id="notesPageView" style="display:none;">
       <div class="notes-page-toolbar">
-        <button class="notes-back-btn" id="notesBackBtn" type="button">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-          כל הרשומות
-        </button>
+        <div class="notes-breadcrumb">
+          <button class="notes-back-btn" id="notesBackBtn" type="button">כל הרשומות</button>
+          <span class="notes-breadcrumb-sep">›</span>
+          <span class="notes-breadcrumb-current" id="notesBreadcrumbCurrent"></span>
+        </div>
         <button class="notes-page-menu-btn" id="notesPageMenuBtn" type="button" aria-label="אפשרויות רשומה" title="אפשרויות רשומה">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
         </button>
       </div>
-      <div class="notes-page-title" id="notesPageTitle" data-ph="ללא כותרת"></div>
+      <div class="notes-page-head">
+        <div class="notes-page-icon" id="notesPageIcon" data-ph="+" title="הוספת אייקון"></div>
+        <div class="notes-page-title" id="notesPageTitle" data-ph="ללא כותרת"></div>
+      </div>
       <div class="notes-outline" id="notesOutline"></div>
       <div class="notes-status" id="notesStatus"></div>
     </div>
@@ -4371,7 +4393,12 @@ html,body{
   // the API, not just this client.
 
   function emptyBlock(){ return { id: uid(), html:'', style:'p', collapsed:false, children:[] }; }
-  function emptyNotesPage(){ return { id: uid(), title:'', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), blocks:[emptyBlock()] }; }
+  function emptyNotesPage(){ return { id: uid(), title:'', icon:'', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), blocks:[emptyBlock()] }; }
+  // Caps an icon string at 8 UTF-16 code units — generous for a single emoji
+  // even with a skin-tone modifier or a multi-codepoint ZWJ sequence (family
+  // emoji etc. can run longer, but this is a decoration, not content worth
+  // preserving byte-for-byte if someone pastes something huge into it).
+  function sanitizeNotesIcon(raw){ return String(raw || '').trim().slice(0, 8); }
   function cloneBlockWithNewIds(block){
     return { id: uid(), html: block.html, style: block.style, collapsed: block.collapsed, children: (block.children || []).map(cloneBlockWithNewIds) };
   }
@@ -4407,6 +4434,7 @@ html,body{
   // that can reach the API, not just this client.
   function sanitizeNotesState(state){
     (state.pages || []).forEach(page => {
+      page.icon = sanitizeNotesIcon(page.icon);
       (function walk(blocks){
         blocks.forEach(b => { b.html = sanitizeInline(b.html); walk(b.children || []); });
       })(page.blocks || []);
@@ -4791,17 +4819,46 @@ html,body{
   // ---------- page view + gallery ----------
 
   function renderNotesPageView(page){
+    const breadcrumbCurrent = document.getElementById('notesBreadcrumbCurrent');
+    breadcrumbCurrent.textContent = page.title || 'ללא כותרת';
+
     const titleEl = document.getElementById('notesPageTitle');
     titleEl.textContent = page.title || '';
     titleEl.contentEditable = currentRole === 'editor' ? 'true' : 'false';
     titleEl.oninput = () => {
       page.title = titleEl.textContent.trim();
       page.updatedAt = new Date().toISOString();
+      breadcrumbCurrent.textContent = page.title || 'ללא כותרת';
       persistState();
     };
     titleEl.onkeydown = (e) => {
       if(e.key === 'Enter'){ e.preventDefault(); if(page.blocks[0]) focusBlock(page.blocks[0].id, true); }
     };
+
+    const iconEl = document.getElementById('notesPageIcon');
+    iconEl.textContent = page.icon || '';
+    iconEl.contentEditable = currentRole === 'editor' ? 'true' : 'false';
+    iconEl.onclick = () => {
+      if(currentRole !== 'editor') return;
+      iconEl.focus();
+      const range = document.createRange();
+      range.selectNodeContents(iconEl);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    };
+    iconEl.oninput = () => {
+      // Typing/pasting a whole emoji replaces the one-and-only "character"
+      // this field ever holds — never append, just take the latest content.
+      page.icon = sanitizeNotesIcon(iconEl.textContent);
+      if(iconEl.textContent !== page.icon) iconEl.textContent = page.icon;
+      page.updatedAt = new Date().toISOString();
+      persistState();
+    };
+    iconEl.onkeydown = (e) => {
+      if(e.key === 'Enter'){ e.preventDefault(); iconEl.blur(); titleEl.focus(); }
+    };
+
     renderNotesOutline(page);
     const pageMenuBtn = document.getElementById('notesPageMenuBtn');
     pageMenuBtn.style.display = currentRole === 'editor' ? '' : 'none';
@@ -4836,6 +4893,7 @@ html,body{
     const copy = {
       id: uid(),
       title: page.title ? page.title + ' (עותק)' : '',
+      icon: page.icon || '',
       createdAt: now,
       updatedAt: now,
       blocks: (page.blocks || []).map(cloneBlockWithNewIds)
@@ -4917,10 +4975,19 @@ html,body{
     card.className = 'notes-card';
     card.onclick = () => openNotesPage(page.id);
 
+    const titleRow = document.createElement('div');
+    titleRow.className = 'notes-card-title-row';
+    if(page.icon){
+      const icon = document.createElement('span');
+      icon.className = 'notes-card-icon';
+      icon.textContent = page.icon;
+      titleRow.appendChild(icon);
+    }
     const title = document.createElement('div');
     title.className = 'notes-card-title' + (page.title ? '' : ' is-empty');
     title.textContent = page.title || 'ללא כותרת';
-    card.appendChild(title);
+    titleRow.appendChild(title);
+    card.appendChild(titleRow);
 
     const preview = document.createElement('div');
     preview.className = 'notes-card-preview';
