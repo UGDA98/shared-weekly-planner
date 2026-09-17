@@ -2827,7 +2827,18 @@ html,body{
     const head = document.createElement('div');
     head.className = 'summary-group-head';
     const items = collectItemsFor(kind, id);
-    head.innerHTML = (icon||'') + '<span>'+name+'</span><span class="summary-group-count">'+items.length+'</span>';
+    // icon is a trusted SVG constant (iconForKind); name is a user-typed
+    // person/topic name and MUST go in via textContent, never innerHTML —
+    // otherwise a name like `<img src=x onerror=…>` is stored XSS that runs
+    // for everyone viewing this summary (audit 2026-09-17 #1).
+    head.innerHTML = icon || '';
+    const groupNameEl = document.createElement('span');
+    groupNameEl.textContent = name;
+    const groupCountEl = document.createElement('span');
+    groupCountEl.className = 'summary-group-count';
+    groupCountEl.textContent = items.length;
+    head.appendChild(groupNameEl);
+    head.appendChild(groupCountEl);
     if(kind==='topic' && id && items.length){
       const clearBtn = document.createElement('button');
       clearBtn.className = 'group-clear-btn';
