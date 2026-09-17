@@ -975,10 +975,10 @@ html,body{
 
   <div id="notesSection" style="display:none;">
     <div class="notes-gallery-head" id="notesGalleryHead">
-      <h2 class="notes-gallery-title" id="notesGalleryTitle">דפים</h2>
+      <h2 class="notes-gallery-title" id="notesGalleryTitle">רשומות</h2>
       <button class="notes-new-page-btn" id="notesNewPageBtn" type="button">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        דף חדש
+        רשומה חדשה
       </button>
     </div>
     <div class="notes-gallery" id="notesGallery"></div>
@@ -987,9 +987,9 @@ html,body{
       <div class="notes-page-toolbar">
         <button class="notes-back-btn" id="notesBackBtn" type="button">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-          כל הדפים
+          כל הרשומות
         </button>
-        <button class="notes-page-menu-btn" id="notesPageMenuBtn" type="button" aria-label="אפשרויות דף" title="אפשרויות דף">
+        <button class="notes-page-menu-btn" id="notesPageMenuBtn" type="button" aria-label="אפשרויות רשומה" title="אפשרויות רשומה">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
         </button>
       </div>
@@ -1097,8 +1097,8 @@ html,body{
       </button>
       <button type="button" class="modal-type-card" data-type="notes">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>
-        <span class="modal-type-card-title">דפי הערות</span>
-        <span class="modal-type-card-sub">גלריית דפים עם רשימות מקוננות, כמו ב-Notion</span>
+        <span class="modal-type-card-title">לוח כתיבה</span>
+        <span class="modal-type-card-sub">רשימות מקוננות, כותרות ועיצוב טקסט — למרחב כתיבה חופשי, לא לפי ימים</span>
       </button>
     </div>
     <label for="newBoardNameInput" class="modal-label">שם הלוח</label>
@@ -1594,7 +1594,7 @@ html,body{
 
       const typeIcon = document.createElement('span');
       typeIcon.className = 'drawer-board-item-type';
-      typeIcon.title = b.type === 'notes' ? 'דפי הערות' : 'לוח שבועי';
+      typeIcon.title = b.type === 'notes' ? 'לוח כתיבה' : 'לוח שבועי';
       typeIcon.innerHTML = b.type === 'notes'
         ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>'
         : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
@@ -4793,8 +4793,8 @@ html,body{
     renderNotesOutline(page);
     document.getElementById('notesPageMenuBtn').onclick = () => {
       showConfirmModal({
-        title: 'מחיקת דף',
-        message: 'למחוק את הדף "' + (page.title || 'ללא כותרת') + '"? הפעולה ניתנת לביטול לזמן קצר.',
+        title: 'מחיקת רשומה',
+        message: 'למחוק את הרשומה "' + (page.title || 'ללא כותרת') + '"? הפעולה ניתנת לביטול לזמן קצר.',
         confirmLabel: 'מחיקה',
         onConfirm: () => deletePageWithUndo(page.id)
       });
@@ -4829,7 +4829,7 @@ html,body{
     if(currentNotesPageId === pageId) currentNotesPageId = null;
     persistState();
     renderNotes();
-    showUndoToast('הדף נמחק', () => {
+    showUndoToast('הרשומה נמחקה', () => {
       appState.pages.splice(Math.min(idx, appState.pages.length), 0, removed);
       persistState();
       renderNotes();
@@ -4880,8 +4880,8 @@ html,body{
       menu.onclick = (e) => {
         e.stopPropagation();
         showConfirmModal({
-          title: 'מחיקת דף',
-          message: 'למחוק את הדף "' + (page.title || 'ללא כותרת') + '"?',
+          title: 'מחיקת רשומה',
+          message: 'למחוק את הרשומה "' + (page.title || 'ללא כותרת') + '"?',
           confirmLabel: 'מחיקה',
           onConfirm: () => deletePageWithUndo(page.id)
         });
@@ -4897,12 +4897,12 @@ html,body{
     const newBtn = document.getElementById('notesNewPageBtn');
     if(newBtn) newBtn.style.display = currentRole === 'editor' ? '' : 'none';
     const pages = (appState.pages || []).slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    titleEl.textContent = 'דפים' + (pages.length ? ' (' + pages.length + ')' : '');
+    titleEl.textContent = 'רשומות' + (pages.length ? ' (' + pages.length + ')' : '');
     grid.innerHTML = '';
     if(!pages.length){
       const empty = document.createElement('div');
       empty.className = 'notes-gallery-empty';
-      empty.textContent = currentRole === 'editor' ? 'עדיין אין דפים — לחצו כדי ליצור את הראשון' : 'עדיין אין דפים בלוח הזה';
+      empty.textContent = currentRole === 'editor' ? 'עדיין אין רשומות — לחצו כדי ליצור את הראשונה' : 'עדיין אין רשומות בלוח הזה';
       if(currentRole === 'editor') empty.onclick = createNewNotesPage;
       grid.appendChild(empty);
       return;
