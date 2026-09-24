@@ -6,7 +6,7 @@
 <!-- App build version, compared against version.txt to detect a new deploy in
      installed standalone PWA windows (which have no reload affordance). MUST be
      bumped together with version.txt on every deploy — see NOTES.md deploy step. -->
-<meta name="app-version" content="20260924-1559">
+<meta name="app-version" content="20260924-1643">
 <title>יומן ומשימות</title>
 <!-- PWA manifest + icons — no service worker on purpose: this is a live-data
      app on a 20s poll, a SW would only risk serving a stale index.html for
@@ -957,7 +957,14 @@ html,body{
      string itself is ~90px) lets it wrap to a clean 2-line group instead of
      forcing the whole page to scroll horizontally. */
   .week-range{ min-width:0; font-size:13px; }
-  .week-nav{ gap:8px; }
+  /* At iPhone widths (~390-430px) the full row needed ~358px of a ~358px
+     line, so "היום" wrapped onto its own line and the sticky header ate a
+     third of the screen. 5px gaps + slightly narrower "היום"/view-toggle keep it on
+     one line from 390px up (375px still wraps to two lines — acceptable); the controls stay at their 40px touch size. */
+  .week-nav{ gap:5px; }
+  .nav-btn.today-btn{ padding:0 10px; }
+  .view-toggle-btn{ padding:6px 10px; }
+  .week-range{ white-space:nowrap; }
   .board-subtitle{ max-width:38vw; }
   .drawer-panel{ width:min(300px, 86vw); padding:16px; }
 
@@ -4652,6 +4659,11 @@ html,body{
 
   function renderBoard(){
     const board = document.getElementById('board');
+    // Emptying the board resets its horizontal scroll to the first day. On a
+    // phone (one day per screen) that meant every re-render — the server
+    // refresh right after load, and every "updated from another device" poll —
+    // threw the user back to Sunday, and the app never stayed on today.
+    const prevScrollLeft = board.scrollLeft;
     board.innerHTML = '';
     if(currentView === 'month'){
       renderMonthGrid();
@@ -4665,6 +4677,7 @@ html,body{
     applyFilterVisuals();
     equalizeEventZoneHeights();
     watchEventZoneSizes();
+    board.scrollLeft = prevScrollLeft;
   }
 
   function goToWeek(newStart, scrollToToday){
