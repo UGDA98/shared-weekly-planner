@@ -6,7 +6,7 @@
 <!-- App build version, compared against version.txt to detect a new deploy in
      installed standalone PWA windows (which have no reload affordance). MUST be
      bumped together with version.txt on every deploy — see NOTES.md deploy step. -->
-<meta name="app-version" content="20260924-1550">
+<meta name="app-version" content="20260924-1559">
 <title>יומן ומשימות</title>
 <!-- PWA manifest + icons — no service worker on purpose: this is a live-data
      app on a 20s poll, a SW would only risk serving a stale index.html for
@@ -1368,9 +1368,51 @@ html,body{
   // that talks to the API should route a failed response through this before
   // treating it as an ordinary error, so an expired session always lands back
   // on the sign-in card instead of spinning silently.
+  // A single auth error is NOT proof the session is dead: Apps Script
+  // occasionally answers a request with auth_required even though a valid
+  // session was sent (the redirect hop can land on /exec without the request's
+  // params — seen live: a createBoard that DID create the board came back
+  // auth_required). Signing the user out on that alone is what caused the
+  // "signed in, then got logged out a minute later" reports. So when we hold a
+  // session, re-check it with a plain GET first and only sign out if the
+  // re-check agrees; otherwise resume polling and retry any pending save.
+  let authRecheckInFlight = false;
   function handleAuthError(json){
     const err = json && json.error;
     if(err !== 'session_expired' && err !== 'auth_required') return false;
+    if(currentSession){
+      if(!authRecheckInFlight) recheckSessionThenMaybeSignOut(currentSession);
+      return true;
+    }
+    signOutToCard();
+    return true;
+  }
+  async function recheckSessionThenMaybeSignOut(session){
+    authRecheckInFlight = true;
+    let verdict = 'unknown';
+    try{
+      for(let attempt = 0; attempt < 2 && verdict === 'unknown'; attempt++){
+        if(attempt) await new Promise(r => setTimeout(r, 1500));
+        try{
+          const res = await fetch(API_URL + '?action=listBoards&session=' + encodeURIComponent(session) + '&t=' + Date.now());
+          const j = await res.json();
+          if(j && j.ok) verdict = 'valid';
+          // Only session_expired is definitive: it means the server SAW our
+          // token and rejected it. auth_required means it saw no token at
+          // all — the very glitch we're guarding against — so it proves nothing.
+          else if(j && j.error === 'session_expired') verdict = 'dead';
+        }catch(e){ /* network / interstitial — try again */ }
+      }
+    } finally {
+      authRecheckInFlight = false;
+    }
+    if(session !== currentSession) return; // user already switched/signed out meanwhile
+    if(verdict === 'dead'){ signOutToCard(); return; }
+    // Valid (or couldn't tell — never sign out on a guess): carry on.
+    startPolling();
+    if(hasPendingLocalChange) scheduleSave();
+  }
+  function signOutToCard(){
     clearInterval(pollTimer);
     currentSession = '';
     localStorage.removeItem(SESSION_KEY);
