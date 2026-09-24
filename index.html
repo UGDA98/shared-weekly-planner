@@ -6,7 +6,7 @@
 <!-- App build version, compared against version.txt to detect a new deploy in
      installed standalone PWA windows (which have no reload affordance). MUST be
      bumped together with version.txt on every deploy — see NOTES.md deploy step. -->
-<meta name="app-version" content="20260924-1502">
+<meta name="app-version" content="20260924-1521">
 <title>יומן ומשימות</title>
 <!-- PWA manifest + icons — no service worker on purpose: this is a live-data
      app on a 20s poll, a SW would only risk serving a stale index.html for
@@ -1645,15 +1645,14 @@ html,body{
   // An installed standalone PWA window has no address bar, reload button, or
   // pull-to-refresh, so it can keep running stale app code for days after a
   // deploy — GitHub Pages' max-age=600 only bounds a normal *tab* that gets
-  // re-navigated, not a standalone window that never reloads. We piggyback on
-  // the existing poll: every VERSION_CHECK_EVERY ticks, fetch version.txt and,
+  // re-navigated, not a standalone window that never reloads. Every
+  // VERSION_CHECK_MS (and on return to foreground), fetch version.txt and,
   // if it differs from the version baked into THIS page, show a dismissible
   // "new version — tap to refresh" banner. Deliberately NO auto-reload (would
   // risk an unsaved mid-edit). Fails safe: any error, or a missing/equal
   // version, shows nothing. (audit Domain 6 / B4.1)
   const APP_VERSION = (document.querySelector('meta[name="app-version"]') || {}).content || '';
-  const VERSION_CHECK_EVERY = 5; // poll ticks between checks (~100s at 20s poll)
-  let versionCheckTick = 0;
+  const VERSION_CHECK_MS = 100 * 1000;
   let versionBannerShown = false;
   async function checkForNewVersion(){
     if(versionBannerShown || !APP_VERSION) return;
@@ -1688,12 +1687,19 @@ html,body{
     bar.appendChild(msg); bar.appendChild(reload); bar.appendChild(dismiss);
     document.body.appendChild(bar);
   }
+  // Runs on its own timer, NOT inside the data poll: the poll only starts after
+  // sign-in, so a stale window sitting on the sign-in card would never learn
+  // about a fix. And iOS resumes a home-screen app from the background far more
+  // often than it relaunches it, so also check the moment it comes back.
+  setInterval(checkForNewVersion, VERSION_CHECK_MS);
+  document.addEventListener('visibilitychange', () => {
+    if(document.visibilityState === 'visible') checkForNewVersion();
+  });
 
   function startPolling(){
     clearInterval(pollTimer);
     pollTimer = setInterval(async ()=> {
       refreshFromServer(false);
-      if(++versionCheckTick % VERSION_CHECK_EVERY === 0) checkForNewVersion();
       // self-heal the board list on the same cadence as everything else — a single
       // failed fetch at initial load (network hiccup) would otherwise leave the
       // picker permanently empty for the rest of the session with no retry.
