@@ -6,7 +6,7 @@
 <!-- App build version, compared against version.txt to detect a new deploy in
      installed standalone PWA windows (which have no reload affordance). MUST be
      bumped together with version.txt on every deploy — see NOTES.md deploy step. -->
-<meta name="app-version" content="20260924-1643">
+<meta name="app-version" content="20260924-1647">
 <title>יומן ומשימות</title>
 <!-- PWA manifest + icons — no service worker on purpose: this is a live-data
      app on a 20s poll, a SW would only risk serving a stale index.html for
@@ -2501,7 +2501,21 @@ html,body{
     const order = (settings.sectionOrder && settings.sectionOrder.length === 2) ? settings.sectionOrder : defaultBoardSettings().sectionOrder;
     const sections = { board: document.getElementById('boardSection'), summary: document.getElementById('summarySection') };
     const parent = sections.board.parentNode;
-    order.forEach(entry => { if(sections[entry.id]) parent.appendChild(sections[entry.id]); });
+    // Re-appending a node resets the scroll position of everything inside it,
+    // and this runs after EVERY renderAll — so it was silently snapping the
+    // week board back to Sunday on phones after each server refresh. Only move
+    // sections when the order actually changed, and keep the board's scroll
+    // even when we do.
+    const wanted = order.map(entry => sections[entry.id]).filter(Boolean);
+    const current = [...parent.children].filter(el => wanted.includes(el));
+    if(current.length === wanted.length && current.every((el, i) => el === wanted[i])){
+      // already in order: nothing to move
+    } else {
+      const boardEl = document.getElementById('board');
+      const keepScroll = boardEl ? boardEl.scrollLeft : 0;
+      wanted.forEach(el => parent.appendChild(el));
+      if(boardEl) boardEl.scrollLeft = keepScroll;
+    }
     // no-access message belongs with the board slot specifically — keep it
     // immediately after boardSection wherever that ends up, not left behind.
     const noAccessEl = document.getElementById('noAccessMsg');
