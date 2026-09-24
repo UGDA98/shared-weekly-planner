@@ -6,7 +6,7 @@
 <!-- App build version, compared against version.txt to detect a new deploy in
      installed standalone PWA windows (which have no reload affordance). MUST be
      bumped together with version.txt on every deploy — see NOTES.md deploy step. -->
-<meta name="app-version" content="20260924-1445">
+<meta name="app-version" content="20260924-1502">
 <title>יומן ומשימות</title>
 <!-- PWA manifest + icons — no service worker on purpose: this is a live-data
      app on a 20s poll, a SW would only risk serving a stale index.html for
@@ -1982,26 +1982,36 @@ html,body{
     }catch(e){ return null; }
   }
 
-  // One status line under the access controls, used for both errors and
-  // confirmations (ok=true renders it green) — so a successful add/change is
-  // visibly acknowledged instead of the form just silently clearing.
   // Wraps an email in a left-to-right isolate so it doesn't reorder the
   // surrounding Hebrew sentence (BiDi).
   const ltrIso = s => '\u2066' + s + '\u2069';
+  // One status line under the access controls, used for both errors and
+  // confirmations (ok=true renders it green) — so a successful add/change is
+  // visibly acknowledged instead of the form just silently clearing.
   function setAccessMsg(text, ok){
     const el = document.getElementById('accessError');
     el.textContent = text || '';
     el.classList.toggle('ok', !!ok);
   }
+  // Appends a note when the post-change list refresh failed, so a green
+  // confirmation never hides a list that didn't reload.
+  const refreshNote = listed => listed ? '' : ' (רענון הרשימה נכשל — פתחו שוב את התפריט)';
 
+  // Returns true when the list was (re)loaded. listAccess takes several
+  // seconds, and the drawer-open render can still be in flight when a
+  // post-add render starts — the sequence token drops the older response
+  // instead of letting it land on top of the newer one.
+  let accessRenderSeq = 0;
   async function renderAccessList(){
     const list = document.getElementById('drawerAccessList');
     const defaultSel = document.getElementById('accessDefaultRole');
-    if(!list || currentRole !== 'editor' || !currentBoardId) return;
-    list.innerHTML = '';
+    if(!list || currentRole !== 'editor' || !currentBoardId) return false;
+    const seq = ++accessRenderSeq;
     setAccessMsg('');
     const data = await fetchAccessList();
-    if(!data){ setAccessMsg('טעינת ההרשאות נכשלה'); return; }
+    if(seq !== accessRenderSeq) return true; // superseded by a newer render
+    list.innerHTML = '';
+    if(!data){ setAccessMsg('טעינת ההרשאות נכשלה'); return false; }
     defaultSel.value = data.defaultRole || '';
     data.rows.forEach(row => {
       const item = document.createElement('div');
@@ -2027,8 +2037,8 @@ html,body{
           roleSel.value = row.role;
           return;
         }
-        await renderAccessList();
-        setAccessMsg('✓ ההרשאה של ' + ltrIso(row.email) + ' עודכנה ל' + (roleSel.value === 'editor' ? 'עריכה' : 'צפייה'), true);
+        const listed = await renderAccessList();
+        setAccessMsg('✓ ההרשאה של ' + ltrIso(row.email) + ' עודכנה ל' + (roleSel.value === 'editor' ? 'עריכה' : 'צפייה') + refreshNote(listed), true);
       });
       item.appendChild(roleSel);
 
@@ -2046,8 +2056,8 @@ html,body{
               setAccessMsg((res && res.error === 'last_editor') ? 'לא ניתן להסיר את העורך/ת האחרון/ה' : 'ההסרה נכשלה');
               return;
             }
-            await renderAccessList();
-            setAccessMsg('✓ הגישה של ' + ltrIso(row.email) + ' הוסרה', true);
+            const listed = await renderAccessList();
+            setAccessMsg('✓ הגישה של ' + ltrIso(row.email) + ' הוסרה' + refreshNote(listed), true);
           }
         });
       };
@@ -2061,6 +2071,7 @@ html,body{
       empty.textContent = 'אין עדיין הרשאות מפורשות';
       list.appendChild(empty);
     }
+    return true;
   }
 
   document.getElementById('accessAddBtn').onclick = async () => {
@@ -2081,8 +2092,8 @@ html,body{
         return;
       }
       input.value = '';
-      await renderAccessList();
-      setAccessMsg('✓ ' + ltrIso(email) + ' נוסף/ה עם הרשאת ' + (role === 'editor' ? 'עריכה' : 'צפייה'), true);
+      const listed = await renderAccessList();
+      setAccessMsg('✓ ' + ltrIso(email) + ' נוסף/ה עם הרשאת ' + (role === 'editor' ? 'עריכה' : 'צפייה') + refreshNote(listed), true);
     }finally{
       btn.disabled = false; btn.textContent = 'הוספה';
     }

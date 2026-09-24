@@ -4,3 +4,6 @@
 .design/PLAN-2026-09-17.md
 .design/EXECUTION-LOG-2026-09-17.md
 .claude/
+.design/AUDIT-*.md
+.design/PLAN-*.md
+.design/EXECUTION-LOG-*.md
