@@ -3,6 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<!-- App build version, compared against version.txt to detect a new deploy in
+     installed standalone PWA windows (which have no reload affordance). MUST be
+     bumped together with version.txt on every deploy — see NOTES.md deploy step. -->
+<meta name="app-version" content="20260924-1445">
 <title>יומן ומשימות</title>
 <!-- PWA manifest + icons — no service worker on purpose: this is a live-data
      app on a 20s poll, a SW would only risk serving a stale index.html for
@@ -43,6 +47,12 @@
   --border-strong:#d3caea;
   --done:#3f9464;
   --today-ring:#b8842a;
+  /* darker text-only variants of --done/--today-ring for small text on white:
+     the base colors pass the 3:1 non-text UI-component minimum (dots, rings,
+     chip backgrounds) but fail AA 4.5:1 as text; these pass (audit #A9 / B3.4).
+     Scoped so the decorative dot/ring colors stay unchanged. */
+  --done-text:#2f7d54;
+  --today-text:#8f6712;
   --shadow: 0 1px 2px rgba(40,25,70,.06), 0 8px 24px -12px rgba(40,25,70,.18);
   --shadow-lift: 0 2px 6px rgba(40,25,70,.08), 0 12px 28px -10px rgba(40,25,70,.22);
   color-scheme: light;
@@ -61,12 +71,12 @@
 :root[data-theme="dark"]{
   --bg:#17141d; --surface:#211d2b; --surface-2:#291f38; --accent:#bcaaea; --accent-ink:#221a3a;
   --accent-soft:#362c4a; --accent-soft-ink:#e3d9f8; --ink:#f1eef8; --muted:#a297b3;
-  --border:#362c4a; --border-strong:#493c62; --done:#7fcb9c; --today-ring:#e0b263; color-scheme: dark;
+  --border:#362c4a; --border-strong:#493c62; --done:#7fcb9c; --today-ring:#e0b263; --done-text:#7fcb9c; --today-text:#e0b263; color-scheme: dark;
 }
 :root[data-theme="light"]{
   --bg:#f7f4fa; --surface:#ffffff; --surface-2:#f2eef9; --accent:#5b4b8a; --accent-ink:#ffffff;
   --accent-soft:#ebe4f7; --accent-soft-ink:#4a3c73; --ink:#211d2b; --muted:#6a627d;
-  --border:#e4dfee; --border-strong:#d3caea; --done:#3f9464; --today-ring:#b8842a; color-scheme: light;
+  --border:#e4dfee; --border-strong:#d3caea; --done:#3f9464; --today-ring:#b8842a; --done-text:#2f7d54; --today-text:#8f6712; color-scheme: light;
 }
 
 *{box-sizing:border-box;}
@@ -248,6 +258,17 @@ html,body{
 }
 .task-text{ flex:1; min-width:0; font-size:13.5px; outline:none; padding:2px 3px; border-radius:var(--radius-sm); line-height:1.4; align-self:flex-start; word-break:break-word; }
 .task-text:focus{ background:var(--surface); }
+/* Keyboard focus indicators for the editable text fields that had outline:none
+   with no replacement — a keyboard user got no visible focus (audit #A2 / B3.2).
+   :focus-visible so mouse clicks stay ring-free; matches the existing
+   .view-toggle-btn/.mv-cell focus style. .day-banner sits on the accent fill,
+   so it gets a contrasting inset ink ring instead. */
+.task-text:focus-visible,
+.event-text:focus-visible,
+.ob-text:focus-visible,
+.notes-page-title:focus-visible,
+.notes-page-icon:focus-visible{ outline:2px solid var(--accent); outline-offset:1px; }
+.day-banner:focus-visible{ outline:2px solid var(--accent-ink); outline-offset:-3px; }
 .task-text:empty:before{ content: attr(data-ph); color:var(--muted); }
 .task-row.done .task-text{
   color:var(--muted);
@@ -313,6 +334,26 @@ html,body{
 .menu-btn svg{ width:19px; height:19px; }
 .title-group{ display:flex; flex-direction:column; gap:1px; min-width:0; }
 .board-subtitle{ font-size:12px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* ---------- new-version banner (PWA stale-code notice) ---------- */
+.version-banner{
+  position:fixed; left:50%; top:12px; transform:translateX(-50%);
+  display:flex; align-items:center; gap:12px; max-width:calc(100vw - 24px);
+  background:var(--accent); color:var(--accent-ink); border-radius:var(--radius-lg); box-shadow:var(--shadow-lift);
+  padding:9px 10px 9px 16px; font-size:13px; z-index:320; direction:rtl;
+  padding-top:calc(9px + env(safe-area-inset-top, 0px));
+}
+.version-banner-msg{ min-width:0; }
+.version-banner-btn{
+  border:none; background:var(--accent-ink); color:var(--accent); font:inherit; font-weight:700; cursor:pointer;
+  padding:6px 12px; border-radius:var(--radius-sm); flex-shrink:0;
+}
+.version-banner-btn:focus-visible{ outline:2px solid var(--accent-ink); outline-offset:2px; }
+.version-banner-dismiss{
+  border:none; background:none; color:var(--accent-ink); font-size:18px; line-height:1; cursor:pointer;
+  padding:2px 6px; border-radius:var(--radius-sm); opacity:.8; flex-shrink:0;
+}
+.version-banner-dismiss:hover{ opacity:1; }
 
 /* ---------- undo toast (task/event delete) ---------- */
 .undo-toast{
@@ -446,6 +487,7 @@ html,body{
   color:var(--ink); font-size:12px; padding:4px 6px;
 }
 .drawer-access-error{ color:#c0392b; font-size:11.5px; margin-top:6px; min-height:14px; }
+.drawer-access-error.ok{ color:var(--done-text); }
 .drawer-activity-list{ display:flex; flex-direction:column; gap:2px; max-height:220px; overflow-y:auto; }
 .drawer-activity-item{
   display:flex; flex-direction:column; gap:1px; padding:5px 4px; border-radius:var(--radius-md);
@@ -656,7 +698,7 @@ html,body{
 /* date numeral sits at the cell's inline-start — the RIGHT edge in RTL.
    Logical property on purpose: never left/right here. */
 .mv-date{ font-size:12px; font-weight:600; color:var(--muted); text-align:start; padding-inline-start:2px; }
-.mv-cell--today .mv-date{ color:var(--today-ring); }
+.mv-cell--today .mv-date{ color:var(--today-text); }
 .mv-items{ display:flex; flex-direction:column; gap:3px; min-width:0; }
 .mv-chip{
   display:block; font-size:11.5px; line-height:1.35; padding:2px 5px;
@@ -665,7 +707,7 @@ html,body{
 }
 .mv-chip--event{ background:var(--accent-soft); color:var(--accent-soft-ink); }
 .mv-chip--task{ border:1px solid var(--border-strong); color:var(--ink); }
-.mv-chip.done{ color:var(--done); text-decoration:line-through; }
+.mv-chip.done{ color:var(--done-text); text-decoration:line-through; }
 .mv-more{ font-size:11px; color:var(--muted); padding-inline-start:5px; }
 /* pinned day title — "the whole day is X", so it outranks the item chips */
 .mv-title{
@@ -979,8 +1021,8 @@ html,body{
 
 <div class="planner-root" id="root">
   <div class="email-gate" id="emailGate">
-    <div class="email-gate-card">
-      <h2>יומן ומשימות</h2>
+    <div class="email-gate-card" role="dialog" aria-modal="true" aria-labelledby="signinCardTitle">
+      <h2 id="signinCardTitle">יומן ומשימות</h2>
       <p id="signinIntro">כדי להתחבר, השתמשו בחשבון Google שלכם.</p>
       <p class="email-gate-migrate-note" id="signinMigrateNote" style="display:none;">מעכשיו נכנסים עם חשבון Google — בפעם הראשונה בלבד.</p>
       <div id="gsiButton"></div>
@@ -1137,7 +1179,7 @@ html,body{
           <option value="editor">עריכה</option>
         </select>
       </div>
-      <div class="drawer-access-error" id="accessError"></div>
+      <div class="drawer-access-error" id="accessError" role="status" aria-live="polite"></div>
     </div>
 
     <div class="drawer-divider editor-only"></div>
@@ -1156,14 +1198,14 @@ html,body{
       <button class="drawer-action" id="drawerExportBtn" type="button">ייצוא גיבוי (JSON)</button>
       <button class="drawer-action" id="drawerRestoreBackupBtn" type="button" style="display:none;">שחזור מהגיבוי האחרון</button>
       <button class="drawer-action" id="drawerSwitchUserBtn" type="button"></button>
-      <span class="sync-status" id="syncStatus"></span>
+      <span class="sync-status" id="syncStatus" role="status" aria-live="polite"></span>
     </div>
   </div>
 </div>
 
 <div class="modal-overlay" id="newBoardModal">
-  <div class="modal-card">
-    <h3>לוח חדש</h3>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="newBoardTitle">
+    <h3 id="newBoardTitle">לוח חדש</h3>
     <p class="modal-sub">תיצרו לוח נפרד. תהיו העורך/ת הראשונ/ה שלו — תוכלו להוסיף אנשים נוספים אחר כך.</p>
     <div class="modal-type-choice" id="newBoardTypeChoice">
       <button type="button" class="modal-type-card is-selected" data-type="planner">
@@ -1438,8 +1480,12 @@ html,body{
     }catch(e){ return ''; }
   }
 
+  // Returns true when there is nothing to save or the save succeeded, false
+  // when a save was attempted and failed (server refusal or network) — callers
+  // like switchToBoard use this to decide whether it's safe to move on.
   async function pushState(){
-    if(!currentSession || currentRole !== 'editor' || !currentBoardId) return;
+    if(!currentSession || currentRole !== 'editor' || !currentBoardId) return true;
+    const reqBoard = currentBoardId;               // this save is FOR this board
     const payload = JSON.stringify(appState);
     let note = '';
     try{ note = summarizeChange(lastSyncedJson ? JSON.parse(lastSyncedJson) : null, appState); }catch(e){}
@@ -1447,28 +1493,36 @@ html,body{
       const res = await fetch(API_URL, {
         method:'POST',
         headers:{'Content-Type':'text/plain;charset=utf-8'},
-        body: JSON.stringify(authBody({ action:'saveBoard', board: currentBoardId, data: appState, note }))
+        body: JSON.stringify(authBody({ action:'saveBoard', board: reqBoard, data: appState, note }))
       });
       const json = await res.json().catch(()=>null);
       // This used to report 'מסונכרן ✓' unconditionally, without ever reading
       // the response — a server-side refusal looked exactly like a success, so
       // data could stop being saved with nothing on screen to say so.
       if(!json || !json.ok){
-        if(handleAuthError(json)) return;
+        if(handleAuthError(json)) return false;
         const err = json && json.error;
         setSyncStatus('השמירה נכשלה — ' + (SAVE_ERROR_TEXT[err] || 'שגיאת שרת'));
         // deliberately leave lastSyncedJson stale: that's what lets the next
         // poll see the divergence instead of treating the failure as synced.
         // hasPendingLocalChange also stays true: nothing was actually saved,
         // so refreshFromServer must still not overwrite it.
-        return;
+        return false;
       }
+      // If the user switched boards while this save was in flight, the response
+      // came back for a board we've left — don't write its result into the
+      // now-current board's sync globals (would poison the new board's baseline
+      // and could drop its pending edit). The POST itself already targeted the
+      // right board via the captured reqBoard, so the save still landed.
+      if(currentBoardId !== reqBoard) return true;
       lastSyncedJson = payload;
       hasPendingLocalChange = false;
       setSyncStatus('מסונכרן ✓');
+      return true;
     }catch(e){
       setSyncStatus('אין חיבור — יישמר מקומית');
       // hasPendingLocalChange stays true: the request never completed.
+      return false;
     }
   }
 
@@ -1481,6 +1535,11 @@ html,body{
   // during unload, where a normal fetch would get cancelled mid-flight.
   function flushPendingSaveOnExit(){
     if(!currentSession || currentRole !== 'editor' || !currentBoardId) return;
+    // Only flush when there's a genuine unsaved edit. Without this, a tab that
+    // merely loaded a board (or ended up with a default/empty appState after a
+    // failed or corrupt load) would beacon that empty state back over the real
+    // board on close (audit 2026-09-17 #6, frontend half of B2.4).
+    if(!hasPendingLocalChange) return;
     clearTimeout(saveTimer);
     const payload = JSON.stringify(authBody({ action:'saveBoard', board: currentBoardId, data: appState }));
     try{
@@ -1511,13 +1570,28 @@ html,body{
 
   async function refreshFromServer(isInitial){
     if(!currentSession || !currentBoardId) return;
+    // Capture the board this request is FOR. currentBoardId is a global that a
+    // board switch reassigns synchronously; if the user switches boards while
+    // this fetch is in flight, applying the (now-stale) response below would
+    // overwrite the newly-entered board's state and localStorage cache with
+    // this board's data — a cross-board data-corruption race. So after every
+    // await we bail out if the current board is no longer the one we asked for.
+    const reqBoard = currentBoardId;
     try{
       if(!isInitial && await boardUnchangedSinceLastSync()) return;
-      const url = API_URL + '?action=getBoard&board=' + encodeURIComponent(currentBoardId) + authQuery() + '&t=' + Date.now();
+      if(currentBoardId !== reqBoard) return;
+      const url = API_URL + '?action=getBoard&board=' + encodeURIComponent(reqBoard) + authQuery() + '&t=' + Date.now();
       const res = await fetch(url);
       const json = await res.json();
+      if(currentBoardId !== reqBoard) return; // switched away while awaiting — response is stale
       if(!json || !json.ok){
         if(handleAuthError(json)) return;
+        if(json && json.error === 'state_corrupt'){
+          // Server couldn't parse the stored blob (mid-write race or a corrupt
+          // cell). Keep our local copy; never overwrite appState with a default.
+          setSyncStatus('שגיאת נתונים זמנית בשרת — עובדים מהעותק המקומי');
+          return;
+        }
         if(isInitial) showNoAccess(json && json.error);
         return;
       }
@@ -1528,7 +1602,7 @@ html,body{
       currentRole = json.role || 'viewer';
       updateRoleUI();
       currentBoardType = (json.board && json.board.type) || 'planner';
-      cacheBoardType(currentBoardId, currentBoardType);
+      cacheBoardType(reqBoard, currentBoardType);
       const serverData = isValidStateFor(currentBoardType, json.data) ? json.data : null;
       if(serverData){
         const serverJson = JSON.stringify(serverData);
@@ -1547,9 +1621,9 @@ html,body{
               weekData = loadWeek(weekStart);
             }
             lastSyncedJson = serverJson;
-            const prevLocal = localStorage.getItem(cacheKeyFor(currentBoardId));
-            if(prevLocal && prevLocal !== serverJson) localStorage.setItem(backupCacheKeyFor(currentBoardId), prevLocal);
-            localStorage.setItem(cacheKeyFor(currentBoardId), serverJson);
+            const prevLocal = localStorage.getItem(cacheKeyFor(reqBoard));
+            if(prevLocal && prevLocal !== serverJson) localStorage.setItem(backupCacheKeyFor(reqBoard), prevLocal);
+            localStorage.setItem(cacheKeyFor(reqBoard), serverJson);
             renderAll();
             setSyncStatus('עודכן ממכשיר אחר');
           }
@@ -1567,10 +1641,59 @@ html,body{
     }
   }
 
+  // ---------- new-version detection (PWA stale-code notice) ----------
+  // An installed standalone PWA window has no address bar, reload button, or
+  // pull-to-refresh, so it can keep running stale app code for days after a
+  // deploy — GitHub Pages' max-age=600 only bounds a normal *tab* that gets
+  // re-navigated, not a standalone window that never reloads. We piggyback on
+  // the existing poll: every VERSION_CHECK_EVERY ticks, fetch version.txt and,
+  // if it differs from the version baked into THIS page, show a dismissible
+  // "new version — tap to refresh" banner. Deliberately NO auto-reload (would
+  // risk an unsaved mid-edit). Fails safe: any error, or a missing/equal
+  // version, shows nothing. (audit Domain 6 / B4.1)
+  const APP_VERSION = (document.querySelector('meta[name="app-version"]') || {}).content || '';
+  const VERSION_CHECK_EVERY = 5; // poll ticks between checks (~100s at 20s poll)
+  let versionCheckTick = 0;
+  let versionBannerShown = false;
+  async function checkForNewVersion(){
+    if(versionBannerShown || !APP_VERSION) return;
+    try{
+      const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
+      if(!res.ok) return;
+      const latest = (await res.text()).trim();
+      if(latest && latest !== APP_VERSION) showVersionBanner();
+    }catch(e){ /* offline / blocked — try again next interval */ }
+  }
+  function showVersionBanner(){
+    if(versionBannerShown) return;
+    versionBannerShown = true;
+    const bar = document.createElement('div');
+    bar.className = 'version-banner';
+    bar.setAttribute('role', 'status');
+    bar.setAttribute('aria-live', 'polite');
+    const msg = document.createElement('span');
+    msg.className = 'version-banner-msg';
+    msg.textContent = 'יש גרסה חדשה של האפליקציה';
+    const reload = document.createElement('button');
+    reload.type = 'button';
+    reload.className = 'version-banner-btn';
+    reload.textContent = 'רענון';
+    reload.onclick = () => location.reload();
+    const dismiss = document.createElement('button');
+    dismiss.type = 'button';
+    dismiss.className = 'version-banner-dismiss';
+    dismiss.setAttribute('aria-label', 'סגירה');
+    dismiss.textContent = '×';
+    dismiss.onclick = () => { bar.remove(); }; // versionBannerShown stays true → no re-nag this session
+    bar.appendChild(msg); bar.appendChild(reload); bar.appendChild(dismiss);
+    document.body.appendChild(bar);
+  }
+
   function startPolling(){
     clearInterval(pollTimer);
     pollTimer = setInterval(async ()=> {
       refreshFromServer(false);
+      if(++versionCheckTick % VERSION_CHECK_EVERY === 0) checkForNewVersion();
       // self-heal the board list on the same cadence as everything else — a single
       // failed fetch at initial load (network hiccup) would otherwise leave the
       // picker permanently empty for the rest of the session with no retry.
@@ -1749,7 +1872,7 @@ html,body{
         actions.appendChild(edit);
 
         const del = document.createElement('button');
-        del.type = 'button'; del.className = 'pdel'; del.textContent = '×'; del.title = 'מחיקת לוח';
+        del.type = 'button'; del.className = 'pdel'; del.textContent = '×'; del.title = 'מחיקת לוח'; del.setAttribute('aria-label','מחיקת לוח');
         del.onclick = (e)=>{
           e.stopPropagation();
           showConfirmModal({
@@ -1859,15 +1982,26 @@ html,body{
     }catch(e){ return null; }
   }
 
+  // One status line under the access controls, used for both errors and
+  // confirmations (ok=true renders it green) — so a successful add/change is
+  // visibly acknowledged instead of the form just silently clearing.
+  // Wraps an email in a left-to-right isolate so it doesn't reorder the
+  // surrounding Hebrew sentence (BiDi).
+  const ltrIso = s => '\u2066' + s + '\u2069';
+  function setAccessMsg(text, ok){
+    const el = document.getElementById('accessError');
+    el.textContent = text || '';
+    el.classList.toggle('ok', !!ok);
+  }
+
   async function renderAccessList(){
     const list = document.getElementById('drawerAccessList');
     const defaultSel = document.getElementById('accessDefaultRole');
-    const errEl = document.getElementById('accessError');
     if(!list || currentRole !== 'editor' || !currentBoardId) return;
     list.innerHTML = '';
-    errEl.textContent = '';
+    setAccessMsg('');
     const data = await fetchAccessList();
-    if(!data){ errEl.textContent = 'טעינת ההרשאות נכשלה'; return; }
+    if(!data){ setAccessMsg('טעינת ההרשאות נכשלה'); return; }
     defaultSel.value = data.defaultRole || '';
     data.rows.forEach(row => {
       const item = document.createElement('div');
@@ -1886,14 +2020,15 @@ html,body{
         roleSel.appendChild(opt);
       });
       roleSel.addEventListener('change', async () => {
-        errEl.textContent = '';
+        setAccessMsg('');
         const res = await callSetAccess(row.email, roleSel.value);
         if(!res || !res.ok){
-          errEl.textContent = (res && res.error === 'last_editor') ? 'לא ניתן להשאיר לוח בלי עורך/ת אחד/ת לפחות' : 'העדכון נכשל';
+          setAccessMsg((res && res.error === 'last_editor') ? 'לא ניתן להשאיר לוח בלי עורך/ת אחד/ת לפחות' : 'העדכון נכשל');
           roleSel.value = row.role;
           return;
         }
-        renderAccessList();
+        await renderAccessList();
+        setAccessMsg('✓ ההרשאה של ' + ltrIso(row.email) + ' עודכנה ל' + (roleSel.value === 'editor' ? 'עריכה' : 'צפייה'), true);
       });
       item.appendChild(roleSel);
 
@@ -1905,13 +2040,14 @@ html,body{
           message: 'להסיר את הגישה של ' + row.email + ' ללוח הזה?',
           confirmLabel: 'הסרה',
           onConfirm: async () => {
-            errEl.textContent = '';
+            setAccessMsg('');
             const res = await callRemoveAccess(row.email);
             if(!res || !res.ok){
-              errEl.textContent = (res && res.error === 'last_editor') ? 'לא ניתן להסיר את העורך/ת האחרון/ה' : 'ההסרה נכשלה';
+              setAccessMsg((res && res.error === 'last_editor') ? 'לא ניתן להסיר את העורך/ת האחרון/ה' : 'ההסרה נכשלה');
               return;
             }
-            renderAccessList();
+            await renderAccessList();
+            setAccessMsg('✓ הגישה של ' + ltrIso(row.email) + ' הוסרה', true);
           }
         });
       };
@@ -1930,19 +2066,31 @@ html,body{
   document.getElementById('accessAddBtn').onclick = async () => {
     const input = document.getElementById('accessAddEmail');
     const roleSel = document.getElementById('accessAddRole');
-    const errEl = document.getElementById('accessError');
+    const btn = document.getElementById('accessAddBtn');
     const email = input.value.trim();
-    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ errEl.textContent = 'כתובת מייל לא תקינה'; return; }
-    errEl.textContent = '';
-    const res = await callSetAccess(email, roleSel.value);
-    if(!res || !res.ok){ errEl.textContent = 'ההוספה נכשלה'; return; }
-    input.value = '';
-    renderAccessList();
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ setAccessMsg('כתובת מייל לא תקינה'); return; }
+    const role = roleSel.value;
+    // The round-trip takes a few seconds; without a busy state the click looked
+    // like it did nothing, and a second click re-sent the same request.
+    btn.disabled = true; btn.textContent = 'מוסיף…';
+    setAccessMsg('');
+    try{
+      const res = await callSetAccess(email, role);
+      if(!res || !res.ok){
+        setAccessMsg(res && res.error === 'bad_email' ? 'כתובת מייל לא תקינה' : 'ההוספה נכשלה');
+        return;
+      }
+      input.value = '';
+      await renderAccessList();
+      setAccessMsg('✓ ' + ltrIso(email) + ' נוסף/ה עם הרשאת ' + (role === 'editor' ? 'עריכה' : 'צפייה'), true);
+    }finally{
+      btn.disabled = false; btn.textContent = 'הוספה';
+    }
   };
   document.getElementById('accessDefaultRole').addEventListener('change', async (e) => {
-    const errEl = document.getElementById('accessError');
     const res = await callSetDefaultRole(e.target.value);
-    if(!res || !res.ok) errEl.textContent = 'העדכון נכשל';
+    if(!res || !res.ok){ setAccessMsg('העדכון נכשל'); return; }
+    setAccessMsg('✓ ההגדרה נשמרה', true);
   });
 
   /* ---------- activity log (drawer, editors only) ---------- */
@@ -2056,10 +2204,13 @@ html,body{
     newBoardType = 'planner';
     document.querySelectorAll('.modal-type-card').forEach(c => c.classList.toggle('is-selected', c.dataset.type === 'planner'));
     document.getElementById('newBoardModal').style.display = 'flex';
+    document.addEventListener('keydown', newBoardEscHandler, true);
     input.focus();
   }
+  function newBoardEscHandler(e){ if(e.key === 'Escape'){ e.preventDefault(); closeNewBoardModal(); } }
   function closeNewBoardModal(){
     document.getElementById('newBoardModal').style.display = 'none';
+    document.removeEventListener('keydown', newBoardEscHandler, true);
   }
   document.querySelectorAll('.modal-type-card').forEach(card => {
     card.addEventListener('click', () => {
@@ -2176,7 +2327,17 @@ html,body{
     // paid for a full saveBoard round-trip to Apps Script even when nothing
     // had changed, which is what made switching boards feel slow (reported
     // 2026-09-17).
-    if(currentRole === 'editor' && currentBoardId && hasPendingLocalChange) await pushState();
+    // If there's a pending edit, flush it BEFORE leaving — and if that flush
+    // fails, stay put rather than switching away and losing the unsaved edit
+    // (the edit lives only in appState/localStorage; entering the new board
+    // would replace appState). The user sees the failure and can retry.
+    if(currentRole === 'editor' && currentBoardId && hasPendingLocalChange){
+      const ok = await pushState();
+      if(!ok){
+        setSyncStatus('השמירה נכשלה — נשארים בלוח הנוכחי, נסו שוב');
+        return;
+      }
+    }
     clearInterval(pollTimer);
 
     currentBoardId = boardId;
@@ -2336,6 +2497,39 @@ html,body{
     persistState();
   }
 
+  // Clears every task's reference to a deleted person/topic (keeps the task,
+  // only drops the association) — the behavior the delete dialog promises
+  // ("המשימות יישארו אך יאבדו את השיוך"). Without this, the dead id lingered in
+  // personIds[]/topicId forever: the task showed a broken "⋯" chip, was
+  // excluded from the "ללא שיוך" bucket and from highlight filtering, and
+  // couldn't be individually cleared (audit 2026-09-17 #7 / B2.7). Scope
+  // matches countReferencesFor/clearTasksForTopic: task sections + unscheduled.
+  function clearItemRefs(kind, id){
+    const scrub = (arr)=>{
+      if(!Array.isArray(arr)) return;
+      arr.forEach(item=>{
+        if(kind==='topic'){
+          if(item.topicId===id) item.topicId = null;
+        } else {
+          if(Array.isArray(item.personIds)){
+            const i = item.personIds.indexOf(id);
+            if(i>-1) item.personIds.splice(i,1);
+          }
+          if(item.personId===id) item.personId = null;
+        }
+      });
+    };
+    Object.keys(appState.weeks).forEach(wk=>{
+      const wdata = appState.weeks[wk];
+      DAY_DEFS.forEach(d=>{
+        const day = wdata[d.key];
+        if(!day) return;
+        TASK_SECTIONS.forEach(sec=> scrub(day[sec.key]));
+      });
+    });
+    scrub(appState.unscheduled);
+  }
+
   // counts how many tasks/unscheduled items still point at a person/topic —
   // used to warn before deleting one out of the master list, since deleting
   // leaves those references dangling (they render as "⋯", see nameById).
@@ -2377,6 +2571,8 @@ html,body{
     clearTimeout(undoToastTimer);
     const toast = document.createElement('div');
     toast.className = 'undo-toast';
+    toast.setAttribute('role', 'status');      // announce the delete + undo option
+    toast.setAttribute('aria-live', 'polite');
     const msg = document.createElement('span');
     msg.textContent = message;
     toast.appendChild(msg);
@@ -2405,14 +2601,20 @@ html,body{
     overlay.style.display = 'flex';
     const card = document.createElement('div');
     card.className = 'modal-card';
+    card.setAttribute('role', 'dialog');
+    card.setAttribute('aria-modal', 'true');
     const h3 = document.createElement('h3'); h3.textContent = title;
+    h3.id = 'confirmTitle-' + uid();
+    card.setAttribute('aria-labelledby', h3.id);
     const p = document.createElement('p'); p.className = 'modal-sub'; p.textContent = message;
     const actions = document.createElement('div'); actions.className = 'modal-actions';
     const cancelBtn = document.createElement('button');
     cancelBtn.className = 'modal-btn modal-btn-secondary'; cancelBtn.type = 'button'; cancelBtn.textContent = 'ביטול';
     const okBtn = document.createElement('button');
     okBtn.className = 'modal-btn modal-btn-primary'; okBtn.type = 'button'; okBtn.textContent = confirmLabel || 'אישור';
-    function close(){ overlay.remove(); }
+    function close(){ overlay.remove(); document.removeEventListener('keydown', onKey, true); }
+    function onKey(e){ if(e.key === 'Escape'){ e.preventDefault(); close(); } }
+    document.addEventListener('keydown', onKey, true);
     cancelBtn.onclick = close;
     okBtn.onclick = ()=>{ close(); onConfirm(); };
     overlay.addEventListener('click', (e)=>{ if(e.target===overlay) close(); });
@@ -2420,6 +2622,7 @@ html,body{
     card.appendChild(h3); card.appendChild(p); card.appendChild(actions);
     overlay.appendChild(card);
     document.body.appendChild(overlay);
+    cancelBtn.focus(); // move focus into the dialog (least-destructive default)
   }
 
   // ---------- week data ----------
@@ -2623,6 +2826,7 @@ html,body{
     document.body.appendChild(pop);
     positionPopover(pop, rect);
     openPickerEl = pop;
+    wirePickerKeyboard(pop, anchorEl);
     setTimeout(()=> document.addEventListener('mousedown', onDocClick, true), 0);
   }
 
@@ -2725,6 +2929,7 @@ html,body{
     const cb = document.createElement('input');
     cb.type = 'checkbox';
     cb.checked = !!item.done;
+    cb.disabled = currentRole !== 'editor'; // viewers can't toggle done (B3.3)
     cb.onchange = () => {
       item.done = cb.checked;
       // `item` is a live reference into appState, so persistState() is enough.
@@ -2795,7 +3000,7 @@ html,body{
       spacer.className = 'meta-spacer';
       meta.appendChild(spacer);
       const del = document.createElement('button');
-      del.className = 'row-del'; del.textContent = '×'; del.title = 'מחיקה';
+      del.className = 'row-del'; del.textContent = '×'; del.title = 'מחיקה'; del.setAttribute('aria-label','מחיקה');
       del.onclick = ()=>{
         const idx = appState.unscheduled.findIndex(x=>x.id===item.id);
         const list = row.parentElement;
@@ -2827,7 +3032,18 @@ html,body{
     const head = document.createElement('div');
     head.className = 'summary-group-head';
     const items = collectItemsFor(kind, id);
-    head.innerHTML = (icon||'') + '<span>'+name+'</span><span class="summary-group-count">'+items.length+'</span>';
+    // icon is a trusted SVG constant (iconForKind); name is a user-typed
+    // person/topic name and MUST go in via textContent, never innerHTML —
+    // otherwise a name like `<img src=x onerror=…>` is stored XSS that runs
+    // for everyone viewing this summary (audit 2026-09-17 #1).
+    head.innerHTML = icon || '';
+    const groupNameEl = document.createElement('span');
+    groupNameEl.textContent = name;
+    const groupCountEl = document.createElement('span');
+    groupCountEl.className = 'summary-group-count';
+    groupCountEl.textContent = items.length;
+    head.appendChild(groupNameEl);
+    head.appendChild(groupCountEl);
     if(kind==='topic' && id && items.length){
       const clearBtn = document.createElement('button');
       clearBtn.className = 'group-clear-btn';
@@ -2910,6 +3126,7 @@ html,body{
     const cb = document.createElement('input');
     cb.type = 'checkbox';
     cb.checked = !!item.done;
+    cb.disabled = currentRole !== 'editor'; // viewers can't toggle done (B3.3)
     cb.title = 'סימון כבוצע; ניתן גם לגרור לשינוי סדר';
     cb.onchange = () => { item.done = cb.checked; row.classList.toggle('done', item.done); persistState(); syncItemVisual(item.id, item.done); };
     main.appendChild(cb);
@@ -2923,7 +3140,7 @@ html,body{
     const updateFlag = wireChipReveal(row, main, ()=> !!item.topicId || !!(item.personIds||[]).length);
 
     const del = document.createElement('button');
-    del.className = 'row-del'; del.textContent = '×'; del.title = 'מחיקה';
+    del.className = 'row-del'; del.textContent = '×'; del.title = 'מחיקה'; del.setAttribute('aria-label','מחיקה');
     del.onclick = (e) => {
       e.preventDefault(); e.stopPropagation();
       const arr = appState.unscheduled || [];
@@ -3108,6 +3325,7 @@ html,body{
     document.body.appendChild(pop);
     positionPopover(pop, rect);
     openPickerEl = pop;
+    wirePickerKeyboard(pop, anchorEl);
     setTimeout(()=> document.addEventListener('mousedown', onDocClick, true), 0);
   }
 
@@ -3165,6 +3383,7 @@ html,body{
     document.body.appendChild(pop);
     positionPopover(pop, rect);
     openPickerEl = pop;
+    wirePickerKeyboard(pop, anchorEl);
     setTimeout(()=> document.addEventListener('mousedown', onDocClick, true), 0);
   }
 
@@ -3179,23 +3398,59 @@ html,body{
   }
 
   function makeEditable(el, placeholder, onCommit){
-    el.contentEditable = 'true';
+    // Gate on role like the notes editor already does: CSS pointer-events:none
+    // blocks a viewer's mouse but NOT keyboard focus + typing, so a viewer
+    // could Tab in and "edit" text/day-titles locally (never saved, but a
+    // confusing desync). contentEditable='false' closes that (audit #C6 / B3.3).
+    el.contentEditable = currentRole === 'editor' ? 'true' : 'false';
     el.dataset.ph = placeholder;
+    if(currentRole !== 'editor') return; // no commit wiring for viewers
     el.addEventListener('blur', ()=> onCommit(el.textContent.trim()));
     el.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); el.blur(); } });
   }
 
   // ---------- picker popover (person / topic) ----------
   let openPickerEl = null;
+  let pickerReturnFocusEl = null;
   function closePicker(){
     if(openPickerEl){
       openPickerEl.remove(); openPickerEl=null;
       document.removeEventListener('mousedown', onDocClick, true);
       const hb = document.getElementById('highlightBtn');
       if(hb) hb.setAttribute('aria-expanded', 'false'); // no-op unless this was the trigger
+      if(pickerReturnFocusEl){ try{ pickerReturnFocusEl.focus(); }catch(e){} pickerReturnFocusEl = null; }
     }
   }
   function onDocClick(e){ if(openPickerEl && !openPickerEl.contains(e.target)) closePicker(); }
+
+  // Makes any .picker popover keyboard-operable — they were entirely
+  // mouse-only (div/span rows with onclick, no roving focus, no Escape), so a
+  // keyboard user could not assign a person/topic/day, pick a block type, or
+  // reach the notes menu at all (audit #A1 / B3.1). The primary "select" element
+  // is .picker-item in the fixed-list menus and .pname in the person/topic
+  // picker; both become roving-tabindex options here. Inline edit/delete
+  // buttons remain reachable by Tab within a focused row.
+  function wirePickerKeyboard(pop, anchorEl){
+    pickerReturnFocusEl = anchorEl || null;
+    const opts = Array.from(pop.querySelectorAll('.picker-item, .pname'));
+    if(!opts.length) return;
+    pop.setAttribute('role', 'listbox');
+    opts.forEach(o => { o.setAttribute('role', 'option'); o.setAttribute('tabindex', '-1'); });
+    let idx = opts.findIndex(o => o.classList.contains('selected'));
+    if(idx < 0) idx = 0;
+    const focusAt = (i) => { idx = (i + opts.length) % opts.length; opts[idx].focus(); };
+    pop.addEventListener('keydown', (e) => {
+      if(e.key === 'ArrowDown'){ e.preventDefault(); focusAt(idx + 1); }
+      else if(e.key === 'ArrowUp'){ e.preventDefault(); focusAt(idx - 1); }
+      else if(e.key === 'Home'){ e.preventDefault(); focusAt(0); }
+      else if(e.key === 'End'){ e.preventDefault(); focusAt(opts.length - 1); }
+      else if(e.key === 'Enter' || e.key === ' '){
+        if(opts.includes(document.activeElement)){ e.preventDefault(); document.activeElement.click(); }
+      }
+      else if(e.key === 'Escape'){ e.preventDefault(); closePicker(); }
+    });
+    setTimeout(() => { if(openPickerEl === pop && opts[idx]) opts[idx].focus(); }, 0);
+  }
 
   function openPicker(kind, anchorEl, currentId, onPick, opts){
     closePicker();
@@ -3269,10 +3524,11 @@ html,body{
         };
         row.appendChild(edit);
         const del = document.createElement('button');
-        del.className = 'pdel'; del.textContent='×'; del.title='מחיקה מהרשימה';
+        del.className = 'pdel'; del.textContent='×'; del.title='מחיקה מהרשימה'; del.setAttribute('aria-label','מחיקה מהרשימה');
         del.onclick = (e)=>{
           e.stopPropagation();
           const doDelete = ()=>{
+            clearItemRefs(kind, p.id); // drop dangling refs first (dialog's promise)
             const idx = list.findIndex(x=>x.id===p.id);
             if(idx>-1) list.splice(idx,1);
             saveList(storeKey, list);
@@ -3329,6 +3585,7 @@ html,body{
     document.body.appendChild(pop);
     positionPopover(pop, rect, {leftOffset:-100});
     openPickerEl = pop;
+    wirePickerKeyboard(pop, anchorEl);
     setTimeout(()=> document.addEventListener('mousedown', onDocClick, true), 0);
   }
 
@@ -3727,11 +3984,17 @@ html,body{
     const passedToggle = document.createElement('button');
     passedToggle.className = 'event-passed-toggle';
     passedToggle.innerHTML = ICON_HISTORY;
-    passedToggle.title = item.passed ? 'ביטול סימון שהתקיים' : 'סימון שהאירוע כבר התקיים היום';
+    const setPassedA11y = () => {
+      const label = item.passed ? 'ביטול סימון שהתקיים' : 'סימון שהאירוע כבר התקיים היום';
+      passedToggle.title = label;
+      passedToggle.setAttribute('aria-label', label);
+      passedToggle.setAttribute('aria-pressed', item.passed ? 'true' : 'false');
+    };
+    setPassedA11y();
     passedToggle.onclick = () => {
       item.passed = !item.passed;
       row.classList.toggle('passed', !!item.passed);
-      passedToggle.title = item.passed ? 'ביטול סימון שהתקיים' : 'סימון שהאירוע כבר התקיים היום';
+      setPassedA11y();
       saveWeek(weekStart, weekData);
     };
     row.appendChild(passedToggle);
@@ -3743,7 +4006,7 @@ html,body{
     row.appendChild(text);
 
     const del = document.createElement('button');
-    del.className = 'row-del'; del.textContent = '×'; del.title = 'מחיקה';
+    del.className = 'row-del'; del.textContent = '×'; del.title = 'מחיקה'; del.setAttribute('aria-label','מחיקה');
     del.onclick = () => {
       const arr = weekData[dayKey].events;
       const i = arr.findIndex(x=>x.id===item.id);
@@ -3842,6 +4105,7 @@ html,body{
     const cb = document.createElement('input');
     cb.type = 'checkbox';
     cb.checked = !!item.done;
+    cb.disabled = currentRole !== 'editor'; // viewers can't toggle done (B3.3)
     cb.title = 'סימון כבוצע; ניתן גם לגרור לשינוי סדר';
     cb.onchange = () => { item.done = cb.checked; row.classList.toggle('done', item.done); saveWeek(weekStart, weekData); syncItemVisual(item.id, item.done); };
     main.appendChild(cb);
@@ -3858,7 +4122,7 @@ html,body{
     );
 
     const del = document.createElement('button');
-    del.className = 'row-del'; del.textContent = '×'; del.title = 'מחיקה';
+    del.className = 'row-del'; del.textContent = '×'; del.title = 'מחיקה'; del.setAttribute('aria-label','מחיקה');
     del.onclick = (e) => {
       e.preventDefault(); e.stopPropagation();
       const arr = weekData[dayKey][sectionKey];
@@ -4529,16 +4793,25 @@ html,body{
   // Defensive re-sanitization on load — the blob can be edited by anything
   // that can reach the API, not just this client.
   function sanitizeNotesState(state){
-    (state.pages || []).forEach(page => {
+    // Backfill missing array fields as we go. The backend stores the blob
+    // opaquely, so a page/block that arrives without `blocks`/`children` (a
+    // non-client API write, an old schema, a hand-edited Sheet) would otherwise
+    // reach renderBlockRow's `block.children.length` and throw, making the page
+    // permanently un-openable for everyone. Writing the arrays back here (not
+    // just `|| []` on the recursive call) neutralizes that on load (B2.6).
+    if(!Array.isArray(state.pages)) state.pages = [];
+    state.pages.forEach(page => {
       page.icon = sanitizeNotesIcon(page.icon);
+      if(!Array.isArray(page.blocks)) page.blocks = [];
       (function walk(blocks){
         blocks.forEach(b => {
           b.html = sanitizeInline(b.html);
           b.style = normalizeBlockStyle(b.style);
           b.checked = b.style === 'todo' ? !!b.checked : false;
-          walk(b.children || []);
+          if(!Array.isArray(b.children)) b.children = [];
+          walk(b.children);
         });
-      })(page.blocks || []);
+      })(page.blocks);
     });
     return state;
   }
@@ -4935,6 +5208,25 @@ html,body{
       const text = (e.clipboardData || window.clipboardData).getData('text/plain');
       document.execCommand('insertText', false, text);
     });
+    // Drag-and-drop bypasses the paste handler: the browser's DEFAULT drop
+    // inserts the dragged text/html straight into the live contentEditable, so
+    // an <img src=x onerror=...> dragged in from another page would execute on
+    // insertion, before the input handler's sanitizeInline ever runs. Intercept
+    // the drop and insert only the plain-text payload, like paste (B2.8).
+    el.addEventListener('dragover', (e) => { e.preventDefault(); });
+    el.addEventListener('drop', (e) => {
+      e.preventDefault();
+      const dt = e.dataTransfer;
+      const text = dt ? dt.getData('text/plain') : '';
+      if(!text) return;
+      el.focus();
+      // Drop the caret at the drop point — but only if that point resolves to
+      // a spot inside THIS block; otherwise keep the current caret so text can
+      // never land outside the editable.
+      const r = document.caretRangeFromPoint ? document.caretRangeFromPoint(e.clientX, e.clientY) : null;
+      if(r && el.contains(r.startContainer)){ const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); }
+      document.execCommand('insertText', false, text);
+    });
     el.addEventListener('input', () => {
       const text = el.textContent || '';
       // Markdown-style autoformat at the start of an empty paragraph — "# "/
@@ -5028,6 +5320,7 @@ html,body{
     document.body.appendChild(pop);
     positionPopover(pop, rect, { width: 180 });
     openPickerEl = pop;
+    wirePickerKeyboard(pop, anchorEl);
     setTimeout(() => document.addEventListener('mousedown', onDocClick, true), 0);
   }
 
@@ -5194,6 +5487,7 @@ html,body{
     document.body.appendChild(pop);
     positionPopover(pop, rect, { width: 170 });
     openPickerEl = pop;
+    wirePickerKeyboard(pop, anchorEl);
     setTimeout(() => document.addEventListener('mousedown', onDocClick, true), 0);
   }
 
@@ -5265,7 +5559,7 @@ html,body{
 
     if(currentRole === 'editor'){
       const menu = document.createElement('button');
-      menu.type = 'button'; menu.className = 'notes-card-menu'; menu.textContent = '⋯'; menu.title = 'אפשרויות';
+      menu.type = 'button'; menu.className = 'notes-card-menu'; menu.textContent = '⋯'; menu.title = 'אפשרויות'; menu.setAttribute('aria-label','אפשרויות רשומה');
       menu.onclick = (e) => {
         e.stopPropagation();
         openNotesPageMenu(page, menu);
@@ -5414,6 +5708,13 @@ html,body{
 
   document.getElementById('drawerSwitchUserBtn').onclick = async () => {
     clearInterval(pollTimer);
+    // Flush a pending edit before tearing down the session — otherwise an edit
+    // made in the last ~600ms (still in the scheduleSave debounce) is lost:
+    // clearing currentSession makes the queued pushState no-op (B2.3).
+    clearTimeout(saveTimer);
+    if(hasPendingLocalChange && currentRole === 'editor' && currentBoardId){
+      try{ await pushState(); }catch(e){}
+    }
     const session = currentSession;
     currentSession = ''; currentEmail = ''; currentRole = 'viewer'; currentBoardId = ''; boardsList = [];
     localStorage.removeItem(SESSION_KEY);

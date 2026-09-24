@@ -1,0 +1,6 @@
+# Internal security/planning docs — MUST NOT be published to this public repo.
+# They describe unpatched vulnerabilities; keep them local only.
+.design/AUDIT-2026-09-17.md
+.design/PLAN-2026-09-17.md
+.design/EXECUTION-LOG-2026-09-17.md
+.claude/
