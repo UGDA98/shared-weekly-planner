@@ -6,7 +6,7 @@
 <!-- App build version, compared against version.txt to detect a new deploy in
      installed standalone PWA windows (which have no reload affordance). MUST be
      bumped together with version.txt on every deploy — see NOTES.md deploy step. -->
-<meta name="app-version" content="20261001-1521">
+<meta name="app-version" content="20261001-1605">
 <title>יומן ומשימות</title>
 <!-- PWA manifest + icons — no service worker on purpose: this is a live-data
      app on a 20s poll, a SW would only risk serving a stale index.html for
@@ -761,7 +761,7 @@ html,body{
 .peek-section + .peek-section{ margin-top:10px; padding-top:10px; border-top:1px solid var(--border); }
 .peek-section-label{ font-size:12px; font-weight:600; color:var(--muted); padding:2px 2px 4px; }
 
-@media (max-width:640px){
+@media (max-width:767px){
   /* mobile: bottom sheet instead of a popover */
   .peek-panel{
     position:fixed; inset-inline:0; bottom:0; width:100%;
@@ -944,7 +944,7 @@ html,body{
   .ob-toolbar button{ min-width:32px; min-height:32px; font-size:13.5px; }
 }
 
-@media (max-width:640px){
+@media (max-width:767px){
   .day{ width:84vw; }
   .title{ font-size:22px; }
   .top{ padding:14px 14px 8px; }
@@ -1176,7 +1176,7 @@ html,body{
 .mv-more{ font-size:var(--t-cap); color:var(--ink2); }
 
 /* phones: 16px body so iOS never zooms on focus; finger-sized controls */
-@media (max-width:640px){
+@media (max-width:767px){
   :root{ --t-title:17px; --lh-title:22px; --t-head:16px; --lh-head:22px; --t-body:16px; --lh-body:22px; --t-label:13px; --lh-label:18px; --t-cap:12px; --lh-cap:16px; --row-min:44px; }
   .top{ padding:12px 14px 8px; }
   .board{ padding:12px 14px 8px; }
@@ -1326,7 +1326,7 @@ html,body{
 .board.wk-prev > .day{ animation:wkInPrev .16s ease-out; }
 
 /* tablet / narrow desktop: still a horizontal strip, narrower columns */
-@media (min-width:641px) and (max-width:1023px){
+@media (min-width:768px) and (max-width:1023px){
   .day{ width:232px; }
   .search-box{ width:160px; }
   .search-box:focus-within{ width:220px; }
@@ -1367,7 +1367,7 @@ html,body{
 }
 
 /* phones (until stage 3 brings the tab bar): two compact header lines */
-@media (max-width:640px){
+@media (max-width:767px){
   .top{ padding:6px 14px 8px; }
   .top-row{ flex-wrap:wrap; gap:6px 8px; min-height:0; }
   .title-cluster{ flex:1 1 100%; }
@@ -1386,6 +1386,145 @@ html,body{
   .flash{ animation-duration:.01s; background:var(--accent-tint); }
   .search-box{ transition:none; }
 }
+
+/* ---------- G2 stage 3: phones (≤767) — tab bar, day pager, FAB, sheets ---------- */
+.m-head, .m-strip, .m-tabbar, .fab, .day-end, .m-tomorrow, .row-more{ display:none; }
+@media (max-width:767px){
+  .m-layout .top{ padding:calc(6px + env(safe-area-inset-top, 0px)) 16px 6px; }
+  .m-layout .top-row{ flex-wrap:wrap; gap:0 8px; align-items:flex-start; }
+  .m-layout .m-head{ display:flex; flex-direction:column; flex:1 1 auto; min-width:0; order:0; padding-top:4px; }
+  .m-title{ font-size:26px; line-height:32px; font-weight:700; margin:0; letter-spacing:-.2px; }
+  .m-sub{ font-size:13px; line-height:18px; color:var(--ink2); }
+  .m-sub[hidden]{ display:none; }
+  .m-layout .title-cluster{ display:contents; }
+  .m-layout .menu-btn{ order:1; width:44px; height:44px; margin-inline-end:-8px; }
+  .m-layout .board-pick{ order:2; flex:0 1 auto; height:36px; max-width:100%; margin-top:2px; }
+  .m-layout .board-pick .title{ font-size:13px; font-weight:600; color:var(--ink2); }
+  .m-layout .role-badge{ order:3; align-self:center; }
+  .m-layout .week-nav{ order:4; flex:1 1 100%; justify-content:flex-start; margin-top:2px; }
+  .m-layout .view-toggle{ display:none; }
+  .m-layout .nav-btn{ width:40px; height:40px; }
+  .m-today .week-nav{ display:none; }
+  .m-layout .top.at-today #gotoToday{ display:none; }
+  .m-layout .top.is-compact .m-sub, .m-layout .top.is-compact .board-pick,
+  .m-layout .top.is-compact .role-badge, .m-layout .top.is-compact .week-nav{ display:none; }
+  .m-layout .top.is-compact .m-title{ font-size:17px; line-height:22px; font-weight:600; }
+  .m-layout .top.is-compact .m-head{ justify-content:center; min-height:44px; padding-top:0; }
+
+  .m-layout #toSummaryBtn, .m-layout #collapseAllBtn{ display:none; }
+  .m-layout .filters-bar{ padding:6px 16px 0; }
+
+  /* the week: sticky 7-day strip, then one day card per screen with a peek of the next */
+  .m-week .m-strip{
+    display:grid; grid-template-columns:repeat(7, minmax(0,1fr)); position:sticky; top:var(--top-h, 0px); z-index:15;
+    background:var(--canvas); padding:4px 8px 2px; border-bottom:1px solid var(--hl); touch-action:pan-y;
+  }
+  .ms-day{ display:flex; flex-direction:column; align-items:center; gap:1px; border:0; background:none; padding:2px 0 4px; min-height:56px; font:inherit; color:var(--ink); cursor:pointer; border-radius:var(--r8); }
+  .ms-day:focus-visible{ outline:2px solid var(--accent); outline-offset:-2px; }
+  .ms-w{ font-size:11px; line-height:14px; color:var(--ink2); font-weight:600; }
+  .ms-n{ width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:600; transition:background .15s ease, color .15s ease; }
+  .ms-c{ font-size:10px; line-height:12px; color:var(--ink2); min-height:12px; }
+  .ms-day.is-today .ms-n{ color:var(--accent); }
+  .ms-day.is-selected .ms-n{ background:var(--ink); color:#fff; }
+  .ms-day.is-today.is-selected .ms-n{ background:var(--accent); color:#fff; }
+
+  .m-layout .board:not(.month-mode){
+    display:flex; gap:12px; padding:10px 16px 16px; overflow-x:auto; overflow-y:visible; align-items:flex-start;
+    scroll-snap-type:x mandatory; scroll-padding-inline:16px; scrollbar-width:none; overscroll-behavior-x:contain;
+  }
+  .m-layout .board:not(.month-mode)::-webkit-scrollbar{ display:none; }
+  .m-layout .board:not(.month-mode) .day{ flex:0 0 calc(100% - 28px); width:auto; scroll-snap-align:start; scroll-snap-stop:always; }
+  /* on a phone each card hugs its own content — lining up event areas across days only made empty space */
+  .m-layout .zone-events{ min-height:0 !important; }
+  .m-week .day-end{
+    display:flex; flex:0 0 92px; align-self:stretch; min-height:140px; align-items:center; justify-content:center; text-align:center;
+    padding:8px; border:1px dashed var(--hl2); border-radius:var(--r12); background:transparent; color:var(--accent);
+    font:inherit; font-size:13px; font-weight:600; scroll-snap-align:start; cursor:pointer;
+  }
+  .m-today .board:not(.month-mode) .day:not(.is-today){ display:none; }
+  .m-today .board:not(.month-mode) .day{ flex-basis:100%; }
+  .m-today .m-tomorrow{ display:block; margin:0 16px 8px; margin-inline-start:auto; border:0; background:none; color:var(--accent); font:inherit; font-size:15px; font-weight:600; min-height:44px; padding:0 8px; }
+  .m-today #summarySection, .m-week #summarySection, .m-month #summarySection{ display:none !important; }
+  .m-people #boardSection{ display:none !important; }
+  .m-people .summary-section{ margin-top:8px; padding-inline:16px; }
+
+  /* tab bar + floating add button */
+  .m-layout .m-tabbar{
+    display:flex; position:fixed; inset-inline:0; bottom:0; z-index:40;
+    height:calc(50px + env(safe-area-inset-bottom, 0px)); padding-bottom:env(safe-area-inset-bottom, 0px);
+    background:rgba(255,255,255,.92); -webkit-backdrop-filter:saturate(180%) blur(20px); backdrop-filter:saturate(180%) blur(20px);
+    border-top:1px solid var(--hl);
+  }
+  .m-tabbar button{ flex:1; border:0; background:none; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; color:var(--ink2); font:inherit; font-size:10px; line-height:12px; font-weight:600; cursor:pointer; }
+  .m-tabbar button:focus-visible{ outline:2px solid var(--accent); outline-offset:-4px; border-radius:var(--r8); }
+  .m-tabbar svg{ width:24px; height:24px; }
+  .m-tabbar button.is-active{ color:var(--accent); }
+  .m-layout .fab{
+    display:flex; position:fixed; inset-inline-end:16px; bottom:calc(50px + env(safe-area-inset-bottom, 0px) + 16px); z-index:41;
+    width:56px; height:56px; border-radius:16px; border:0; background:var(--accent); color:#fff; align-items:center; justify-content:center;
+    box-shadow:0 8px 20px -8px rgba(120,30,60,.5), 0 2px 6px rgba(0,0,0,.12); cursor:pointer;
+    -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; touch-action:manipulation; transition:transform .12s ease;
+  }
+  .m-layout .fab:active{ transform:scale(.94); }
+  .m-layout .fab svg{ width:26px; height:26px; }
+  .m-layout .fab:focus-visible{ outline:3px solid var(--accent-deco); outline-offset:2px; }
+  .planner-root.m-layout.view-only .fab{ display:none; }
+  .planner-root.m-layout{ padding-bottom:calc(50px + env(safe-area-inset-bottom, 0px) + 88px); }
+  .planner-root.m-layout ~ .undo-toast{ bottom:calc(50px + env(safe-area-inset-bottom, 0px) + 84px); max-width:calc(100vw - 32px); }
+}
+/* touch: one ⋯ per row opens the row's actions; × and the passed toggle move into it */
+@media (max-width:767px), (pointer:coarse){
+  .row-more{ display:flex; width:32px; height:32px; border:0; background:none; color:var(--ink3); align-items:center; justify-content:center; border-radius:var(--r8); flex-shrink:0; cursor:pointer; margin-inline-start:auto; }
+  .row-more svg{ width:18px; height:18px; }
+  .row-more:active{ background:var(--s3); }
+  .has-more .row-del{ display:none !important; }
+  .event-row.has-more:not(.passed) .event-passed-toggle{ display:none !important; }
+  .planner-root.view-only .row-more{ display:none !important; }
+}
+
+/* bottom sheet (centred dialog from 768 up) */
+.sheet-overlay{ position:fixed; inset:0; z-index:310; background:rgba(31,27,30,0); transition:background .2s ease; display:flex; align-items:flex-end; justify-content:center; }
+.sheet-overlay.open{ background:rgba(31,27,30,.38); }
+.sheet{
+  width:100%; max-width:560px; max-height:88vh; overflow-y:auto; overscroll-behavior:contain; background:var(--s1); color:var(--ink);
+  border-radius:14px 14px 0 0; padding:6px 16px calc(16px + env(safe-area-inset-bottom, 0px)); direction:rtl;
+  font-family:'Assistant UI', system-ui, -apple-system, "Segoe UI", sans-serif;
+  transform:translateY(100%); transition:transform .22s cubic-bezier(.2,.8,.2,1); box-shadow:0 -8px 30px rgba(40,24,32,.12);
+}
+.sheet-overlay.open .sheet{ transform:none; }
+.sheet-grip{ width:36px; height:5px; border-radius:3px; background:var(--hl2); margin:4px auto 8px; }
+.sheet-title{ font-size:13px; line-height:18px; color:var(--ink2); text-align:center; padding:2px 8px 12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.sheet-list{ background:var(--s2); border-radius:12px; overflow:hidden; }
+.sheet-item{ display:block; width:100%; min-height:52px; border:0; border-top:1px solid var(--hl); background:none; font:inherit; font-size:17px; color:var(--ink); text-align:center; cursor:pointer; }
+.sheet-item:first-child{ border-top:0; }
+.sheet-item:active, .sheet-item:hover{ background:var(--s3); }
+.sheet-item.is-danger{ color:var(--danger); }
+.sheet-item:focus-visible, .sheet-cancel:focus-visible, .chip-opt:focus-visible, .seg button:focus-visible, .sheet-primary:focus-visible{ outline:2px solid var(--accent); outline-offset:-2px; }
+.sheet-cancel{ display:block; margin-top:8px; width:100%; min-height:52px; border:0; border-radius:12px; background:var(--s3); font:inherit; font-size:17px; font-weight:600; color:var(--ink); cursor:pointer; }
+.add-sheet{ display:flex; flex-direction:column; gap:10px; }
+.seg{ display:flex; background:var(--s3); border-radius:9px; padding:2px; }
+.seg button{ flex:1; min-height:36px; border:0; background:none; border-radius:7px; font:inherit; font-size:14px; font-weight:600; color:var(--ink2); cursor:pointer; }
+.seg button.is-on{ background:var(--s1); color:var(--ink); box-shadow:0 1px 2px rgba(40,24,32,.12); }
+.add-input{ font:inherit; font-size:17px; min-height:48px; padding:10px 12px; border:1px solid var(--hl2); border-radius:10px; background:var(--s1); color:var(--ink); outline:none; width:100%; }
+.add-input:focus{ border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-tint); }
+.add-label{ font-size:12px; line-height:16px; color:var(--ink2); font-weight:600; margin-bottom:-4px; }
+.add-task-only{ display:flex; flex-direction:column; gap:10px; }
+.add-task-only[hidden]{ display:none; }
+.chip-row{ display:flex; gap:6px; overflow-x:auto; scrollbar-width:none; padding:2px 0; }
+.chip-row::-webkit-scrollbar{ display:none; }
+.chip-opt{ flex:none; min-height:36px; padding:0 12px; border-radius:18px; border:1px solid var(--hl2); background:var(--s1); font:inherit; font-size:14px; color:var(--ink); white-space:nowrap; cursor:pointer; }
+.chip-opt.is-on{ background:var(--accent-tint); border-color:var(--accent); color:var(--accent-soft-ink); font-weight:600; }
+.sheet-primary{ min-height:50px; border:0; border-radius:12px; background:var(--accent); color:#fff; font:inherit; font-size:16px; font-weight:700; margin-top:4px; cursor:pointer; }
+.sheet-primary:disabled{ opacity:.45; cursor:default; }
+@media (min-width:768px){
+  .sheet-overlay{ align-items:center; padding:24px; }
+  .sheet{ border-radius:14px; padding-bottom:16px; max-width:420px; transform:translateY(12px); opacity:0; transition:transform .18s ease, opacity .18s ease; }
+  .sheet-overlay.open .sheet{ opacity:1; }
+  .sheet-grip{ display:none; }
+}
+@media (prefers-reduced-motion: reduce){
+  .sheet, .sheet-overlay, .ms-n{ transition:none; }
+}
 </style>
 
 <div class="planner-root" id="root">
@@ -1403,6 +1542,7 @@ html,body{
 
   <div class="top">
     <div class="top-row">
+      <div class="m-head"><h2 class="m-title" id="mTitle"></h2><span class="m-sub" id="mSub"></span></div>
       <div class="title-cluster">
         <button class="board-pick" id="boardPickBtn" type="button" aria-haspopup="true" aria-expanded="false" title="החלפת לוח">
           <h1 class="title" id="boardTitle">יומן ומשימות</h1>
@@ -1456,7 +1596,9 @@ html,body{
       <span class="sync-pill" id="syncStatus" role="status" aria-live="polite"></span>
     </div>
 
+    <div class="m-strip" id="mStrip" role="tablist" aria-label="ימי השבוע"></div>
     <div class="board" id="board"></div>
+    <button class="m-tomorrow" id="mTomorrowBtn" type="button">מחר ›</button>
   </div>
 
   <div class="no-access-msg" id="noAccessMsg" style="display:none;">
@@ -1503,6 +1645,14 @@ html,body{
       <div class="notes-status" id="notesStatus"></div>
     </div>
   </div>
+
+  <nav class="m-tabbar planner-only" aria-label="תצוגות">
+    <button type="button" data-tab="today"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><circle cx="12" cy="15.5" r="1.8" fill="currentColor" stroke="none"/></svg><span>היום</span></button>
+    <button type="button" data-tab="week"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M15 3v18"/></svg><span>שבוע</span></button>
+    <button type="button" data-tab="month"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"/></svg><span>חודש</span></button>
+    <button type="button" data-tab="people"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>אנשים</span></button>
+  </nav>
+  <button class="fab planner-only" id="fabBtn" type="button" aria-label="הוספה (לחיצה ארוכה: עוד אפשרויות)" title="הוספה"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
 
   <div class="ob-toolbar" id="obToolbar">
     <button type="button" data-action="outdent" title="הזחה החוצה" aria-label="הזחה החוצה"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 8 21 12 17 16"/><line x1="3" y1="12" x2="21" y2="12"/></svg></button>
@@ -2886,6 +3036,7 @@ html,body{
       document.getElementById('summarySection').style.display = 'none';
       if(notesSection) notesSection.style.display = '';
       renderNotes();
+      paintMobileChrome();
       return;
     }
     if(weekNav) weekNav.style.display = '';
@@ -2896,6 +3047,7 @@ html,body{
     renderSummary();
     applySectionVisibility();
     applySectionOrder();
+    paintMobileChrome();
   }
 
   // per-board customization (Tier 2): let a board run "summary first, board
@@ -4557,6 +4709,8 @@ html,body{
         equalizeEventZoneHeights();
       });
     };
+    row.appendChild(rowMoreButton(() => openRowActions({kind:'event', row, item, dayKey, text, del, toggle: passedToggle})));
+    row.classList.add('has-more');
     row.appendChild(del);
 
     requestAnimationFrame(()=>{
@@ -4613,7 +4767,7 @@ html,body{
     // usual, and only ever opens: otherwise moving the caret mid-edit would
     // keep collapsing the chips underneath.
     row.addEventListener('click', (e)=>{
-      if(e.target.closest('input[type="checkbox"], .row-del, .task-meta')) return;
+      if(e.target.closest('input[type="checkbox"], .row-del, .row-more, .task-meta')) return;
       if(e.target.closest('.task-text')){
         if(!row.classList.contains('chips-open')) toggle();
         return;
@@ -4677,6 +4831,8 @@ html,body{
         renderSummary();
       });
     };
+    main.appendChild(rowMoreButton(() => openRowActions({kind:'task', row, item, dayKey, sectionKey, cb, text, del})));
+    row.classList.add('has-more');
     main.appendChild(del);
     row.appendChild(main);
 
@@ -4802,7 +4958,7 @@ html,body{
   }
 
   function monthCellMax(){
-    return window.matchMedia('(max-width:640px)').matches ? 4 : 3;
+    return window.matchMedia('(max-width:767px)').matches ? 4 : 3;
   }
 
   function monthCellEntries(dayData){
@@ -5113,7 +5269,7 @@ html,body{
     // desktop: anchored popover, reusing the shared placement helper that
     // already clamps horizontally and flips above when there's no room below.
     // mobile: CSS bottom sheet, no positioning needed.
-    if(!window.matchMedia('(max-width:640px)').matches){
+    if(!window.matchMedia('(max-width:767px)').matches){
       const anchor = document.querySelector('#board .mv-cell[data-week="'+isoKey(ws)+'"][data-day="'+dayDef.key+'"]');
       if(anchor){
         panel.classList.add('peek-panel--anchored');
@@ -5136,6 +5292,8 @@ html,body{
     if(currentView === 'month'){
       renderMonthGrid();
       updateCollapseAllBtn();
+      document.getElementById('mStrip').innerHTML = '';
+      paintMobileChrome();
       // the event-zone equalizer and its ResizeObserver are week-view only —
       // both no-op safely here (no .zone-events to find), but skipping them
       // keeps the intent obvious rather than relying on that
@@ -5143,6 +5301,8 @@ html,body{
     }
     board.classList.remove('month-mode');
     DAY_DEFS.forEach((d,i) => board.appendChild(renderDay(d,i)));
+    afterWeekRender();
+    paintMobileChrome();
     updateCollapseAllBtn();
     applyFilterVisuals();
     equalizeEventZoneHeights();
@@ -5167,6 +5327,7 @@ html,body{
     const el = document.querySelector('#board .day.is-today');
     const board = document.getElementById('board');
     if(!el || !board || board.scrollWidth <= board.clientWidth + 1) return;
+    if(isMobileLayout()){ scrollDayIntoView(mSelectedDay || el.dataset.day, false); return; }
     const br = board.getBoundingClientRect(), r = el.getBoundingClientRect();
     board.scrollLeft += (r.left + r.width / 2) - (br.left + br.width / 2);
   }
@@ -5567,6 +5728,483 @@ html,body{
     const kind = {n:'task', e:'event', h:'title'}[e.code === 'KeyN' ? 'n' : e.code === 'KeyE' ? 'e' : e.code === 'KeyH' ? 'h' : ''];
     if(kind && currentRole === 'editor'){ e.preventDefault(); addNew(kind); }
   });
+
+  /* ---------- G2 stage 3: phone layout (tab bar, day pager, FAB, sheets) ---------- */
+
+  const MOBILE_MQ = window.matchMedia('(max-width:767px)');
+  function isMobileLayout(){ return MOBILE_MQ.matches; }
+  const MOBILE_TABS = ['today', 'week', 'month', 'people'];
+  let mobileTab = null;         // which tab-bar tab is showing (phones only)
+  let mSelectedDay = null;      // day key the week pager is resting on
+  let mStripWeek = null;        // week key the strip/pager were last built for
+  const mobileTabKey = () => 'planner_mtab__' + currentBoardId;
+  const HEB_DAY_LETTER = ['א׳','ב׳','ג׳','ד׳','ה׳','ו׳','ש׳'];
+  const HEB_DAY_LONG = ['יום ראשון','יום שני','יום שלישי','יום רביעי','יום חמישי','יום שישי','שבת'];
+
+  function dayDateOf(key){
+    const i = DAY_DEFS.findIndex(d => d.key === key);
+    const d = new Date(weekStart); d.setDate(d.getDate() + Math.max(0, i));
+    return d;
+  }
+  function longDateLabel(d){ return d.getDate() + ' ב' + HEB_MONTHS[d.getMonth()]; }
+  function isCurrentWeek(){ return weekKey(startOfWeek(new Date())) === weekKey(weekStart); }
+  function defaultSelectedDay(){ return isCurrentWeek() ? DAY_DEFS[new Date().getDay()].key : 'sun'; }
+
+  function setMobileTab(tab){
+    if(!MOBILE_TABS.includes(tab)) tab = 'week';
+    const prevTab = mobileTab;
+    mobileTab = tab;
+    try{ localStorage.setItem(mobileTabKey(), tab); }catch(e){}
+    if(tab === 'month'){
+      if(currentView !== 'month') setView('month'); else { renderBoard(); renderSummary(); }
+    } else {
+      if(currentView !== 'week') setView('week');
+      if(tab === 'today' && !isCurrentWeek()) goToWeek(startOfWeek(new Date()), false);
+      else { renderBoard(); renderSummary(); }
+      if(tab === 'today') mSelectedDay = DAY_DEFS[new Date().getDay()].key;
+    }
+    paintMobileChrome();
+    if(prevTab !== tab) window.scrollTo(0, 0);
+    if(tab === 'week') requestAnimationFrame(() => scrollDayIntoView(mSelectedDay, false));
+  }
+
+  // classes, titles and the tab bar — no data re-render in here
+  function paintMobileChrome(){
+    const root = document.getElementById('root');
+    const mob = isMobileLayout() && currentBoardType !== 'notes';
+    root.classList.toggle('m-layout', mob);
+    if(mob && !mobileTab){
+      let stored = null;
+      try{ stored = localStorage.getItem(mobileTabKey()); }catch(e){}
+      mobileTab = currentView === 'month' ? 'month' : (['today','week','people'].includes(stored) ? stored : 'week');
+    }
+    if(mob && currentView === 'month') mobileTab = 'month';
+    if(mob && currentView === 'week' && mobileTab === 'month') mobileTab = 'week';
+    MOBILE_TABS.forEach(t => root.classList.toggle('m-' + t, mob && mobileTab === t));
+    document.querySelectorAll('.m-tabbar [data-tab]').forEach(b => {
+      const on = b.dataset.tab === mobileTab;
+      b.classList.toggle('is-active', on);
+      b.setAttribute('aria-current', on ? 'page' : 'false');
+    });
+    if(!mob) return;
+    const titleEl = document.getElementById('mTitle'), subEl = document.getElementById('mSub');
+    const end = new Date(weekStart); end.setDate(end.getDate() + 6);
+    const range = fmtDate(weekStart) + ' – ' + fmtDate(end);
+    let title = '', sub = '';
+    if(mobileTab === 'today'){
+      const t = new Date();
+      const data = weekData && weekData[DAY_DEFS[t.getDay()].key];
+      const tasks = data ? TASK_SECTIONS.reduce((a, s) => a.concat(data[s.key] || []), []) : [];
+      title = 'היום';
+      sub = HEB_DAY_LONG[t.getDay()] + ', ' + longDateLabel(t) + (tasks.length ? ' · ' + tasks.filter(x => x.done).length + ' מתוך ' + tasks.length + ' בוצעו' : '');
+    } else if(mobileTab === 'week'){
+      title = isCurrentWeek() ? 'השבוע' : 'שבוע';
+      sub = range;
+    } else if(mobileTab === 'month'){
+      title = monthAnchor ? monthLabel(monthAnchor) : 'חודש';
+    } else {
+      title = 'אנשים';
+      sub = (currentView === 'month' && monthAnchor) ? monthLabel(monthAnchor) : range;
+    }
+    titleEl.textContent = title;
+    subEl.textContent = sub;
+    // "היום" only when it would actually take you somewhere
+    const t0 = new Date();
+    const atToday = currentView === 'month'
+      ? !!monthAnchor && monthAnchor.getFullYear() === t0.getFullYear() && monthAnchor.getMonth() === t0.getMonth()
+      : isCurrentWeek();
+    document.querySelector('.top').classList.toggle('at-today', atToday);
+    subEl.hidden = !sub;
+    syncTopHeight();
+  }
+  function syncTopHeight(){
+    const top = document.querySelector('.top');
+    if(top) document.documentElement.style.setProperty('--top-h', top.offsetHeight + 'px');
+  }
+
+  document.querySelectorAll('.m-tabbar [data-tab]').forEach(b => {
+    b.onclick = () => {
+      if(b.dataset.tab === mobileTab){
+        // tapping the current tab again returns to its start, like iOS
+        window.scrollTo({top:0, behavior: prefersReducedMotion() ? 'auto' : 'smooth'});
+        if(mobileTab === 'week' && !isCurrentWeek()) goToWeek(startOfWeek(new Date()), false);
+        return;
+      }
+      setMobileTab(b.dataset.tab);
+    };
+  });
+  MOBILE_MQ.addEventListener('change', () => { if(appState && currentBoardType !== 'notes'){ renderBoard(); renderSummary(); } paintMobileChrome(); });
+
+  // large title shrinks once the page scrolls, like iOS
+  let topCompact = false;
+  window.addEventListener('scroll', () => {
+    if(!document.getElementById('root').classList.contains('m-layout')) return;
+    // hysteresis: the header's own height change moves scrollY, so one
+    // threshold would make it flicker at the boundary
+    const c = topCompact ? window.scrollY > 4 : window.scrollY > 48;
+    if(c === topCompact) return;
+    topCompact = c;
+    document.querySelector('.top').classList.toggle('is-compact', c);
+    syncTopHeight();
+  }, {passive:true});
+  window.addEventListener('resize', syncTopHeight);
+
+  // ---- week pager: 7-day strip + one day card per screen with a peek of the next ----
+  function scrollDayIntoView(key, smooth){
+    const board = document.getElementById('board');
+    const card = key && board && board.querySelector('.day[data-day="' + key + '"]');
+    if(!card || board.scrollWidth <= board.clientWidth + 1) return;
+    const br = board.getBoundingClientRect(), r = card.getBoundingClientRect();
+    const pad = parseFloat(getComputedStyle(board).paddingInlineStart) || 16;
+    const isSmooth = smooth && !prefersReducedMotion();
+    // our own scroll must not be read back as "the user swiped to another day"
+    pagerSuppressUntil = performance.now() + (isSmooth ? 700 : 200);
+    // scrollTo (absolute), not scrollBy: Chrome applies scroll-snap-stop:always
+    // to a relative scroll too, so jumping several days stopped after one card
+    board.scrollTo({left: board.scrollLeft + (r.right - (br.right - pad)), behavior: isSmooth ? 'smooth' : 'auto'});
+  }
+  let pagerSuppressUntil = 0;
+  function renderMobileStrip(){
+    const strip = document.getElementById('mStrip');
+    if(!strip) return;
+    strip.innerHTML = '';
+    if(!isMobileLayout() || currentView !== 'week') return;
+    const today = new Date();
+    DAY_DEFS.forEach((d, i) => {
+      const date = new Date(weekStart); date.setDate(date.getDate() + i);
+      const data = weekData[d.key];
+      const open = data ? TASK_SECTIONS.reduce((n, s) => n + (data[s.key] || []).filter(t => !t.done).length, 0) : 0;
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'ms-day' + (sameDay(date, today) ? ' is-today' : '') + (d.key === mSelectedDay ? ' is-selected' : '');
+      b.dataset.day = d.key;
+      b.setAttribute('role', 'tab');
+      b.setAttribute('aria-selected', String(d.key === mSelectedDay));
+      b.setAttribute('aria-label', d.name + ' ' + longDateLabel(date) + (open ? ', ' + open + ' משימות פתוחות' : ''));
+      b.innerHTML = '<span class="ms-w">' + HEB_DAY_LETTER[i] + '</span><span class="ms-n">' + date.getDate() + '</span><span class="ms-c">' + (open || '') + '</span>';
+      b.onclick = () => { if(stripSwiped) return; selectMobileDay(d.key, true); };
+      strip.appendChild(b);
+    });
+  }
+  function paintStripSelection(){
+    document.querySelectorAll('#mStrip .ms-day').forEach(b => {
+      const on = b.dataset.day === mSelectedDay;
+      b.classList.toggle('is-selected', on);
+      b.setAttribute('aria-selected', String(on));
+    });
+  }
+  function selectMobileDay(key, scroll){
+    mSelectedDay = key;
+    paintStripSelection();
+    if(scroll) scrollDayIntoView(key, true);
+  }
+  // the card resting at the start edge is the selected day
+  let pagerScrollTimer = null;
+  document.getElementById('board').addEventListener('scroll', () => {
+    if(!document.getElementById('root').classList.contains('m-week')) return;
+    clearTimeout(pagerScrollTimer);
+    pagerScrollTimer = setTimeout(() => {
+      if(performance.now() < pagerSuppressUntil) return;
+      const board = document.getElementById('board');
+      const br = board.getBoundingClientRect();
+      const pad = parseFloat(getComputedStyle(board).paddingInlineStart) || 16;
+      let best = null, bestDist = Infinity;
+      board.querySelectorAll('.day').forEach(c => {
+        const dist = Math.abs(c.getBoundingClientRect().right - (br.right - pad));
+        if(dist < bestDist){ bestDist = dist; best = c.dataset.day; }
+      });
+      if(best && best !== mSelectedDay){ mSelectedDay = best; paintStripSelection(); }
+    }, 70);
+  }, {passive:true});
+
+  // swiping the strip sideways changes the week (RTL: swipe left → next week)
+  let stripSwiped = false;
+  (function wireStripSwipe(){
+    const strip = document.getElementById('mStrip');
+    let x0 = null, y0 = 0, pid = null;
+    strip.addEventListener('pointerdown', (e) => { x0 = e.clientX; y0 = e.clientY; pid = e.pointerId; stripSwiped = false; });
+    strip.addEventListener('pointerup', (e) => {
+      if(x0 === null || e.pointerId !== pid) return;
+      const dx = e.clientX - x0, dy = e.clientY - y0;
+      x0 = null;
+      if(Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5){
+        stripSwiped = true;
+        setTimeout(() => { stripSwiped = false; }, 350);
+        changeMobileWeek(dx < 0 ? 1 : -1);
+      }
+    });
+    strip.addEventListener('pointercancel', () => { x0 = null; });
+  })();
+  function changeMobileWeek(dir){
+    const ns = new Date(weekStart); ns.setDate(ns.getDate() + 7 * dir);
+    goToWeek(ns, false);
+    animateWeekChange(dir);
+    mSelectedDay = dir > 0 ? 'sun' : 'sat';
+    paintStripSelection();
+    paintMobileChrome();
+    requestAnimationFrame(() => scrollDayIntoView(mSelectedDay, false));
+  }
+  function mobileWeekEnds(board){
+    const mk = (cls, label, dir) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'day-end ' + cls;
+      b.innerHTML = '<span>' + label + '</span>';
+      b.onclick = () => changeMobileWeek(dir);
+      return b;
+    };
+    board.insertBefore(mk('day-end--prev', '‹ לשבוע הקודם', -1), board.firstChild);
+    board.appendChild(mk('day-end--next', 'לשבוע הבא ›', 1));
+  }
+  // called at the end of renderBoard's week branch
+  function afterWeekRender(){
+    const board = document.getElementById('board');
+    if(!isMobileLayout()){ document.getElementById('mStrip').innerHTML = ''; return; }
+    mobileWeekEnds(board);
+    const wk = weekKey(weekStart);
+    const weekChanged = mStripWeek !== wk;
+    if(weekChanged || !mSelectedDay){ mSelectedDay = defaultSelectedDay(); mStripWeek = wk; }
+    renderMobileStrip();
+    // renderBoard restores the old scrollLeft right after this; the selected
+    // day is the real source of truth on a phone, so settle on it next frame
+    pagerSuppressUntil = performance.now() + 250;
+    requestAnimationFrame(() => scrollDayIntoView(mSelectedDay, false));
+  }
+
+  // ---- bottom sheets (add, row actions, FAB menu) ----
+  let openSheetEl = null;
+  function closeSheet(){
+    if(!openSheetEl) return;
+    const el = openSheetEl, ret = el.__returnFocus;
+    openSheetEl = null;
+    el.classList.remove('open');
+    document.removeEventListener('keydown', sheetKeydown, true);
+    setTimeout(() => el.remove(), prefersReducedMotion() ? 0 : 200);
+    if(ret && document.contains(ret)){ try{ ret.focus({preventScroll:true}); }catch(e){} }
+  }
+  function sheetKeydown(e){
+    if(!openSheetEl) return;
+    if(e.key === 'Escape'){ e.preventDefault(); e.stopPropagation(); closeSheet(); return; }
+    if(e.key === 'Tab'){
+      const f = Array.from(openSheetEl.querySelectorAll('button, input, select, textarea, [tabindex="0"]')).filter(x => !x.disabled && x.offsetParent !== null);
+      if(!f.length) return;
+      const first = f[0], last = f[f.length - 1];
+      if(e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
+      else if(!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
+    }
+  }
+  function openSheet(titleText, body, opts){
+    closeSheet(); closePicker();
+    opts = opts || {};
+    const overlay = document.createElement('div');
+    overlay.className = 'sheet-overlay';
+    const panel = document.createElement('div');
+    panel.className = 'sheet' + (opts.cls ? ' ' + opts.cls : '');
+    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-modal', 'true');
+    panel.setAttribute('aria-label', titleText || 'פעולות');
+    panel.innerHTML = '<div class="sheet-grip" aria-hidden="true"></div>';
+    if(titleText){
+      const h = document.createElement('div');
+      h.className = 'sheet-title';
+      h.textContent = titleText;
+      panel.appendChild(h);
+    }
+    panel.appendChild(body);
+    overlay.appendChild(panel);
+    const openedAt = performance.now();
+    // the finger that long-pressed the FAB lifts over the new sheet: that
+    // first click must neither close it nor pick the item under the finger
+    overlay.addEventListener('click', (e) => {
+      if(performance.now() - openedAt < 400){ e.preventDefault(); e.stopPropagation(); }
+    }, true);
+    overlay.addEventListener('click', (e) => { if(e.target === overlay) closeSheet(); });
+    overlay.__returnFocus = document.activeElement;
+    document.body.appendChild(overlay);
+    openSheetEl = overlay;
+    document.addEventListener('keydown', sheetKeydown, true);
+    requestAnimationFrame(() => overlay.classList.add('open'));
+    setTimeout(() => {
+      const target = opts.focus || panel.querySelector('input, button');
+      if(target) try{ target.focus({preventScroll:true}); }catch(e){}
+    }, opts.focus ? 60 : 0);
+    return panel;
+  }
+  function sheetList(items){
+    const list = document.createElement('div');
+    list.className = 'sheet-list';
+    items.forEach(it => {
+      if(!it) return;
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'sheet-item' + (it.danger ? ' is-danger' : '');
+      b.textContent = it.label;
+      b.onclick = () => { closeSheet(); setTimeout(it.run, 0); };
+      list.appendChild(b);
+    });
+    const cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.className = 'sheet-cancel';
+    cancel.textContent = 'ביטול';
+    cancel.onclick = closeSheet;
+    const wrap = document.createElement('div');
+    wrap.appendChild(list);
+    wrap.appendChild(cancel);
+    return wrap;
+  }
+
+  // ⋯ on a row (touch devices): the row's actions in one sheet
+  function openRowActions(ctx){
+    const it = ctx.item;
+    const label = (it.text || '').trim() || (ctx.kind === 'event' ? 'אירוע' : 'משימה');
+    const edit = () => {
+      const el = ctx.text;
+      el.focus();
+      try{ const r = document.createRange(); r.selectNodeContents(el); r.collapse(false); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }catch(e){}
+    };
+    const duplicate = () => {
+      const arr = ctx.kind === 'event' ? weekData[ctx.dayKey].events : weekData[ctx.dayKey][ctx.sectionKey];
+      const i = arr.findIndex(x => x.id === it.id);
+      const copy = Object.assign({}, it, {id: uid()});
+      if(ctx.kind === 'task'){ copy.done = false; copy.personIds = (it.personIds || []).slice(); }
+      else delete copy.passed;
+      arr.splice(i + 1, 0, copy);
+      saveWeek(weekStart, weekData);
+      renderBoard(); renderSummary();
+      revealItem(copy.id, null);
+    };
+    const items = ctx.kind === 'task' ? [
+      {label: it.done ? 'ביטול "בוצע"' : 'סימון כבוצע', run: () => ctx.cb.click()},
+      {label: 'עריכת הטקסט', run: edit},
+      {label: 'שיוך לאיש צוות…', run: () => { ctx.row.classList.add('chips-open'); const chips = ctx.row.querySelectorAll('.task-meta .mini-chip'); if(chips[1]) chips[1].click(); }},
+      {label: 'שיוך למופע / נושא…', run: () => { ctx.row.classList.add('chips-open'); const chips = ctx.row.querySelectorAll('.task-meta .mini-chip'); if(chips[0]) chips[0].click(); }},
+      {label: 'שכפול', run: duplicate},
+      {label: 'מחיקה', danger: true, run: () => ctx.del.click()}
+    ] : [
+      {label: it.passed ? 'ביטול "התקיים"' : 'סימון שהאירוע התקיים', run: () => ctx.toggle.click()},
+      {label: 'עריכת הטקסט', run: edit},
+      {label: 'שכפול', run: duplicate},
+      {label: 'מחיקה', danger: true, run: () => ctx.del.click()}
+    ];
+    openSheet(label, sheetList(items));
+  }
+  function rowMoreButton(onOpen){
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'row-more';
+    b.setAttribute('aria-label', 'פעולות');
+    b.title = 'פעולות';
+    b.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>';
+    b.onclick = (e) => { e.preventDefault(); e.stopPropagation(); onOpen(); };
+    return b;
+  }
+
+  // ---- FAB: tap = add sheet, long-press = what to add ----
+  function targetDayForAdd(){
+    if(mobileTab === 'today' || !mSelectedDay) return DAY_DEFS[new Date().getDay()].key;
+    return mSelectedDay;
+  }
+  function openAddSheet(kind){
+    if(currentRole !== 'editor') return;
+    if(currentView === 'month'){ mobileTab = 'week'; setView('week'); paintMobileChrome(); }
+    if(mobileTab === 'today' && !isCurrentWeek()) goToWeek(startOfWeek(new Date()), false);
+    let k = kind || 'task';
+    let day = targetDayForAdd();
+    let section = 'general';
+    let personIds = [];
+    const body = document.createElement('div');
+    body.className = 'add-sheet';
+    body.innerHTML =
+      '<div class="seg" role="radiogroup" aria-label="סוג"><button type="button" data-k="task" role="radio">משימה</button><button type="button" data-k="event" role="radio">אירוע</button></div>' +
+      '<input class="add-input" type="text" enterkeyhint="done" autocomplete="off">' +
+      '<div class="add-label">יום</div><div class="chip-row add-days"></div>' +
+      '<div class="add-task-only"><div class="add-label">מקטע</div><div class="chip-row add-sections"></div>' +
+      (people.length ? '<div class="add-label">אחראי/ת</div><div class="chip-row add-people"></div>' : '') + '</div>' +
+      '<button type="button" class="sheet-primary" disabled>הוספה</button>';
+    const input = body.querySelector('.add-input');
+    const primary = body.querySelector('.sheet-primary');
+    const chip = (label, on, fn) => { const c = document.createElement('button'); c.type = 'button'; c.className = 'chip-opt' + (on ? ' is-on' : ''); c.textContent = label; c.setAttribute('aria-pressed', String(!!on)); c.onclick = fn; return c; };
+    function paint(){
+      body.querySelectorAll('.seg [data-k]').forEach(b => { const on = b.dataset.k === k; b.classList.toggle('is-on', on); b.setAttribute('aria-checked', String(on)); });
+      input.placeholder = k === 'task' ? 'מה צריך לעשות?' : 'שעה + תיאור, למשל 10:00 ישיבת צוות';
+      input.setAttribute('aria-label', k === 'task' ? 'טקסט המשימה' : 'טקסט האירוע');
+      body.querySelector('.add-task-only').hidden = k !== 'task';
+      const days = body.querySelector('.add-days'); days.innerHTML = '';
+      DAY_DEFS.forEach((d, i) => { const dt = dayDateOf(d.key); days.appendChild(chip(HEB_DAY_LETTER[i] + ' ' + dt.getDate(), d.key === day, () => { day = d.key; paint(); })); });
+      const secs = body.querySelector('.add-sections'); secs.innerHTML = '';
+      TASK_SECTIONS.forEach(s => secs.appendChild(chip(s.label, s.key === section, () => { section = s.key; paint(); })));
+      const ppl = body.querySelector('.add-people');
+      if(ppl){ ppl.innerHTML = ''; people.forEach(p => ppl.appendChild(chip(p.name, personIds.includes(p.id), () => { personIds = personIds.includes(p.id) ? personIds.filter(x => x !== p.id) : personIds.concat(p.id); paint(); }))); }
+      primary.textContent = k === 'task' ? 'הוספת משימה' : 'הוספת אירוע';
+      primary.disabled = !input.value.trim();
+    }
+    body.querySelectorAll('.seg [data-k]').forEach(b => b.onclick = () => { k = b.dataset.k; paint(); input.focus({preventScroll:true}); });
+    input.addEventListener('input', () => { primary.disabled = !input.value.trim(); });
+    input.addEventListener('keydown', (e) => { if(e.key === 'Enter' && !e.isComposing){ e.preventDefault(); submit(); } });
+    function submit(){
+      const text = input.value.trim();
+      if(!text) return;
+      let item, arr;
+      if(k === 'task'){ item = Object.assign(emptyTask(), {text, personIds: personIds.slice()}); arr = weekData[day][section]; }
+      else { item = {id: uid(), text}; arr = weekData[day].events; }
+      arr.push(item);
+      saveWeek(weekStart, weekData);
+      closeSheet();
+      mSelectedDay = day;
+      renderBoard(); renderSummary(); paintMobileChrome();
+      if(mobileTab === 'week') scrollDayIntoView(day, true);
+      revealItem(item.id, null);
+      const dayName = DAY_DEFS.find(d => d.key === day).name;
+      showUndoToast((k === 'task' ? 'המשימה נוספה ל' : 'האירוע נוסף ל') + dayName, () => {
+        const i = arr.findIndex(x => x.id === item.id);
+        if(i > -1) arr.splice(i, 1);
+        saveWeek(weekStart, weekData);
+        renderBoard(); renderSummary(); paintMobileChrome();
+      });
+    }
+    primary.onclick = submit;
+    paint();
+    openSheet('הוספה', body, {cls: 'sheet--add', focus: input});
+  }
+  function openFabMenu(){
+    if(currentRole !== 'editor') return;
+    openSheet('מה להוסיף?', sheetList([
+      {label: 'משימה', run: () => openAddSheet('task')},
+      {label: 'אירוע', run: () => openAddSheet('event')},
+      {label: 'כותרת ליום', run: () => {
+        if(currentView === 'month'){ mobileTab = 'week'; setView('week'); paintMobileChrome(); }
+        const card = document.querySelector('#board .day[data-day="' + targetDayForAdd() + '"]');
+        if(!card) return;
+        scrollDayIntoView(card.dataset.day, false);
+        const add = card.querySelector('.day-banner-add');
+        if(add) add.click(); else { const b = card.querySelector('.day-banner'); if(b) b.focus(); }
+      }},
+      {label: 'לוח חדש', run: openNewBoardModal}
+    ]));
+  }
+  (function wireFab(){
+    const fab = document.getElementById('fabBtn');
+    let timer = null, longFired = false;
+    fab.addEventListener('pointerdown', () => {
+      longFired = false;
+      clearTimeout(timer);
+      timer = setTimeout(() => { longFired = true; if(navigator.vibrate) try{ navigator.vibrate(8); }catch(e){} openFabMenu(); }, 450);
+    });
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach(t => fab.addEventListener(t, () => clearTimeout(timer)));
+    fab.addEventListener('contextmenu', (e) => e.preventDefault());
+    fab.addEventListener('click', (e) => {
+      if(longFired){ e.preventDefault(); longFired = false; return; } // the long-press already opened the menu
+      openAddSheet(currentView === 'month' ? 'event' : 'task');
+    });
+  })();
+  document.getElementById('mTomorrowBtn').onclick = () => {
+    const t = new Date(); t.setDate(t.getDate() + 1);
+    setMobileTab('week');
+    if(weekKey(startOfWeek(t)) !== weekKey(weekStart)){ goToWeek(startOfWeek(t), false); }
+    mSelectedDay = DAY_DEFS[t.getDay()].key;
+    paintStripSelection(); paintMobileChrome();
+    requestAnimationFrame(() => scrollDayIntoView(mSelectedDay, false));
+  };
 
   /* ---------- week / month switching ---------- */
 
