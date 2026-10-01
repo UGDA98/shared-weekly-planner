@@ -6,7 +6,7 @@
 <!-- App build version, compared against version.txt to detect a new deploy in
      installed standalone PWA windows (which have no reload affordance). MUST be
      bumped together with version.txt on every deploy — see NOTES.md deploy step. -->
-<meta name="app-version" content="20261001-1632">
+<meta name="app-version" content="20261001-1721">
 <title>יומן ומשימות</title>
 <!-- PWA manifest + icons — no service worker on purpose: this is a live-data
      app on a 20s poll, a SW would only risk serving a stale index.html for
@@ -595,7 +595,7 @@ html,body{
 .group-clear-btn svg{ width:13px; height:13px; }
 .group-clear-btn:hover{ opacity:1; background:rgba(0,0,0,.08); }
 .summary-list{ display:flex; flex-direction:column; padding:6px 8px; gap:1px; }
-.summary-empty{ padding:16px 14px; color:var(--muted); font-size:12.5px; text-align:center; }
+.summary-empty{ padding:16px 14px; color:var(--muted); font-size:var(--t-label); text-align:center; }
 .summary-row{ display:flex; flex-direction:column; gap:3px; padding:6px 6px 7px; border-radius:var(--radius-md); }
 .summary-row:hover{ background:rgba(0,0,0,.02); }
 .summary-row-main{ display:flex; align-items:flex-start; gap:7px; }
@@ -1423,7 +1423,7 @@ html,body{
   .ms-day:focus-visible{ outline:2px solid var(--accent); outline-offset:-2px; }
   .ms-w{ font-size:11px; line-height:14px; color:var(--ink2); font-weight:600; }
   .ms-n{ width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:600; transition:background .15s ease, color .15s ease; }
-  .ms-c{ font-size:10px; line-height:12px; color:var(--ink2); min-height:12px; }
+  .ms-c{ font-size:11px; line-height:13px; color:var(--ink2); min-height:13px; } /* 11 = Apple Caption 2 / Material Label S, the legibility floor */
   .ms-day.is-today .ms-n{ color:var(--accent); }
   .ms-day.is-selected .ms-n{ background:var(--ink); color:#fff; }
   .ms-day.is-today.is-selected .ms-n{ background:var(--accent); color:#fff; }
@@ -1582,12 +1582,12 @@ html,body{
   /* a day title is the one thing worth words in a 50px column */
   .mv-title{
     display:block; height:auto; width:100%; padding:0 2px; border-radius:0; background:none;
-    font-size:10.5px; line-height:13px; font-weight:600; color:var(--accent-soft-ink);
+    font-size:11px; line-height:14px; font-weight:600; color:var(--accent-soft-ink);
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis; word-break:keep-all; text-align:center;
   }
   .mv-mini{ display:flex; gap:3px; align-items:center; justify-content:center; min-height:12px; }
   .mv-dot{ width:5px; height:5px; border-radius:50%; background:var(--accent); }
-  .mv-count{ font-size:10px; line-height:12px; color:var(--ink2); font-weight:600; }
+  .mv-count{ font-size:11px; line-height:13px; color:var(--ink2); font-weight:600; }
   .mv-empty{ display:none; }
   .mv-daylist{ display:block; margin:10px 16px 0; background:var(--s1); border:1px solid var(--hl); border-radius:var(--r12); padding:10px 12px 8px; }
   .mv-daylist-head{ display:flex; flex-direction:column; padding:2px 0 6px; }
@@ -1686,6 +1686,57 @@ body.has-select-mode .undo-toast{ bottom:84px; }
 .dp--week .dp-cell{ border-radius:0; }
 .dp--week .dp-row:focus-within{ background:var(--accent-tint); }
 @media (prefers-reduced-motion: reduce){ .has-more .row-more{ transition:none; } }
+
+/* ---------- G2 stage 6: lock screen, "אני", settings rows, board sheet ---------- */
+.sr-only{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+.lock-gate{ display:none; }
+.planner-root.is-locked .lock-gate{ display:flex; justify-content:center; padding:48px 16px 64px; }
+.planner-root.is-locked #boardSection, .planner-root.is-locked #summarySection, .planner-root.is-locked #notesSection,
+.planner-root.is-locked .week-nav, .planner-root.is-locked .top-actions, .planner-root.is-locked .m-tabbar,
+.planner-root.is-locked .fab, .planner-root.is-locked .m-head, .planner-root.is-locked #noAccessMsg{ display:none !important; }
+.lock-card{ width:100%; max-width:360px; background:var(--s1); border:1px solid var(--hl); border-radius:16px; padding:28px 24px 20px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:6px; }
+.lock-icon{ width:52px; height:52px; border-radius:50%; background:var(--accent-tint); color:var(--accent); display:flex; align-items:center; justify-content:center; margin-bottom:6px; }
+.lock-icon svg{ width:26px; height:26px; }
+.lock-title{ font-size:var(--t-title); line-height:var(--lh-title); margin:0; }
+.lock-board{ margin:0 0 10px; color:var(--ink2); font-size:var(--t-label); }
+.lock-form{ width:100%; display:flex; flex-direction:column; gap:8px; }
+.lock-form .add-input{ text-align:center; direction:ltr; }
+.lock-form .add-input::placeholder{ direction:rtl; }
+.lock-err{ min-height:18px; font-size:var(--t-label); color:var(--danger); }
+.lock-other{ margin-top:6px; }
+.mi-lock{ display:inline-flex; color:var(--ink3); flex:none; }
+.mi-lock svg{ width:14px; height:14px; }
+
+.me-card{ margin:10px 20px 0; padding:12px 14px; background:var(--s1); border:1px solid var(--hl); border-radius:var(--r12); display:flex; flex-direction:column; gap:8px; }
+.me-card[hidden]{ display:none; }
+.me-card-head{ display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; font-size:var(--t-label); color:var(--ink2); }
+.me-card-head strong{ font-size:var(--t-head); color:var(--ink); }
+.me-dismiss{ margin-inline-start:auto; width:28px; height:28px; border:0; background:none; border-radius:var(--r8); color:var(--ink3); font-size:18px; cursor:pointer; }
+.me-dismiss:hover{ background:var(--s3); color:var(--ink); }
+.me-chips{ flex-wrap:wrap; overflow:visible; }
+.me-not{ align-self:flex-start; margin-inline-start:-8px; }
+.me-add{ display:flex; gap:8px; }
+.me-add[hidden]{ display:none; }
+.me-add .add-input{ min-height:40px; font-size:16px; }
+@media (max-width:767px){ .me-card{ margin:8px 16px 0; } }
+
+.drawer-select{ width:100%; min-height:40px; border:1px solid var(--hl2); border-radius:var(--r8); background:var(--s1); color:var(--ink); font:inherit; font-size:var(--t-body); padding:0 8px; }
+.drawer-toggle{ display:flex; align-items:flex-start; gap:8px; font-size:var(--t-label); color:var(--ink); margin-top:6px; cursor:pointer; line-height:1.4; }
+.drawer-toggle input{ width:18px; height:18px; accent-color:var(--accent); flex:none; margin:0; }
+.drawer-lock-row{ display:flex; flex-direction:column; gap:6px; }
+.drawer-lock-status{ font-size:var(--t-label); color:var(--ink2); }
+.drawer-lock-btn{ margin-bottom:0; }
+.lock-explain{ margin:0; font-size:var(--t-label); line-height:1.5; color:var(--ink2); }
+.lock-sheet .add-input{ direction:ltr; text-align:start; }
+.modal-hint{ font-size:12px; color:var(--ink2); margin:6px 0 0; line-height:1.45; }
+.new-board-from{ margin-top:12px; }
+.new-board-from[hidden]{ display:none; }
+.new-board-default{ margin-top:12px; }
+
+.board-sheet-item{ display:flex; align-items:center; gap:12px; text-align:start; padding:8px 14px; min-height:56px; }
+.board-sheet-item .mi-name{ font-size:16px; }
+.board-sheet-item.is-current .mi-name{ font-weight:700; }
+.board-sheet-item.is-accent, .board-sheet-item.is-accent .mi-icon{ color:var(--accent); }
 </style>
 
 <div class="planner-root" id="root">
@@ -1758,10 +1809,33 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       <span class="sync-pill" id="syncStatus" role="status" aria-live="polite"></span>
     </div>
 
+    <div class="me-card" id="meCard" hidden>
+      <div class="me-card-head"><strong>מי את/ה בצוות?</strong><span>כדי לראות את "שלי" — נשמר רק במכשיר הזה</span>
+        <button class="me-dismiss" id="meDismiss" type="button" aria-label="לא עכשיו" title="לא עכשיו">×</button></div>
+      <div class="chip-row me-chips"></div>
+      <button class="ctx-link me-not" id="meNotListed" type="button">אני לא ברשימה</button>
+      <form class="me-add" hidden><input class="add-input" type="text" placeholder="השם שלי" aria-label="השם שלי" maxlength="40"><button class="sel-btn sel-btn--primary" type="submit">הוספה</button></form>
+    </div>
     <div class="m-strip" id="mStrip" role="tablist" aria-label="ימי השבוע"></div>
     <div class="board" id="board"></div>
     <button class="m-tomorrow" id="mTomorrowBtn" type="button">מחר ›</button>
   </div>
+
+  <section class="lock-gate" id="lockGate" aria-labelledby="lockTitle">
+    <div class="lock-card">
+      <div class="lock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div>
+      <h2 class="lock-title" id="lockTitle">הלוח נעול</h2>
+      <p class="lock-board" id="lockBoardName"></p>
+      <form id="lockForm" class="lock-form" autocomplete="on">
+        <input type="text" name="username" autocomplete="username" value="" hidden>
+        <label class="sr-only" for="lockPassword">סיסמת הלוח</label>
+        <input class="add-input" id="lockPassword" type="password" autocomplete="current-password" placeholder="סיסמת הלוח" enterkeyhint="go">
+        <div class="lock-err" id="lockError" role="alert"></div>
+        <button class="sheet-primary" id="lockSubmit" type="submit">פתיחה</button>
+      </form>
+      <button class="ctx-link lock-other" id="lockOtherBoard" type="button">מעבר ללוח אחר</button>
+    </div>
+  </section>
 
   <div class="no-access-msg" id="noAccessMsg" style="display:none;">
     <p id="noAccessText"></p>
@@ -1855,6 +1929,21 @@ body.has-select-mode .undo-toast{ bottom:84px; }
 
     <div class="drawer-divider"></div>
 
+    <div class="drawer-section planner-only">
+      <label class="drawer-section-label" for="meSelect">אני בלוח הזה (במכשיר הזה)</label>
+      <select id="meSelect" class="drawer-select"></select>
+      <label class="drawer-toggle"><input type="checkbox" id="defaultBoardToggle"><span>לפתוח את הלוח הזה בכל כניסה מהמכשיר הזה</span></label>
+    </div>
+
+    <div class="drawer-divider editor-only"></div>
+
+    <div class="drawer-section editor-only">
+      <div class="drawer-section-label">נעילה בסיסמה</div>
+      <div class="drawer-lock-row"><span class="drawer-lock-status" id="lockStatus"></span><button type="button" class="drawer-action drawer-lock-btn" id="lockManageBtn"></button></div>
+    </div>
+
+    <div class="drawer-divider"></div>
+
     <div class="drawer-section">
       <div class="drawer-section-label">הגדרות לוח — גררו לשינוי סדר התצוגה</div>
       <div class="drawer-section-list" id="drawerSectionList"></div>
@@ -1922,6 +2011,12 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     </div>
     <label for="newBoardNameInput" class="modal-label">שם הלוח</label>
     <input type="text" id="newBoardNameInput" class="modal-input" placeholder="למשל: לוז שבועי — צוות הדרכה" />
+    <div class="new-board-from" id="newBoardFromWrap">
+      <label for="newBoardFrom" class="modal-label">התחלה מ־</label>
+      <select id="newBoardFrom" class="modal-input"></select>
+      <p class="modal-hint">שכפול מעתיק את רשימת האנשים, הנושאים וסדר האזורים — לא משימות ולא אירועים.</p>
+    </div>
+    <label class="drawer-toggle new-board-default"><input type="checkbox" id="newBoardDefault"><span>לפתוח את הלוח הזה בכל כניסה מהמכשיר הזה</span></label>
     <div class="modal-error" id="newBoardError"></div>
     <div class="modal-actions">
       <button class="modal-btn modal-btn-secondary" id="newBoardCancel" type="button">ביטול</button>
@@ -2060,8 +2155,14 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   // ---------- auth: every API call authenticates via these two helpers ----------
   // (replaces the old `email: currentEmail` / `&email=...` sent on every call —
   // see backend NOTES.md "Google sign-in" for resolveIdentity() on the server)
-  function authQuery(){ return '&session=' + encodeURIComponent(currentSession); }
-  function authBody(obj){ return Object.assign({ session: currentSession }, obj); }
+  function authQuery(boardId){
+    const u = getUnlock(boardId || currentBoardId);
+    return '&session=' + encodeURIComponent(currentSession) + (u ? '&unlock=' + encodeURIComponent(u) : '');
+  }
+  function authBody(obj){
+    const u = getUnlock((obj && obj.board) || currentBoardId);
+    return Object.assign({ session: currentSession }, u ? { unlock: u } : {}, obj);
+  }
 
   // Shared handling for a response whose `error` means the session is no
   // longer valid ('session_expired' — token missing/expired server-side;
@@ -2128,9 +2229,13 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     // keep a one-step-back copy of whatever was cached *before* this write,
     // so a bad local write (or a save that raced with something else) always
     // leaves one earlier known-good snapshot recoverable, not just the latest.
-    const prev = localStorage.getItem(cacheKeyFor(currentBoardId));
-    if(prev) localStorage.setItem(backupCacheKeyFor(currentBoardId), prev);
-    localStorage.setItem(cacheKeyFor(currentBoardId), JSON.stringify(appState));
+    if(isBoardLocked(currentBoardId)){
+      clearBoardCache(currentBoardId);   // a locked board is never cached on the device
+    } else {
+      const prev = localStorage.getItem(cacheKeyFor(currentBoardId));
+      if(prev) localStorage.setItem(backupCacheKeyFor(currentBoardId), prev);
+      localStorage.setItem(cacheKeyFor(currentBoardId), JSON.stringify(appState));
+    }
     scheduleSave();
   }
 
@@ -2244,6 +2349,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       // data could stop being saved with nothing on screen to say so.
       if(!json || !json.ok){
         if(handleAuthError(json)) return false;
+        if(handleLockError(json, reqBoard)) return false;
         const err = json && json.error;
         setSyncStatus('השמירה נכשלה — ' + (SAVE_ERROR_TEXT[err] || 'שגיאת שרת'));
         // deliberately leave lastSyncedJson stale: that's what lets the next
@@ -2313,6 +2419,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
 
   async function refreshFromServer(isInitial){
     if(!currentSession || !currentBoardId) return;
+    if(isLockScreenShown() && !getUnlock(currentBoardId)) return;
     // Capture the board this request is FOR. currentBoardId is a global that a
     // board switch reassigns synchronously; if the user switches boards while
     // this fetch is in flight, applying the (now-stale) response below would
@@ -2329,6 +2436,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       if(currentBoardId !== reqBoard) return; // switched away while awaiting — response is stale
       if(!json || !json.ok){
         if(handleAuthError(json)) return;
+        if(handleLockError(json, reqBoard)) return;
         if(json && json.error === 'state_corrupt'){
           // Server couldn't parse the stored blob (mid-write race or a corrupt
           // cell). Keep our local copy; never overwrite appState with a default.
@@ -2365,8 +2473,11 @@ body.has-select-mode .undo-toast{ bottom:84px; }
             }
             lastSyncedJson = serverJson;
             const prevLocal = localStorage.getItem(cacheKeyFor(reqBoard));
-            if(prevLocal && prevLocal !== serverJson) localStorage.setItem(backupCacheKeyFor(reqBoard), prevLocal);
-            localStorage.setItem(cacheKeyFor(reqBoard), serverJson);
+            if(isBoardLocked(reqBoard)) clearBoardCache(reqBoard);
+            else {
+              if(prevLocal && prevLocal !== serverJson) localStorage.setItem(backupCacheKeyFor(reqBoard), prevLocal);
+              localStorage.setItem(cacheKeyFor(reqBoard), serverJson);
+            }
             renderAll();
             // on a fresh load lastSyncedJson is empty, so this branch always
             // ran — only claim "another device" when the server really differs
@@ -2502,13 +2613,18 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     if(result !== null){
       boardsList = result;
       try{ localStorage.setItem(BOARDS_CACHE_KEY, JSON.stringify(result)); }catch(e){}
+      result.forEach(b => { if(b.locked) clearBoardCache(b.id); });
+      if(isBoardLocked(currentBoardId) && !getUnlock(currentBoardId) && !isLockScreenShown()) showLockScreen();
     }
     renderBoardSwitcher();
+    renderLockRow();
+    if(isLockScreenShown()){ const b = boardsList.find(x => x.id === currentBoardId); document.getElementById('lockBoardName').textContent = b ? b.name : ''; }
   }
   // the board list (names for the title + picker) is cached so the header
   // shows the real board name on the very first paint instead of waiting for
   // a cold Apps Script round-trip
   const BOARDS_CACHE_KEY = 'planner_boards_cache_v1';
+  const DEFAULT_BOARD_KEY = 'planner_default_board';
   function loadCachedBoardsList(){
     try{
       const list = JSON.parse(localStorage.getItem(BOARDS_CACHE_KEY) || 'null');
@@ -2520,6 +2636,9 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     const params = new URLSearchParams(location.search);
     const fromUrl = params.get('board');
     if(fromUrl) return fromUrl;
+    let fromDefault = null;
+    try{ fromDefault = localStorage.getItem(DEFAULT_BOARD_KEY); }catch(e){}
+    if(fromDefault && (!boardsList.length || boardsList.some(b => b.id === fromDefault))) return fromDefault;
     const fromStorage = localStorage.getItem(lastBoardKeyFor(currentEmail));
     if(fromStorage) return fromStorage;
     return LEGACY_BOARD_ID;
@@ -2949,6 +3068,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
 
   function openDrawer(){
     renderSectionSettingsList();
+    renderLockRow(); renderMeSelect(); renderDefaultBoardToggle();
     if(currentRole === 'editor'){ renderAccessList(); renderActivityList(); }
     const restoreBtn = document.getElementById('drawerRestoreBackupBtn');
     restoreBtn.style.display = localStorage.getItem(backupCacheKeyFor(currentBoardId)) ? '' : 'none';
@@ -2983,6 +3103,11 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     input.value = '';
     newBoardType = 'planner';
     document.querySelectorAll('.modal-type-card').forEach(c => c.classList.toggle('is-selected', c.dataset.type === 'planner'));
+    const from = document.getElementById('newBoardFrom');
+    from.innerHTML = '<option value="">לוח ריק</option>';
+    boardsList.filter(b => b.type !== 'notes').forEach(b => { const o = document.createElement('option'); o.value = b.id; o.textContent = 'העתקה מ־' + b.name + (b.locked && !getUnlock(b.id) ? ' (נעול)' : ''); o.disabled = b.locked && !getUnlock(b.id); from.appendChild(o); });
+    document.getElementById('newBoardFromWrap').hidden = false;
+    document.getElementById('newBoardDefault').checked = false;
     document.getElementById('newBoardModal').style.display = 'flex';
     document.addEventListener('keydown', newBoardEscHandler, true);
     input.focus();
@@ -2996,6 +3121,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     card.addEventListener('click', () => {
       newBoardType = card.dataset.type;
       document.querySelectorAll('.modal-type-card').forEach(c => c.classList.toggle('is-selected', c === card));
+      document.getElementById('newBoardFromWrap').hidden = newBoardType === 'notes';
     });
   });
 
@@ -3020,9 +3146,29 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       const json = await res.json();
       if(handleAuthError(json)) return;
       if(json && json.ok && json.board){
+        const newId = json.board.id;
+        const fromId = newBoardType === 'notes' ? '' : document.getElementById('newBoardFrom').value;
+        const makeDefault = document.getElementById('newBoardDefault').checked;
+        const prevBoard = currentBoardId;
+        if(fromId){
+          createBtn.textContent = 'מעתיק…';
+          const seed = await boardSeedFrom(fromId);
+          if(seed){
+            const state = Object.assign(json.data || defaultStateFor('planner'), seed);
+            try{
+              await fetch(API_URL, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(authBody({action:'saveBoard', board: newId, data: state, note:'התחלה משכפול'}))});
+            }catch(e){}
+          }
+        }
+        if(makeDefault){ try{ localStorage.setItem(DEFAULT_BOARD_KEY, newId); }catch(e){} }
         closeNewBoardModal();
         await refreshBoardsList();
-        await switchToBoard(json.board.id, {});
+        await switchToBoard(newId, {});
+        showUndoToast('הלוח "' + json.board.name + '" נוצר', async () => {
+          if(makeDefault){ try{ if(localStorage.getItem(DEFAULT_BOARD_KEY) === newId) localStorage.removeItem(DEFAULT_BOARD_KEY); }catch(e){} }
+          if(prevBoard && prevBoard !== newId) await switchToBoard(prevBoard, {});
+          await deleteBoard(newId);
+        });
       } else {
         errEl.textContent = 'יצירת הלוח נכשלה, נסו שוב.';
       }
@@ -3032,6 +3178,32 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       createBtn.disabled = false;
       createBtn.textContent = 'יצירה';
     }
+  }
+
+  // people, topics and section layout of an existing planner board — never its items
+  async function boardSeedFrom(boardId){
+    let src = null;
+    if(boardId === currentBoardId && appState && !appState.kind) src = appState;
+    else {
+      try{
+        const res = await fetch(API_URL + '?action=getBoard&board=' + encodeURIComponent(boardId) + authQuery(boardId) + '&t=' + Date.now());
+        const json = await res.json();
+        if(json && json.ok && json.data && !json.data.kind) src = json.data;
+      }catch(e){}
+    }
+    if(!src) return null;
+    const settings = Object.assign({}, src.settings || {});
+    return {
+      people: (src.people || []).map(p => ({id: p.id, name: p.name})),
+      topics: (src.topics || []).map(t => ({id: t.id, name: t.name})),
+      settings: {showBoard: settings.showBoard !== false, showSummary: settings.showSummary !== false, sectionOrder: settings.sectionOrder}
+    };
+  }
+  function renderDefaultBoardToggle(){
+    const t = document.getElementById('defaultBoardToggle');
+    if(!t) return;
+    let d = null; try{ d = localStorage.getItem(DEFAULT_BOARD_KEY); }catch(e){}
+    t.checked = d === currentBoardId;
   }
 
   async function renameBoard(boardId, newName){
@@ -3129,7 +3301,10 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     setView(resolveInitialView(boardId), {silent:true});
     reflectStateInUrl(boardId, currentView, !!opts.replace);
 
-    const cachedRaw = localStorage.getItem(cacheKeyFor(boardId));
+    const lockedEntry = isBoardLocked(boardId) && !getUnlock(boardId);
+    if(lockedEntry) clearBoardCache(boardId);
+    hideLockScreen();
+    const cachedRaw = lockedEntry ? null : localStorage.getItem(cacheKeyFor(boardId));
     appState = null;
     if(cachedRaw){ try{ appState = JSON.parse(cachedRaw); }catch(e){} }
     if(!isValidStateFor(currentBoardType, appState)) appState = defaultStateFor(currentBoardType);
@@ -3146,10 +3321,12 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     lastSyncedJson = '';
     lastKnownHash = '';
     renderAll();
+    renderLockRow();
+    if(lockedEntry){ showLockScreen(); renderBoardSwitcher(); return; }
 
     setSyncStatus('מתחבר…');
     await refreshFromServer(true);
-    startPolling();
+    if(!isLockScreenShown()) startPolling();
     renderBoardSwitcher();
   }
 
@@ -3211,6 +3388,8 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     applySectionVisibility();
     applySectionOrder();
     paintMobileChrome();
+    renderMeCard();
+    renderMeSelect();
   }
 
   // per-board customization (Tier 2): let a board run "summary first, board
@@ -3379,12 +3558,14 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     const msg = document.createElement('span');
     msg.textContent = message;
     toast.appendChild(msg);
-    const btn = document.createElement('button');
-    btn.className = 'undo-toast-btn';
-    btn.type = 'button';
-    btn.textContent = 'בטל';
-    btn.onclick = () => { hideUndoToast(); onUndo(); };
-    toast.appendChild(btn);
+    if(typeof onUndo === 'function'){
+      const btn = document.createElement('button');
+      btn.className = 'undo-toast-btn';
+      btn.type = 'button';
+      btn.textContent = 'בטל';
+      btn.onclick = () => { hideUndoToast(); onUndo(); };
+      toast.appendChild(btn);
+    }
     document.body.appendChild(toast);
     requestAnimationFrame(()=> toast.classList.add('show'));
     undoToastEl = toast;
@@ -3557,7 +3738,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
 
   function highlightLabelFor(filter){
     if(filter.type === 'all') return 'סינון';
-    if(filter.type === 'person'){ const p = people.find(x=>x.id===filter.value); return p ? p.name : 'סינון'; }
+    if(filter.type === 'person'){ if(filter.value && filter.value === getMe()) return 'שלי'; const p = people.find(x=>x.id===filter.value); return p ? p.name : 'סינון'; }
     if(filter.type === 'topic'){ const t = topics.find(x=>x.id===filter.value); return t ? t.name : 'סינון'; }
     return 'סינון';
   }
@@ -3631,6 +3812,8 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     }
 
     row('הכל', 'all', null);
+    const me = getMe();
+    if(me) row('שלי', 'person', me);
     if(people.length || topics.length) list.appendChild(Object.assign(document.createElement('div'), {className:'picker-divider'}));
     people.forEach(p => row(p.name, 'person', p.id));
     if(people.length && topics.length) list.appendChild(Object.assign(document.createElement('div'), {className:'picker-divider'}));
@@ -4091,9 +4274,11 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     const kind = summaryMode;
     const scopeSuffix = (currentView === 'month' && monthAnchor) ? ' — ' + monthLabel(monthAnchor) : '';
     title.textContent = (kind==='person' ? 'המשימות של כל אחד' : 'המשימות לפי מופע') + scopeSuffix;
-    const list = listForKind(kind);
+    let list = listForKind(kind);
     const icon = iconForKind(kind);
-    list.forEach(entry => grid.appendChild(renderSummaryGroup(kind, entry.id, entry.name, icon, false)));
+    const me = kind === 'person' ? getMe() : null;
+    if(me) list = list.filter(e => e.id === me).concat(list.filter(e => e.id !== me));
+    list.forEach(entry => grid.appendChild(renderSummaryGroup(kind, entry.id, entry.id === me ? entry.name + ' (אני)' : entry.name, icon, false)));
     grid.appendChild(renderSummaryGroup(kind, null, 'ללא שיוך', null, true));
     applySelectionVisuals();
   }
@@ -5693,6 +5878,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   }
 
   function openBoardPicker(){
+    if(isMobileLayout()){ openBoardSheet(); return; }
     const anchor = document.getElementById('boardPickBtn');
     openHeaderMenu(anchor, 280, (pop) => {
       const title = document.createElement('div');
@@ -5705,7 +5891,8 @@ body.has-select-mode .undo-toast{ bottom:84px; }
         const cur = b.id === currentBoardId;
         list.appendChild(menuItem(
           '<span class="mi-icon">' + (b.type === 'notes' ? ICON_BOARD_NOTES : ICON_BOARD_PLANNER) + '</span>' +
-          '<span class="mi-main"><span class="mi-name"></span><span class="mi-sub">' + (b.type === 'notes' ? 'לוח כתיבה · ' : '') + (b.role === 'editor' ? 'עריכה' : 'צפייה') + '</span></span>' +
+          '<span class="mi-main"><span class="mi-name"></span><span class="mi-sub">' + boardSubLabel(b) + '</span></span>' +
+          (b.locked ? '<span class="mi-lock" title="נעול בסיסמה">' + ICON_LOCK_SMALL + '</span>' : '') +
           (cur ? '<span class="mi-check">' + ICON_CHECK + '</span>' : ''),
           () => { if(!cur) switchToBoard(b.id, {}); },
           {selected: cur}
@@ -5725,7 +5912,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     });
   }
   const ICON_PLUS_SMALL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
-  document.getElementById('boardPickBtn').onclick = (e) => { e.stopPropagation(); toggleHeaderMenu(e.currentTarget, openBoardPicker); };
+  document.getElementById('boardPickBtn').onclick = (e) => { e.stopPropagation(); if(isMobileLayout()) openBoardSheet(); else toggleHeaderMenu(e.currentTarget, openBoardPicker); };
 
   // "+ חדש": the body adds a task to today (an event in month view); the
   // chevron offers the other kinds. Reuses each day's own "+ הוספת…" line so
@@ -6295,6 +6482,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   }
   function openSheet(titleText, body, opts){
     closeSheet(); closePicker();
+    hideUndoToast();   // a sheet takes over the screen; the snackbar would sit on top of its buttons
     opts = opts || {};
     const overlay = document.createElement('div');
     overlay.className = 'sheet-overlay';
@@ -6417,7 +6605,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     let k = kind || 'task';
     let day = targetDayForAdd();
     let section = 'general';
-    let personIds = [];
+    let personIds = getMe() ? [getMe()] : [];
     const body = document.createElement('div');
     body.className = 'add-sheet';
     body.innerHTML =
@@ -6886,6 +7074,254 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     const panel = openSheet(n === 1 ? 'העברה של "' + ((located[0].item.text || '').trim().slice(0, 40) || 'פריט') + '"' : 'העברה של ' + n + ' פריטים', body, {cls: 'sheet--move', focus: body.querySelector('.dp-cell[tabindex="0"]')});
     if(returnFocusEl) panel.parentElement.__returnFocus = returnFocusEl;
   }
+
+  /* ---------- G2 stage 6: board password lock (client), "אני", board picker sheet ---------- */
+
+  // unlock tokens live in sessionStorage: this tab keeps working (polls,
+  // saves), but every new tab / new visit asks for the password again
+  function unlockKeyFor(boardId){ return 'planner_unlock__' + boardId; }
+  function getUnlock(boardId){ try{ return sessionStorage.getItem(unlockKeyFor(boardId)) || ''; }catch(e){ return ''; } }
+  function setUnlock(boardId, token){ try{ if(token) sessionStorage.setItem(unlockKeyFor(boardId), token); else sessionStorage.removeItem(unlockKeyFor(boardId)); }catch(e){} }
+  function isBoardLocked(boardId){ const b = boardsList.find(x => x.id === boardId); return !!(b && b.locked); }
+  // a locked board must never sit in localStorage — otherwise the password
+  // could be skipped by reading the cache
+  function clearBoardCache(boardId){
+    try{ localStorage.removeItem(cacheKeyFor(boardId)); localStorage.removeItem(backupCacheKeyFor(boardId)); }catch(e){}
+  }
+
+  function handleLockError(json, boardId){
+    if(!json || json.error !== 'board_locked') return false;
+    const id = boardId || currentBoardId;
+    setUnlock(id, '');
+    clearBoardCache(id);
+    const b = boardsList.find(x => x.id === id);
+    if(b && !b.locked){ b.locked = true; renderBoardSwitcher(); }
+    if(id === currentBoardId) showLockScreen();
+    return true;
+  }
+
+  function isLockScreenShown(){ return document.getElementById('root').classList.contains('is-locked'); }
+  function showLockScreen(){
+    const root = document.getElementById('root');
+    const wasShown = root.classList.contains('is-locked');
+    root.classList.add('is-locked');
+    clearInterval(pollTimer);
+    exitSelectMode(); closeSheet(); closePicker(); closeDayPeek && closeDayPeek();
+    // drop the board's content from memory and the page, not just from view
+    appState = defaultStateFor(currentBoardType);
+    if(currentBoardType !== 'notes'){ people = []; topics = []; weekData = loadWeek(weekStart); }
+    ['board', 'summaryGrid', 'mStrip', 'notesGallery', 'notesOutline'].forEach(id => { const el = document.getElementById(id); if(el) el.innerHTML = ''; });
+    const b = boardsList.find(x => x.id === currentBoardId);
+    document.getElementById('lockBoardName').textContent = b ? b.name : '';
+    document.getElementById('lockError').textContent = '';
+    const input = document.getElementById('lockPassword');
+    input.value = '';
+    setSyncStatus('');
+    if(!wasShown) setTimeout(() => { try{ input.focus({preventScroll:true}); }catch(e){} }, 30);
+  }
+  function hideLockScreen(){ document.getElementById('root').classList.remove('is-locked'); }
+
+  async function submitUnlock(){
+    const input = document.getElementById('lockPassword');
+    const errEl = document.getElementById('lockError');
+    const btn = document.getElementById('lockSubmit');
+    const pw = input.value;
+    if(!pw){ errEl.textContent = 'צריך להקליד סיסמה'; input.focus(); return; }
+    const board = currentBoardId;
+    btn.disabled = true; btn.textContent = 'בודק…'; errEl.textContent = '';
+    try{
+      const res = await fetch(API_URL, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(authBody({action:'unlockBoard', board, password: pw}))});
+      const json = await res.json();
+      if(board !== currentBoardId) return;
+      if(handleAuthError(json)) return;
+      if(!json || !json.ok){
+        errEl.textContent = json && json.error === 'wrong_password' ? 'הסיסמה לא נכונה' :
+          json && json.error === 'too_many_attempts' ? 'יותר מדי ניסיונות — נסו שוב בעוד 10 דקות' : 'הפתיחה נכשלה, נסו שוב';
+        input.select();
+        return;
+      }
+      setUnlock(board, json.unlock || '');
+      input.value = '';
+      // a focused field counts as "user is editing" and would stop the fresh
+      // data from being applied — let go of it before loading the board
+      input.blur();
+      hideLockScreen();
+      setSyncStatus('מתחבר…');
+      await refreshFromServer(true);
+      startPolling();
+      if(hasPendingLocalChange) scheduleSave();
+    }catch(e){
+      errEl.textContent = 'אין חיבור — נסו שוב';
+    }finally{
+      btn.disabled = false; btn.textContent = 'פתיחה';
+    }
+  }
+  document.getElementById('lockForm').addEventListener('submit', (e) => { e.preventDefault(); submitUnlock(); });
+  document.getElementById('lockOtherBoard').onclick = (e) => { e.stopPropagation(); openBoardPicker(); };
+
+  // settings → "נעילה בסיסמה": set, change, or remove (change/remove ask for the current one)
+  function renderLockRow(){
+    const status = document.getElementById('lockStatus');
+    const btn = document.getElementById('lockManageBtn');
+    if(!status || !btn) return;
+    const locked = isBoardLocked(currentBoardId);
+    status.textContent = locked ? 'פעילה — כל כניסה ללוח מבקשת סיסמה' : 'כבויה';
+    btn.textContent = locked ? 'שינוי או הסרה…' : 'הגדרת סיסמה…';
+  }
+  function openLockSheet(){
+    if(currentRole !== 'editor') return;
+    const locked = isBoardLocked(currentBoardId);
+    const body = document.createElement('form');
+    body.className = 'add-sheet lock-sheet';
+    body.innerHTML =
+      '<p class="lock-explain">' + (locked
+        ? 'הלוח נעול. אפשר להחליף סיסמה או להסיר את הנעילה — בשני המקרים צריך את הסיסמה הנוכחית.'
+        : 'מי שייכנס ללוח הזה — גם ממחשב שכבר מחובר — יתבקש להקליד סיסמה. שאר הלוחות לא מושפעים. אם הסיסמה תישכח, רק מי שמנהל את גיליון הנתונים יכול לאפס אותה.') + '</p>' +
+      (locked ? '<label class="add-label" for="lockCur">הסיסמה הנוכחית</label><input class="add-input" id="lockCur" type="password" autocomplete="current-password">' : '') +
+      '<label class="add-label" for="lockNew">' + (locked ? 'סיסמה חדשה (ריק = הסרת הנעילה)' : 'סיסמה') + '</label>' +
+      '<input class="add-input" id="lockNew" type="password" autocomplete="new-password" minlength="4" maxlength="72">' +
+      '<label class="add-label" for="lockNew2">אימות הסיסמה</label>' +
+      '<input class="add-input" id="lockNew2" type="password" autocomplete="new-password">' +
+      '<div class="lock-err" role="alert"></div>' +
+      '<button type="submit" class="sheet-primary">' + (locked ? 'שמירה' : 'נעילת הלוח') + '</button>' +
+      (locked ? '<button type="button" class="sheet-cancel lock-remove">הסרת הנעילה</button>' : '');
+    const err = body.querySelector('.lock-err');
+    async function send(password){
+      const cur = body.querySelector('#lockCur');
+      const primary = body.querySelector('.sheet-primary');
+      primary.disabled = true;
+      try{
+        const res = await fetch(API_URL, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(authBody({action:'setBoardLock', board: currentBoardId, password, current: cur ? cur.value : ''}))});
+        const json = await res.json();
+        if(handleAuthError(json)) return;
+        if(!json || !json.ok){
+          err.textContent = json && json.error === 'wrong_password' ? 'הסיסמה הנוכחית לא נכונה' :
+            json && json.error === 'too_many_attempts' ? 'יותר מדי ניסיונות — נסו שוב בעוד 10 דקות' :
+            json && json.error === 'bad_password' ? 'סיסמה צריכה להיות באורך 4 עד 72 תווים' : 'השמירה נכשלה, נסו שוב';
+          return;
+        }
+        setUnlock(currentBoardId, json.unlock || '');
+        const b = boardsList.find(x => x.id === currentBoardId);
+        if(b) b.locked = !!json.locked;
+        try{ localStorage.setItem(BOARDS_CACHE_KEY, JSON.stringify(boardsList)); }catch(e){}
+        if(json.locked) clearBoardCache(currentBoardId); else persistState();
+        closeSheet();
+        renderBoardSwitcher(); renderLockRow();
+        showUndoToast(json.locked ? (locked ? 'הסיסמה הוחלפה' : 'הלוח נעול בסיסמה') : 'הנעילה הוסרה', null);
+      }catch(e){
+        err.textContent = 'אין חיבור — נסו שוב';
+      }finally{ primary.disabled = false; }
+    }
+    body.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const a = body.querySelector('#lockNew').value, b2 = body.querySelector('#lockNew2').value;
+      if(locked && !body.querySelector('#lockCur').value){ err.textContent = 'צריך את הסיסמה הנוכחית'; return; }
+      if(!locked && !a){ err.textContent = 'צריך להקליד סיסמה'; return; }
+      if(a && a.length < 4){ err.textContent = 'סיסמה צריכה להיות לפחות 4 תווים'; return; }
+      if(a !== b2){ err.textContent = 'שתי הסיסמאות לא זהות'; return; }
+      send(a);
+    });
+    const rm = body.querySelector('.lock-remove');
+    if(rm) rm.onclick = () => { if(!body.querySelector('#lockCur').value){ err.textContent = 'צריך את הסיסמה הנוכחית'; return; } send(''); };
+    openSheet(locked ? 'נעילה בסיסמה' : 'נעילת הלוח בסיסמה', body, {focus: body.querySelector('input')});
+  }
+  document.getElementById('lockManageBtn').onclick = openLockSheet;
+
+  // ---- "אני" — who is using this device on this board (the unit shares one Google account) ----
+  function meKey(){ return 'planner_me__' + currentBoardId; }
+  function getMe(){
+    let id = null;
+    try{ id = localStorage.getItem(meKey()); }catch(e){}
+    return id && people.some(p => p.id === id) ? id : null;
+  }
+  function setMe(id){
+    try{ if(id) localStorage.setItem(meKey(), id); else localStorage.removeItem(meKey()); }catch(e){}
+    renderMeCard(); renderMeSelect(); renderFilters(); renderSummary();
+  }
+  function renderMeSelect(){
+    const sel = document.getElementById('meSelect');
+    if(!sel) return;
+    const me = getMe();
+    sel.innerHTML = '<option value="">לא הוגדר</option>' + people.map(p => '<option></option>').join('');
+    people.forEach((p, i) => { const o = sel.options[i + 1]; o.value = p.id; o.textContent = p.name; });
+    sel.value = me || '';
+  }
+  document.getElementById('meSelect').onchange = (e) => setMe(e.target.value || null);
+  document.getElementById('defaultBoardToggle').onchange = (e) => {
+    try{ if(e.target.checked) localStorage.setItem(DEFAULT_BOARD_KEY, currentBoardId); else if(localStorage.getItem(DEFAULT_BOARD_KEY) === currentBoardId) localStorage.removeItem(DEFAULT_BOARD_KEY); }catch(err){}
+  };
+  function meCardDismissKey(){ return 'planner_me_asked__' + currentBoardId; }
+  function renderMeCard(){
+    const card = document.getElementById('meCard');
+    if(!card) return;
+    let dismissed = false;
+    try{ dismissed = !!localStorage.getItem(meCardDismissKey()); }catch(e){}
+    const show = currentBoardType !== 'notes' && people.length > 0 && !getMe() && !dismissed && !isLockScreenShown();
+    card.hidden = !show;
+    if(!show) return;
+    const chips = card.querySelector('.me-chips');
+    chips.innerHTML = '';
+    people.forEach(p => {
+      const c = document.createElement('button');
+      c.type = 'button'; c.className = 'chip-opt'; c.textContent = p.name;
+      c.onclick = () => { setMe(p.id); showUndoToast('נשמר במכשיר הזה: ' + p.name + ' · אפשר לשנות בהגדרות', null); };
+      chips.appendChild(c);
+    });
+    const add = card.querySelector('.me-add');
+    add.hidden = true;
+  }
+  document.getElementById('meNotListed').onclick = () => {
+    const add = document.querySelector('#meCard .me-add');
+    if(currentRole === 'editor'){ add.hidden = false; add.querySelector('input').focus(); }
+    else { try{ localStorage.setItem(meCardDismissKey(), '1'); }catch(e){} renderMeCard(); }
+  };
+  document.getElementById('meDismiss').onclick = () => { try{ localStorage.setItem(meCardDismissKey(), '1'); }catch(e){} renderMeCard(); };
+  document.querySelector('#meCard .me-add').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const input = e.currentTarget.querySelector('input');
+    const name = input.value.trim();
+    if(!name) return;
+    const p = {id: uid(), name};
+    appState.people = (appState.people || []).concat(p);
+    people = appState.people;
+    persistState();
+    input.value = '';
+    setMe(p.id);
+    showUndoToast(name + ' נוסף/ה לצוות ונשמר/ה כ"אני" במכשיר הזה', null);
+  });
+
+  // ---- board picker as a native sheet on phones ----
+  function openBoardSheet(){
+    const body = document.createElement('div');
+    const list = document.createElement('div');
+    list.className = 'sheet-list board-sheet-list';
+    boardsList.forEach(b => {
+      const cur = b.id === currentBoardId;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'sheet-item board-sheet-item' + (cur ? ' is-current' : '');
+      btn.innerHTML = '<span class="mi-icon">' + (b.type === 'notes' ? ICON_BOARD_NOTES : ICON_BOARD_PLANNER) + '</span><span class="mi-main"><span class="mi-name"></span><span class="mi-sub"></span></span>' + (cur ? '<span class="mi-check">' + ICON_CHECK + '</span>' : '');
+      btn.querySelector('.mi-name').textContent = b.name;
+      btn.querySelector('.mi-sub').textContent = boardSubLabel(b);
+      if(cur) btn.setAttribute('aria-current', 'true');
+      btn.onclick = () => { closeSheet(); if(!cur) setTimeout(() => switchToBoard(b.id, {}), 0); };
+      list.appendChild(btn);
+    });
+    const nb = document.createElement('button');
+    nb.type = 'button'; nb.className = 'sheet-item board-sheet-item is-accent';
+    nb.innerHTML = '<span class="mi-icon">' + ICON_PLUS_SMALL + '</span><span class="mi-main"><span class="mi-name">לוח חדש</span></span>';
+    nb.onclick = () => { closeSheet(); setTimeout(openNewBoardModal, 0); };
+    list.appendChild(nb);
+    body.appendChild(list);
+    const cancel = document.createElement('button');
+    cancel.type = 'button'; cancel.className = 'sheet-cancel'; cancel.textContent = 'סגירה'; cancel.onclick = closeSheet;
+    body.appendChild(cancel);
+    openSheet('לוחות', body);
+  }
+  function boardSubLabel(b){
+    return (b.type === 'notes' ? 'לוח כתיבה · ' : '') + (b.locked ? 'נעול · ' : '') + (b.role === 'editor' ? 'עריכה' : 'צפייה');
+  }
+  const ICON_LOCK_SMALL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
 
   /* ---------- week / month switching ---------- */
 
@@ -7970,12 +8406,16 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   };
 
   async function initialLoad(){
+    loadCachedBoardsList();
     currentBoardId = resolveInitialBoardId();
     currentBoardType = cachedBoardType(currentBoardId);
     currentNotesPageId = resolveInitialPage();
     reflectStateInUrl(currentBoardId, resolveInitialView(currentBoardId), true);
 
-    const cachedRaw = localStorage.getItem(cacheKeyFor(currentBoardId));
+    const lockedEntry = isBoardLocked(currentBoardId) && !getUnlock(currentBoardId);
+    if(lockedEntry) clearBoardCache(currentBoardId);
+    hideLockScreen();
+    const cachedRaw = lockedEntry ? null : localStorage.getItem(cacheKeyFor(currentBoardId));
     appState = null;
     if(cachedRaw){ try{ appState = JSON.parse(cachedRaw); }catch(e){} }
     if(!isValidStateFor(currentBoardType, appState)) appState = defaultStateFor(currentBoardType);
@@ -7991,9 +8431,9 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       weekData = loadWeek(weekStart);
     }
     setView(resolveInitialView(currentBoardId), {silent:true});
-    loadCachedBoardsList();
     renderBoardSwitcher();
     renderAll();
+    if(isBoardLocked(currentBoardId) && !getUnlock(currentBoardId)) showLockScreen();
     if(currentBoardType !== 'notes' && currentView === 'week') scrollTodayIntoView();
 
     setSyncStatus('מתחבר…');
@@ -8001,7 +8441,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     // header/picker and used to arrive several seconds late on a cold start
     const boardsListP = refreshBoardsList();
     await refreshFromServer(true);
-    startPolling();
+    if(!isLockScreenShown()) startPolling();
 
     await boardsListP;
   }
