@@ -6,7 +6,7 @@
 <!-- App build version, compared against version.txt to detect a new deploy in
      installed standalone PWA windows (which have no reload affordance). MUST be
      bumped together with version.txt on every deploy — see NOTES.md deploy step. -->
-<meta name="app-version" content="20261001-1737">
+<meta name="app-version" content="20261001-1742">
 <title>יומן ומשימות</title>
 <!-- PWA manifest + icons — no service worker on purpose: this is a live-data
      app on a 20s poll, a SW would only risk serving a stale index.html for
@@ -2489,6 +2489,13 @@ body.has-select-mode .undo-toast{ bottom:84px; }
           setSyncStatus('שגיאת נתונים זמנית בשרת — עובדים מהעותק המקומי');
           return;
         }
+        if(json && json.error === 'not_found' && !isInitial && boardsList.some(b => b.id !== reqBoard)){
+          boardsList = boardsList.filter(b => b.id !== reqBoard);
+          currentBoardId = '';
+          await switchToBoard(boardsList[0].id, {replace:true});
+          showUndoToast('הלוח הזה כבר לא קיים — עברנו ל"' + boardsList[0].name + '"', null);
+          return;
+        }
         if(isInitial) showNoAccess(json && json.error);
         return;
       }
@@ -3208,7 +3215,9 @@ body.has-select-mode .undo-toast{ bottom:84px; }
         }
         if(makeDefault){ try{ localStorage.setItem(DEFAULT_BOARD_KEY, newId); }catch(e){} }
         closeNewBoardModal();
-        await refreshBoardsList();
+        if(!boardsList.some(b => b.id === newId)) boardsList = boardsList.concat({id: newId, name: json.board.name, role: 'editor', type: json.board.type || newBoardType, locked: false});
+        cacheBoardType(newId, json.board.type || newBoardType);
+        refreshBoardsList();
         await switchToBoard(newId, {});
         showUndoToast('הלוח "' + json.board.name + '" נוצר', async () => {
           if(makeDefault){ try{ if(localStorage.getItem(DEFAULT_BOARD_KEY) === newId) localStorage.removeItem(DEFAULT_BOARD_KEY); }catch(e){} }
@@ -3276,14 +3285,23 @@ body.has-select-mode .undo-toast{ bottom:84px; }
         headers:{'Content-Type':'text/plain;charset=utf-8'},
         body: JSON.stringify(authBody({ action:'deleteBoard', board: boardId }))
       });
-      const json = await res.json();
+      const json = await res.json().catch(() => null);
       if(!(json && json.ok)){
-        if(!handleAuthError(json)) setSyncStatus('מחיקת הלוח נכשלה');
-        return;
+        // Apps Script sometimes answers a POST that DID succeed with a false
+        // auth_required / an HTML page (NOTES Watch Out #15/#18): ask the
+        // server whether the board is really still there before giving up
+        const check = await fetchBoardsList();
+        if(!(check && !check.some(b => b.id === boardId))){
+          if(!handleAuthError(json)) setSyncStatus('מחיקת הלוח נכשלה');
+          return;
+        }
       }
     }catch(e){
-      setSyncStatus('אין חיבור — מחיקת הלוח נכשלה');
-      return;
+      const check = await fetchBoardsList();
+      if(!(check && !check.some(b => b.id === boardId))){
+        setSyncStatus('אין חיבור — מחיקת הלוח נכשלה');
+        return;
+      }
     }
     const freshList = await fetchBoardsList();
     // We already know the delete succeeded (checked above) — on a transient
