@@ -6,7 +6,7 @@
 <!-- App build version, compared against version.txt to detect a new deploy in
      installed standalone PWA windows (which have no reload affordance). MUST be
      bumped together with version.txt on every deploy — see NOTES.md deploy step. -->
-<meta name="app-version" content="20261001-1742">
+<meta name="app-version" content="20261001-1752">
 <title>יומן ומשימות</title>
 <!-- PWA manifest + icons — no service worker on purpose: this is a live-data
      app on a 20s poll, a SW would only risk serving a stale index.html for
@@ -82,6 +82,7 @@
   --hl:var(--border); --hl2:var(--border-strong);
   --ink2:var(--muted); --ink3:#8c868a;
   --accent-tint:#fbeef3; --accent-deco:#f3c6d7; --danger:#c0392b;
+  --ink3-text:#706a6f; /* receding TEXT (done, other-month days): ≥4.5:1 on white, canvas, tint */
   /* type ladder v2 — desktop ≥1366 (compact and mobile steps below) */
   --t-title:17px; --lh-title:24px;
   --t-head:15px;  --lh-head:20px;
@@ -431,7 +432,7 @@ html,body{
 .drawer-board-item-name{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; outline:none; border-radius:5px; padding:1px 3px; }
 .drawer-board-item-name[contenteditable="true"]{ background:var(--surface); box-shadow:0 0 0 1.5px var(--accent); white-space:normal; }
 .drawer-board-item-role{ font-size:11px; color:var(--muted); flex-shrink:0; }
-.drawer-board-item.active .drawer-board-item-role{ color:var(--accent-soft-ink); opacity:.75; }
+.drawer-board-item.active .drawer-board-item-role{ color:var(--accent-soft-ink); opacity:1; }
 .drawer-board-item-actions{ display:flex; align-items:center; gap:1px; flex-shrink:0; opacity:0; }
 .drawer-board-item:hover .drawer-board-item-actions,
 .drawer-board-item:focus-within .drawer-board-item-actions{ opacity:1; }
@@ -1616,7 +1617,8 @@ html,body{
 .select-mode .task-row *, .select-mode .event-row *{ pointer-events:none; }
 .select-mode .task-row input[type="checkbox"], .select-mode .drag-handle, .select-mode .row-del, .select-mode .row-more, .select-mode .event-passed-toggle{ visibility:hidden; }
 .select-mode .task-row input[type="checkbox"]{ width:0 !important; min-width:0 !important; margin:0; border:0; }
-.select-mode .add-line, .select-mode .day-banner-add, .select-mode .day-collapse{ opacity:.35; pointer-events:none; }
+.select-mode .add-line, .select-mode .day-banner-add{ visibility:hidden; pointer-events:none; } /* like Mail's edit mode: no compose actions while selecting */
+.select-mode .day-collapse{ opacity:.35; pointer-events:none; }
 .select-mode .task-meta{ display:none !important; }
 /* the row's own controls leave the layout entirely while selecting, so a narrow
    7-column day never squeezes its text to one letter per line */
@@ -1783,6 +1785,34 @@ body.has-select-mode .undo-toast{ bottom:84px; }
 .add-more-body{ padding-bottom:6px; }
 .ev-sheet .ev-text{ font-size:17px; }
 @media (prefers-reduced-motion: reduce){ .switch-row input[type="checkbox"], .switch-row input[type="checkbox"]::after, .add-more summary::after{ transition:none; } }
+
+/* ---------- stage 8: contrast + a11y fixes ---------- */
+.task-row.done .task-text, .summary-row.done .summary-row-text, .mv-chip.done, .search-opt.is-done .so-text,
+.mv-cell--outside .mv-num, .dp-cell--outside{ color:var(--ink3-text); }
+.event-row.passed, .occ-row.passed{ opacity:1; }
+.event-row.passed .event-text, .occ-row.passed .event-text, .event-row.passed .event-time, .occ-row.passed .event-time{ color:var(--ink3-text); }
+.event-row.passed .drag-handle, .occ-row.passed .occ-glyph{ opacity:.35; }
+.event-text:empty:before, .task-text:empty:before{ color:var(--ink3-text); }
+
+/* ---------- print: the week as one clean sheet ---------- */
+@media print{
+  @page{ size:A4 landscape; margin:10mm; }
+  html, body, .planner-root{ background:#fff !important; }
+  .top-actions, .menu-btn, .board-pick-chev, .view-toggle, .nav-btn, .filters-bar, .m-tabbar, .fab, .m-strip, .me-card, .sel-bar,
+  .undo-toast, .version-banner, .add-line, .day-banner-add, .row-del, .row-more, .drag-handle, .event-passed-toggle, .day-collapse,
+  .day-end, .m-tomorrow, .lock-gate, .collapse-chevron, .mode-btn, #summarySection .add-line{ display:none !important; }
+  .top{ position:static; border:0; padding:0 0 6px; }
+  .week-range{ display:inline !important; }
+  .board:not(.month-mode){ display:grid !important; grid-template-columns:repeat(7, minmax(0,1fr)) !important; overflow:visible !important; gap:6px !important; padding:0 !important; }
+  .board:not(.month-mode) .day{ width:auto !important; break-inside:avoid; border-color:#ccc; }
+  .day.tasks-collapsed .zone-tasks > .section{ display:block !important; }
+  .day-tasks-folded{ display:none !important; }
+  .collapse-body[hidden]{ display:block !important; }
+  .zone-events{ min-height:0 !important; }
+  .task-text, .event-text{ font-size:10pt; }
+  .summary-section{ break-before:page; }
+  .day.is-today .day-date{ background:none; color:#000; border:1px solid #000; }
+}
 </style>
 
 <div class="planner-root" id="root">
@@ -1829,7 +1859,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       <div class="top-actions planner-only">
         <label class="search-box" for="searchInput">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-          <input id="searchInput" type="search" placeholder="חיפוש או הוספה…" aria-label="חיפוש משימות ואירועים, או הוספת משימה" autocomplete="off" aria-keyshortcuts="Meta+K Control+K" aria-expanded="false" aria-controls="searchPop">
+          <input id="searchInput" type="search" role="combobox" aria-autocomplete="list" placeholder="חיפוש או הוספה…" aria-label="חיפוש משימות ואירועים, או הוספת משימה" autocomplete="off" aria-keyshortcuts="Meta+K Control+K" aria-expanded="false" aria-controls="searchPop">
           <span class="kbd" aria-hidden="true">⌘K</span>
         </label>
         <span class="split" id="newSplit">
@@ -2002,7 +2032,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       <div class="drawer-access-list" id="drawerAccessList"></div>
       <div class="drawer-access-add">
         <input type="email" id="accessAddEmail" placeholder="דוא״ל" autocomplete="email" />
-        <select id="accessAddRole">
+        <select id="accessAddRole" aria-label="הרשאה לכתובת החדשה">
           <option value="viewer">צפייה</option>
           <option value="editor">עריכה</option>
         </select>
@@ -2010,7 +2040,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       </div>
       <div class="drawer-access-default">
         <span>כל מי שיש לו קישור:</span>
-        <select id="accessDefaultRole">
+        <select id="accessDefaultRole" aria-label="הרשאה לכל מי שיש לו קישור">
           <option value="">ללא גישה</option>
           <option value="viewer">צפייה</option>
           <option value="editor">עריכה</option>
@@ -2760,8 +2790,8 @@ body.has-select-mode .undo-toast{ bottom:84px; }
 
       const main = document.createElement('span');
       main.className = 'drawer-board-item-main';
-      main.setAttribute('role', 'menuitemradio');
-      main.setAttribute('aria-checked', b.id === currentBoardId ? 'true' : 'false');
+      main.setAttribute('role', 'button');
+      if(b.id === currentBoardId) main.setAttribute('aria-current', 'true');
       main.tabIndex = 0;
 
       const typeIcon = document.createElement('span');
@@ -2964,6 +2994,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       item.appendChild(emailSpan);
 
       const roleSel = document.createElement('select');
+      roleSel.setAttribute('aria-label', 'הרשאה עבור ' + row.email);
       ['viewer','editor'].forEach(r => {
         const opt = document.createElement('option');
         opt.value = r; opt.textContent = r === 'editor' ? 'עריכה' : 'צפייה';
@@ -4882,7 +4913,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     // drag affordance, always visible (not just a hover extra).
     h.innerHTML = '<svg viewBox="0 0 8 8" width="6" height="6" aria-hidden="true"><circle cx="4" cy="4" r="4" fill="currentColor"/></svg>';
     h.setAttribute('title', 'גרירה לשינוי סדר');
-    h.setAttribute('aria-label', 'גרירה לשינוי סדר');
+    h.setAttribute('aria-hidden', 'true');
     return h;
   }
 
@@ -6082,7 +6113,19 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       el.tabIndex = 0;
       el.setAttribute('role', 'button');
     });
+    (root || document).querySelectorAll('.task-row input[type="checkbox"]:not([aria-label]), .summary-row input[type="checkbox"]:not([aria-label])').forEach(nameCheckbox);
+    (root || document).querySelectorAll('.drawer-section-row input[type="checkbox"]:not([aria-label])').forEach(cb => {
+      const l = cb.closest('.drawer-section-row').querySelector('.drawer-section-row-label');
+      cb.setAttribute('aria-label', 'הצגת ' + (l ? l.textContent.trim() : 'האזור'));
+    });
   }
+  function nameCheckbox(cb){
+    const row = cb.closest('.task-row, .summary-row');
+    const t = row && row.querySelector('.task-text, .summary-row-text');
+    cb.setAttribute('aria-label', 'בוצע: ' + ((t && t.textContent.trim()) || 'משימה'));
+  }
+  // the text can be edited after the row was built — refresh the name when the box gets focus
+  document.addEventListener('focusin', (e) => { if(e.target.matches && e.target.matches('.task-row input[type="checkbox"], .summary-row input[type="checkbox"]')) nameCheckbox(e.target); });
   new MutationObserver(() => decorateAddLines()).observe(document.body, {childList:true, subtree:true});
   document.addEventListener('keydown', (e) => {
     if((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('add-line')){
@@ -7135,7 +7178,6 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       cal.appendChild(head);
       const grid = document.createElement('div');
       grid.className = 'dp-grid';
-      grid.setAttribute('role', 'grid');
       grid.setAttribute('aria-label', monthLabel(anchor));
       const hr = document.createElement('div');
       hr.className = 'dp-row dp-row--head';
@@ -7144,7 +7186,6 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       monthWeekStarts(anchor).forEach(ws => {
         const r = document.createElement('div');
         r.className = 'dp-row';
-        r.setAttribute('role', 'row');
         DAY_DEFS.forEach((d, i) => {
           const date = new Date(ws); date.setDate(date.getDate() + i);
           const b = document.createElement('button');
