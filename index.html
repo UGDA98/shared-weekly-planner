@@ -6,7 +6,7 @@
 <!-- App build version, compared against version.txt to detect a new deploy in
      installed standalone PWA windows (which have no reload affordance). MUST be
      bumped together with version.txt on every deploy — see NOTES.md deploy step. -->
-<meta name="app-version" content="20261001-1726">
+<meta name="app-version" content="20261001-1737">
 <title>יומן ומשימות</title>
 <!-- PWA manifest + icons — no service worker on purpose: this is a live-data
      app on a 20s poll, a SW would only risk serving a stale index.html for
@@ -1737,6 +1737,52 @@ body.has-select-mode .undo-toast{ bottom:84px; }
 .board-sheet-item .mi-name{ font-size:16px; }
 .board-sheet-item.is-current .mi-name{ font-weight:700; }
 .board-sheet-item.is-accent, .board-sheet-item.is-accent .mi-icon{ color:var(--accent); }
+
+/* ---------- G2 stage 7: event times + recurring occurrences ---------- */
+.event-time{
+  flex:none; align-self:center; border:0; background:none; padding:0 2px; margin:0; cursor:pointer; font:inherit;
+  font-size:var(--t-cap); line-height:var(--lh-cap); color:var(--ink2); font-variant-numeric:tabular-nums;
+  direction:ltr; unicode-bidi:isolate; white-space:nowrap; border-radius:4px;
+}
+.event-time:hover{ color:var(--accent); background:var(--accent-tint); }
+.planner-root.view-only .event-time{ pointer-events:none; }
+.occ-row{ display:flex; align-items:flex-start; gap:5px; position:relative; border-radius:var(--radius-md); padding:5px 4px; min-height:var(--row-min); font-size:var(--t-body); line-height:var(--lh-body); color:var(--ink); }
+.occ-row:hover{ background:var(--s2); }
+.occ-row.passed{ opacity:.55; }
+.occ-row.passed .event-text{ color:var(--muted); }
+.occ-glyph{ flex:none; width:14px; height:20px; display:flex; align-items:center; justify-content:center; color:var(--accent); opacity:.75; }
+.occ-glyph svg{ width:12px; height:12px; }
+.occ-row .event-text{ flex:1; min-width:0; }
+@media (max-width:767px){ .occ-row{ padding:8px 4px; } }
+@media (pointer:fine) and (min-width:768px){
+  .occ-row:hover > .row-more, .occ-row .row-more:focus-visible{ opacity:1; }
+  .board .occ-row .row-more{ position:absolute; top:4px; inset-inline-end:2px; }
+  .board .occ-row:hover .event-text{ padding-inline-end:24px; }
+}
+.mv-chip--recurring .mv-mark{ background:var(--accent-deco); box-shadow:inset 0 0 0 1px var(--accent); }
+
+/* event details sheet (iOS "Edit Event" rows) */
+.switch-row, .select-row, .time-field{ display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:44px; padding:0 2px; font-size:16px; }
+.switch-row input[type="checkbox"]{ appearance:none; -webkit-appearance:none; width:46px; height:28px; border-radius:14px; background:var(--hl2); position:relative; cursor:pointer; transition:background .18s ease; flex:none; margin:0; }
+.switch-row input[type="checkbox"]::after{ content:""; position:absolute; top:2px; inset-inline-start:2px; width:24px; height:24px; border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.25); transition:transform .18s ease; }
+.switch-row input[type="checkbox"]:checked{ background:var(--done); }
+.switch-row input[type="checkbox"]:checked::after{ transform:translateX(-18px); }
+.switch-row input[type="checkbox"]:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+.ev-times{ display:flex; gap:12px; }
+.ev-times[hidden], .ev-until-row[hidden], .add-event-only[hidden]{ display:none; }
+.time-field{ flex:1; border:1px solid var(--hl2); border-radius:10px; padding:0 10px; }
+.time-field span{ font-size:13px; color:var(--ink2); }
+.time-field input, .select-row input, .select-row select{ font:inherit; font-size:16px; border:0; background:none; color:var(--ink); direction:ltr; min-width:0; }
+.select-row{ border-top:1px solid var(--hl); }
+.select-row select{ direction:rtl; max-width:62%; text-align:end; }
+.add-more{ border:1px solid var(--hl); border-radius:10px; padding:0 10px; }
+.add-more summary{ min-height:44px; display:flex; align-items:center; cursor:pointer; font-size:14px; color:var(--accent); font-weight:600; list-style:none; }
+.add-more summary::-webkit-details-marker{ display:none; }
+.add-more summary::after{ content:"›"; margin-inline-start:auto; transition:transform .15s ease; }
+.add-more[open] summary::after{ transform:rotate(-90deg); }
+.add-more-body{ padding-bottom:6px; }
+.ev-sheet .ev-text{ font-size:17px; }
+@media (prefers-reduced-motion: reduce){ .switch-row input[type="checkbox"], .switch-row input[type="checkbox"]::after, .add-more summary::after{ transition:none; } }
 </style>
 
 <div class="planner-root" id="root">
@@ -4931,7 +4977,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     evList.className = 'events';
     evList.setAttribute('data-dropzone', 'events');
     evList.setAttribute('data-day', dayDef.key);
-    data.events.forEach(ev => evList.appendChild(renderEventRow(dayDef.key, ev)));
+    fillEventsList(evList, dayDef.key, data);
     evZone.appendChild(evList);
     const addEv = document.createElement('div');
     addEv.className = 'add-line';
@@ -5045,6 +5091,15 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       saveWeek(weekStart, weekData);
     };
     row.appendChild(passedToggle);
+
+    const tl = eventTimeLabel(item);
+    if(tl){
+      const t = document.createElement('button');
+      t.type = 'button'; t.className = 'event-time'; t.textContent = tl;
+      t.title = 'שעה, יום שלם וחזרה';
+      t.onclick = (e) => { e.stopPropagation(); openEventSheet({item, dayKey}); };
+      row.appendChild(t);
+    }
 
     const text = document.createElement('div');
     text.className = 'event-text';
@@ -5324,9 +5379,10 @@ body.has-select-mode .undo-toast{ bottom:84px; }
 
   // events first (they are the fixed points of a day), then open tasks, then
   // done ones — a done task is the least useful thing to spend a cell row on
-  function monthCellEntries(dayData){
+  function monthCellEntries(dayData, occ){
     const out = [];
-    ((dayData && dayData.events) || []).forEach(item => out.push({item, kind:'event'}));
+    const evs = ((dayData && dayData.events) || []).concat(occ || []);
+    evs.slice().sort((a, b) => eventSortKey(a) - eventSortKey(b)).forEach(item => out.push({item, kind:'event'}));
     const open = [], done = [];
     TASK_SECTIONS.forEach(sec => {
       ((dayData && dayData[sec.key]) || []).forEach(item => (item.done ? done : open).push({item, kind:'task', sectionKey:sec.key}));
@@ -5347,7 +5403,9 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     chip.appendChild(mark);
     const text = document.createElement('span');
     text.className = 'mv-chip-text';
-    text.textContent = entry.item.text || '(ללא טקסט)';
+    const tl = entry.kind === 'event' && !entry.item.allDay ? (entry.item.start || '') : '';
+    text.textContent = (tl ? tl + ' ' : '') + (entry.item.text || '(ללא טקסט)');
+    if(entry.item.virtual) chip.classList.add('mv-chip--recurring');
     chip.appendChild(text);
     return chip;
   }
@@ -5380,7 +5438,8 @@ body.has-select-mode .undo-toast{ bottom:84px; }
 
     // order is as stored — events carry no time field (their text is free-form
     // "שעה + תיאור"), so there is nothing reliable to sort chronologically by
-    const entries = monthCellEntries(dayData);
+    const occ = (monthOccCache[isoKey(ws)] = monthOccCache[isoKey(ws)] || occurrencesFor(ws))[dayDef.key];
+    const entries = monthCellEntries(dayData, occ);
     const list = document.createElement('div');
     list.className = 'mv-items';
     const max = monthCellMax();
@@ -5395,7 +5454,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     }
     cell.appendChild(list);
 
-    const evCount = ((dayData && dayData.events) || []).length;
+    const evCount = entries.filter(e => e.kind === 'event').length;
     const taskCount = entries.length - evCount;
     // phones: up to 3 event dots + the number of open tasks (no text fits in a
     // 50px column); a day title still shows as one line of text above them
@@ -5422,7 +5481,9 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     return cell;
   }
 
+  let monthOccCache = {};
   function renderMonthGrid(){
+    monthOccCache = {};
     const board = document.getElementById('board');
     board.classList.add('month-mode');
     const today = new Date();
@@ -5623,7 +5684,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     evList.className = 'events';
     evList.setAttribute('data-dropzone','events');
     evList.setAttribute('data-day', dayDef.key);
-    data.events.forEach(ev => evList.appendChild(renderEventRow(dayDef.key, ev)));
+    fillEventsList(evList, dayDef.key, data);
     evWrap.appendChild(evList);
     const addEv = document.createElement('div');
     addEv.className = 'add-line';
@@ -6017,7 +6078,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     if(ws && weekKey(ws) !== weekKey(weekStart)) goToWeek(ws, false);
     requestAnimationFrame(() => {
       const sel = '[data-id="' + (window.CSS && CSS.escape ? CSS.escape(id) : id) + '"]';
-      const row = document.querySelector('#board ' + sel) || document.querySelector('#summaryGrid ' + sel);
+      const row = document.querySelector('#board ' + sel) || document.querySelector('#summaryGrid ' + sel) || document.querySelector('#board [data-occ="' + id + '"]');
       if(!row) return;
       const card = row.closest('.day');
       if(card && card.classList.contains('tasks-collapsed') && card.__setTasksCollapsed){ card.__setTasksCollapsed(false, false); updateCollapseAllBtn(); }
@@ -6050,6 +6111,16 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       });
     });
     ((appState && appState.unscheduled) || []).forEach(t => out.push({id:t.id, kind:'task', item:t, ws:null, date:null, dayName:''}));
+    const today = new Date(); today.setHours(0,0,0,0);
+    seriesList().forEach(sr => {
+      for(let i = 0; i < 400; i++){
+        const d = new Date(today); d.setDate(d.getDate() + i);
+        if(seriesOccursOn(sr, d) && !((sr.exceptions || {})[isoKey(d)] || {}).skip){
+          out.push({id: sr.id + '@' + isoKey(d), kind:'event', item:{text: sr.text}, ws: startOfWeek(d), date: d, dayName: DAY_DEFS[d.getDay()].name + ' · ' + REPEAT_LABEL[sr.repeat]});
+          break;
+        }
+      }
+    });
     return out;
   }
   function runSearch(q){
@@ -6577,6 +6648,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       {label: 'מחיקה', danger: true, run: () => ctx.del.click()}
     ] : [
       {label: it.passed ? 'ביטול "התקיים"' : 'סימון שהאירוע התקיים', run: () => ctx.toggle.click()},
+      {label: 'שעה, יום שלם וחזרה…', run: () => openEventSheet({item: it, dayKey: ctx.dayKey})},
       {label: 'עריכת הטקסט', run: edit},
       {label: 'העברה ל…', run: () => openMovePicker([it.id])},
       {label: 'שכפול', run: duplicate},
@@ -6609,12 +6681,14 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     let day = targetDayForAdd();
     let section = 'general';
     let personIds = getMe() ? [getMe()] : [];
+    let evRead = null;
     const body = document.createElement('div');
     body.className = 'add-sheet';
     body.innerHTML =
       '<div class="seg" role="radiogroup" aria-label="סוג"><button type="button" data-k="task" role="radio">משימה</button><button type="button" data-k="event" role="radio">אירוע</button></div>' +
       '<input class="add-input" type="text" enterkeyhint="done" autocomplete="off">' +
       '<div class="add-label">יום</div><div class="chip-row add-days"></div>' +
+      '<details class="add-more add-event-only"><summary>שעה, יום שלם וחזרה</summary><div class="add-more-body"></div></details>' +
       '<div class="add-task-only"><div class="add-label">מקטע</div><div class="chip-row add-sections"></div>' +
       (people.length ? '<div class="add-label">אחראי/ת</div><div class="chip-row add-people"></div>' : '') + '</div>' +
       '<button type="button" class="sheet-primary" disabled>הוספה</button>';
@@ -6626,6 +6700,12 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       input.placeholder = k === 'task' ? 'מה צריך לעשות?' : 'שעה + תיאור, למשל 10:00 ישיבת צוות';
       input.setAttribute('aria-label', k === 'task' ? 'טקסט המשימה' : 'טקסט האירוע');
       body.querySelector('.add-task-only').hidden = k !== 'task';
+      body.querySelector('.add-event-only').hidden = k !== 'event';
+      // the repeat labels name the chosen day, so rebuild the fields when it changes (values kept)
+      const more = body.querySelector('.add-more-body');
+      const keep = evRead ? evRead() : {};
+      more.innerHTML = eventFieldsHtml();
+      evRead = wireEventFields(more, keep, dayDateOf(day));
       const days = body.querySelector('.add-days'); days.innerHTML = '';
       DAY_DEFS.forEach((d, i) => { const dt = dayDateOf(d.key); days.appendChild(chip(HEB_DAY_LETTER[i] + ' ' + dt.getDate(), d.key === day, () => { day = d.key; paint(); })); });
       const secs = body.querySelector('.add-sections'); secs.innerHTML = '';
@@ -6643,7 +6723,23 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       if(!text) return;
       let item, arr;
       if(k === 'task'){ item = Object.assign(emptyTask(), {text, personIds: personIds.slice()}); arr = weekData[day][section]; }
-      else { item = {id: uid(), text}; arr = weekData[day].events; }
+      else {
+        const v = evRead ? evRead() : {};
+        if(v.repeat){
+          const sr = {id: 's' + uid().slice(1), text, repeat: v.repeat, from: isoKey(dayDateOf(day)), exceptions: {}};
+          if(v.until) sr.until = v.until;
+          applyTimeFields(sr, v);
+          ensureSeries().push(sr);
+          persistState();
+          closeSheet();
+          mSelectedDay = day;
+          renderBoard(); renderSummary(); paintMobileChrome();
+          if(mobileTab === 'week') scrollDayIntoView(day, true);
+          showUndoToast('האירוע יחזור ' + REPEAT_LABEL[v.repeat], () => { appState.series = seriesList().filter(x => x.id !== sr.id); persistState(); renderBoard(); renderSummary(); });
+          return;
+        }
+        item = {id: uid(), text}; applyTimeFields(item, v); arr = weekData[day].events;
+      }
       arr.push(item);
       saveWeek(weekStart, weekData);
       closeSheet();
@@ -6965,18 +7061,19 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   }
 
   // ---- "העברה ל…": a date or a whole week, with the common moves one tap away ----
-  function openMovePicker(ids, returnFocusEl){
-    if(currentRole !== 'editor' || !ids.length) return;
+  function openMovePicker(ids, returnFocusEl, popts){
+    popts = popts || {};
+    if(currentRole !== 'editor' || (!ids.length && !popts.onPick)) return;
     const located = ids.map(locateItem).filter(Boolean);
     const hasTask = located.some(l => l.kind === 'task');
-    const allPool = located.every(l => l.section === 'unscheduled');
+    const allPool = located.length > 0 && located.every(l => l.section === 'unscheduled');
     const first = located.find(l => l.weekIso);
-    let firstDate = new Date();
+    let firstDate = popts.from ? new Date(popts.from) : new Date();
     if(first){ firstDate = parseIsoKey(first.weekIso); firstDate.setDate(firstDate.getDate() + DAY_DEFS.findIndex(d => d.key === first.day)); }
     let anchor = startOfMonth(firstDate);
     let mode = 'date';
     const today = new Date(); today.setHours(0,0,0,0);
-    const go = (t) => { closeSheet(); setTimeout(() => moveItems(ids, t), 0); };
+    const go = (t) => { closeSheet(); setTimeout(() => popts.onPick ? popts.onPick(t) : moveItems(ids, t), 0); };
 
     const body = document.createElement('div');
     body.className = 'move-sheet';
@@ -7074,7 +7171,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     seg.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { mode = b.dataset.m; paint(); });
     paint();
     const n = located.length;
-    const panel = openSheet(n === 1 ? 'העברה של "' + ((located[0].item.text || '').trim().slice(0, 40) || 'פריט') + '"' : 'העברה של ' + n + ' פריטים', body, {cls: 'sheet--move', focus: body.querySelector('.dp-cell[tabindex="0"]')});
+    const panel = openSheet(popts.title || (n === 1 ? 'העברה של "' + ((located[0].item.text || '').trim().slice(0, 40) || 'פריט') + '"' : 'העברה של ' + n + ' פריטים'), body, {cls: 'sheet--move', focus: body.querySelector('.dp-cell[tabindex="0"]')});
     if(returnFocusEl) panel.parentElement.__returnFocus = returnFocusEl;
   }
 
@@ -7325,6 +7422,282 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     return (b.type === 'notes' ? 'לוח כתיבה · ' : '') + (b.locked ? 'נעול · ' : '') + (b.role === 'editor' ? 'עריכה' : 'צפייה');
   }
   const ICON_LOCK_SMALL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
+
+  /* ---------- G2 stage 7: event times (start / end / all day) + recurring events ---------- */
+  // Schema (all optional, backend-agnostic):
+  //   event:  {id, text, passed?, start?:'HH:MM', end?:'HH:MM', allDay?:true}
+  //   appState.series: [{id, text, start?, end?, allDay?, repeat:'day'|'workdays'|'week'|'month',
+  //                      from:'YYYY-MM-DD', until?:'YYYY-MM-DD',
+  //                      exceptions:{'YYYY-MM-DD': {skip:true} | {text?, start?, end?, allDay?, passed?}}}]
+  // A series is never copied into the weeks: its occurrences are computed per
+  // day at render time (id "<seriesId>@<date>") and rendered as .occ-row —
+  // deliberately NOT .event-row, so the drag code (which counts .event-row
+  // children to compute drop indexes) never sees them.
+
+  const REPEAT_LABEL = {day:'כל יום', workdays:'כל יום עבודה (א׳–ה׳)', week:'כל שבוע', month:'כל חודש'};
+  const ICON_REPEAT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>';
+  function seriesList(){ return (appState && Array.isArray(appState.series)) ? appState.series : []; }
+  function ensureSeries(){ if(!Array.isArray(appState.series)) appState.series = []; return appState.series; }
+  function minutesOf(hhmm){ const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm || ''); return m ? (+m[1]) * 60 + (+m[2]) : null; }
+  function eventSortKey(ev){ if(ev.allDay) return -1; const m = minutesOf(ev.start); return m === null ? 100000 : m; }
+  function eventTimeLabel(ev){
+    if(ev.allDay) return 'כל היום';
+    if(!ev.start) return '';
+    return ev.end && ev.end !== ev.start ? ev.start + '–' + ev.end : ev.start;
+  }
+  function dateOfDayKey(dayKey){ const d = new Date(weekStart); d.setDate(d.getDate() + DAY_DEFS.findIndex(x => x.key === dayKey)); return d; }
+  function addMinutes(hhmm, n){ const m = minutesOf(hhmm); if(m === null) return ''; const t = Math.min(23 * 60 + 59, Math.max(0, m + n)); return String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0'); }
+
+  function seriesOccursOn(s, date){
+    const iso = isoKey(date);
+    if(!s.from || iso < s.from || (s.until && iso > s.until)) return false;
+    const from = parseIsoKey(s.from);
+    if(s.repeat === 'day') return true;
+    if(s.repeat === 'workdays') return date.getDay() <= 4;              // Sunday–Thursday
+    if(s.repeat === 'week') return date.getDay() === from.getDay();
+    if(s.repeat === 'month') return date.getDate() === from.getDate(); // months without that day simply have none
+    return false;
+  }
+  // {sun:[occ], ...} for the week starting at ws
+  function occurrencesFor(ws){
+    const out = {}; DAY_DEFS.forEach(d => out[d.key] = []);
+    const list = seriesList();
+    if(!list.length) return out;
+    DAY_DEFS.forEach((d, i) => {
+      const date = new Date(ws); date.setDate(date.getDate() + i);
+      const iso = isoKey(date);
+      list.forEach(s => {
+        if(!seriesOccursOn(s, date)) return;
+        const ex = (s.exceptions || {})[iso] || {};
+        if(ex.skip) return;
+        out[d.key].push({id: s.id + '@' + iso, seriesId: s.id, date: iso, virtual: true,
+          text: ex.text !== undefined ? ex.text : s.text,
+          start: ex.start !== undefined ? ex.start : s.start, end: ex.end !== undefined ? ex.end : s.end,
+          allDay: ex.allDay !== undefined ? ex.allDay : s.allDay, passed: !!ex.passed});
+      });
+    });
+    return out;
+  }
+  function setException(seriesId, iso, patch){
+    const s = seriesList().find(x => x.id === seriesId);
+    if(!s) return;
+    s.exceptions = s.exceptions || {};
+    s.exceptions[iso] = Object.assign({}, s.exceptions[iso] || {}, patch);
+    persistState();
+  }
+  function snapshotSeries(){ return JSON.stringify(seriesList()); }
+  function restoreSeries(json){ appState.series = JSON.parse(json); persistState(); renderBoard(); renderSummary(); }
+
+  // Fills an events list (week card, peek, phone month list): real events in
+  // their (time-sorted) array order, recurring occurrences merged in by time.
+  function fillEventsList(listEl, dayKey, data){
+    const evs = data.events;
+    if(evs.some(e => e.allDay || e.start)){
+      const sorted = evs.slice().sort((a, b) => eventSortKey(a) - eventSortKey(b));
+      if(sorted.some((e, i) => e !== evs[i])){ evs.splice(0, evs.length, ...sorted); }
+    }
+    const occ = occurrencesFor(weekStart)[dayKey] || [];
+    const all = evs.map(e => ({e, real: true})).concat(occ.map(e => ({e, real: false})));
+    all.sort((a, b) => eventSortKey(a.e) - eventSortKey(b.e));   // stable: real rows keep array order
+    all.forEach(x => listEl.appendChild(x.real ? renderEventRow(dayKey, x.e) : renderOccurrenceRow(dayKey, x.e)));
+  }
+
+  function renderOccurrenceRow(dayKey, occ){
+    const row = document.createElement('div');
+    row.className = 'occ-row has-more' + (occ.passed ? ' passed' : '');
+    row.setAttribute('data-occ', occ.id);
+    const glyph = document.createElement('span');
+    glyph.className = 'occ-glyph';
+    glyph.innerHTML = ICON_REPEAT;
+    const s = seriesList().find(x => x.id === occ.seriesId);
+    glyph.title = 'אירוע חוזר · ' + (s ? REPEAT_LABEL[s.repeat] : '');
+    row.appendChild(glyph);
+    const tl = eventTimeLabel(occ);
+    if(tl){ const t = document.createElement('button'); t.type = 'button'; t.className = 'event-time'; t.textContent = tl; t.onclick = (e) => { e.stopPropagation(); openEventSheet({occ, dayKey}); }; row.appendChild(t); }
+    const text = document.createElement('div');
+    text.className = 'event-text';
+    text.textContent = occ.text || '';
+    makeEditable(text, 'אירוע…', (val) => {
+      if(val === (occ.text || '')) return;
+      askSeriesScope('שינוי אירוע חוזר', {
+        thisLabel: 'רק באירוע הזה', allLabel: 'בכל האירועים בסדרה',
+        onThis: () => { setException(occ.seriesId, occ.date, {text: val}); renderBoard(); },
+        onAll: () => { const ss = seriesList().find(x => x.id === occ.seriesId); if(ss){ ss.text = val; persistState(); } renderBoard(); },
+        onCancel: () => renderBoard()
+      });
+    });
+    row.appendChild(text);
+    row.appendChild(rowMoreButton(() => openOccurrenceActions({occ, dayKey, text})));
+    return row;
+  }
+
+  function askSeriesScope(title, o){
+    let chosen = false;
+    const items = [
+      {label: o.thisLabel, run: () => { chosen = true; o.onThis(); }},
+      {label: o.allLabel, danger: !!o.allDanger, run: () => { chosen = true; o.onAll(); }}
+    ];
+    const panel = openSheet(title, sheetList(items));
+    // closing without a choice (cancel / Esc / tapping outside) undoes the edit on screen
+    const overlay = panel.parentElement;
+    const obs = new MutationObserver(() => { if(!overlay.isConnected){ obs.disconnect(); if(!chosen && o.onCancel) o.onCancel(); } });
+    obs.observe(document.body, {childList: true});
+  }
+
+  function openOccurrenceActions(ctx){
+    const {occ} = ctx;
+    const s = seriesList().find(x => x.id === occ.seriesId);
+    openSheet((occ.text || 'אירוע חוזר') + (s ? ' · ' + REPEAT_LABEL[s.repeat] : ''), sheetList([
+      {label: occ.passed ? 'ביטול "התקיים"' : 'סימון שהאירוע התקיים', run: () => { setException(occ.seriesId, occ.date, {passed: !occ.passed}); renderBoard(); }},
+      {label: 'שעה, יום שלם וחזרה…', run: () => openEventSheet({occ, dayKey: ctx.dayKey})},
+      {label: 'עריכת הטקסט', run: () => { ctx.text.focus(); }},
+      {label: 'העברת האירוע הזה ל…', run: () => openMovePicker([], null, {single: true, title: 'העברת "' + (occ.text || 'אירוע') + '"', from: parseIsoKey(occ.date), onPick: (target) => moveOccurrence(occ, target)})},
+      {label: 'מחיקה…', danger: true, run: () => deleteOccurrence(occ)}
+    ]));
+  }
+  // an occurrence moved elsewhere becomes a one-off event there; its slot in the series is skipped
+  function moveOccurrence(occ, target){
+    let date;
+    if(target.date) date = target.date;
+    else if(target.week){ const from = parseIsoKey(occ.date); date = new Date(target.week); date.setDate(date.getDate() + from.getDay()); }
+    else if(target.shiftWeeks){ date = parseIsoKey(occ.date); date.setDate(date.getDate() + 7 * target.shiftWeeks); }
+    else return;
+    if(isoKey(date) === occ.date) return;
+    const snap = snapshotSeries();
+    const item = {id: uid(), text: occ.text || ''};
+    if(occ.allDay) item.allDay = true; else if(occ.start){ item.start = occ.start; if(occ.end) item.end = occ.end; }
+    setException(occ.seriesId, occ.date, {skip: true});
+    const destWs = startOfWeek(date);
+    const arr = (weekKey(destWs) === weekKey(weekStart) ? weekData : loadWeek(destWs))[DAY_DEFS[date.getDay()].key].events;
+    arr.push(item);
+    persistState(); renderBoard(); renderSummary();
+    showUndoToast('האירוע הועבר ל' + DAY_DEFS[date.getDay()].name + ' ' + fmtDate(date) + ' (רק הפעם)', () => {
+      const i = arr.findIndex(x => x.id === item.id); if(i > -1) arr.splice(i, 1);
+      restoreSeries(snap);
+    });
+  }
+  function deleteOccurrence(occ){
+    askSeriesScope('מחיקת אירוע חוזר', {
+      thisLabel: 'מחיקת האירוע הזה בלבד', allLabel: 'מחיקת כל האירועים בסדרה', allDanger: true,
+      onThis: () => { const snap = snapshotSeries(); setException(occ.seriesId, occ.date, {skip: true}); renderBoard(); renderSummary(); showUndoToast('האירוע נמחק (רק הפעם)', () => restoreSeries(snap)); },
+      onAll: () => { const snap = snapshotSeries(); appState.series = seriesList().filter(x => x.id !== occ.seriesId); persistState(); renderBoard(); renderSummary(); showUndoToast('הסדרה נמחקה', () => restoreSeries(snap)); }
+    });
+  }
+
+  // ---- the event details sheet: all day / start / end / repeat / until (iOS "Edit Event") ----
+  // ctx: {item, dayKey} for a one-off event, or {occ, dayKey} for an occurrence
+  function eventFieldsHtml(){
+    return '<label class="switch-row"><span>כל היום</span><input type="checkbox" class="ev-allday" role="switch"></label>' +
+      '<div class="ev-times"><label class="time-field"><span>התחלה</span><input type="time" class="ev-start"></label>' +
+      '<label class="time-field"><span>סיום</span><input type="time" class="ev-end"></label></div>' +
+      '<label class="select-row"><span>חזרה</span><select class="ev-repeat"><option value="">לא חוזר</option></select></label>' +
+      '<label class="select-row ev-until-row"><span>עד תאריך</span><input type="date" class="ev-until"></label>';
+  }
+  function wireEventFields(root, init, date){
+    const allDay = root.querySelector('.ev-allday'), st = root.querySelector('.ev-start'), en = root.querySelector('.ev-end');
+    const rep = root.querySelector('.ev-repeat'), until = root.querySelector('.ev-until');
+    const dayName = HEB_DAY_LONG[date.getDay()];
+    [['day', 'כל יום'], ['workdays', 'כל יום עבודה (א׳–ה׳)'], ['week', 'כל שבוע (' + dayName + ')'], ['month', 'כל חודש (ב־' + date.getDate() + ' לחודש)']].forEach(([v, l]) => { const o = document.createElement('option'); o.value = v; o.textContent = l; rep.appendChild(o); });
+    allDay.checked = !!init.allDay; st.value = init.start || ''; en.value = init.end || ''; rep.value = init.repeat || ''; until.value = init.until || '';
+    until.min = isoKey(date);
+    const paint = () => { root.querySelector('.ev-times').hidden = allDay.checked; root.querySelector('.ev-until-row').hidden = !rep.value; };
+    allDay.onchange = paint; rep.onchange = paint;
+    let lastStart = st.value;
+    // like Calendar: moving the start keeps the duration; an end before the start follows it
+    st.onchange = () => {
+      const dur = (minutesOf(en.value) !== null && minutesOf(lastStart) !== null) ? minutesOf(en.value) - minutesOf(lastStart) : null;
+      if(dur !== null && dur >= 0) en.value = addMinutes(st.value, dur);
+      else if(en.value && minutesOf(en.value) < minutesOf(st.value)) en.value = addMinutes(st.value, 60);
+      lastStart = st.value;
+    };
+    en.onchange = () => { if(st.value && en.value && minutesOf(en.value) < minutesOf(st.value)) en.value = st.value; };
+    paint();
+    return () => ({allDay: allDay.checked, start: allDay.checked ? '' : st.value, end: allDay.checked ? '' : (st.value ? en.value : ''), repeat: rep.value, until: rep.value ? until.value : ''});
+  }
+  function applyTimeFields(target, v){
+    delete target.allDay; delete target.start; delete target.end;
+    if(v.allDay) target.allDay = true;
+    else if(v.start){ target.start = v.start; if(v.end && v.end !== v.start) target.end = v.end; }
+  }
+  function openEventSheet(ctx){
+    if(currentRole !== 'editor') return;
+    const isOcc = !!ctx.occ;
+    const date = isOcc ? parseIsoKey(ctx.occ.date) : dateOfDayKey(ctx.dayKey);
+    const s = isOcc ? seriesList().find(x => x.id === ctx.occ.seriesId) : null;
+    if(isOcc && !s) return;
+    const src = isOcc ? ctx.occ : ctx.item;
+    const body = document.createElement('form');
+    body.className = 'add-sheet ev-sheet';
+    body.innerHTML = '<input class="add-input ev-text" type="text" aria-label="תיאור האירוע" placeholder="תיאור">' + eventFieldsHtml() +
+      '<button type="submit" class="sheet-primary">שמירה</button>';
+    body.querySelector('.ev-text').value = src.text || '';
+    const read = wireEventFields(body, {allDay: src.allDay, start: src.start, end: src.end, repeat: s ? s.repeat : '', until: s ? s.until : ''}, isOcc ? parseIsoKey(s.from) : date);
+    body.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const v = read(); const text = body.querySelector('.ev-text').value.trim();
+      closeSheet();
+      setTimeout(() => isOcc ? saveOccurrenceEdit(ctx.occ, s, text, v) : saveEventEdit(ctx, text, v), 0);
+    });
+    openSheet(isOcc ? 'אירוע חוזר · ' + date.getDate() + ' ב' + HEB_MONTHS[date.getMonth()] : 'אירוע · ' + DAY_DEFS[date.getDay()].name + ' ' + fmtDate(date), body, {cls: 'sheet--event'});
+  }
+  function saveEventEdit(ctx, text, v){
+    const item = ctx.item, arr = weekData[ctx.dayKey].events;
+    if(!v.repeat){
+      item.text = text; applyTimeFields(item, v);
+      saveWeek(weekStart, weekData); renderBoard(); renderSummary();
+      return;
+    }
+    // one-off → series starting on this day
+    const date = dateOfDayKey(ctx.dayKey);
+    const snapSeries = snapshotSeries();
+    const i = arr.findIndex(x => x.id === item.id);
+    if(i > -1) arr.splice(i, 1);
+    const s = {id: 's' + uid().slice(1), text, repeat: v.repeat, from: isoKey(date), exceptions: {}};
+    if(v.until) s.until = v.until;
+    applyTimeFields(s, v);
+    if(item.passed) s.exceptions[isoKey(date)] = {passed: true};
+    ensureSeries().push(s);
+    persistState(); renderBoard(); renderSummary();
+    showUndoToast('האירוע יחזור ' + REPEAT_LABEL[v.repeat], () => {
+      if(i > -1) arr.splice(i, 0, item); else arr.push(item);
+      restoreSeries(snapSeries);
+    });
+  }
+  function saveOccurrenceEdit(occ, s, text, v){
+    const snap = snapshotSeries();
+    const undo = () => restoreSeries(snap);
+    if(!v.repeat){
+      // "לא חוזר" on a series: keep only this date as a one-off event
+      appState.series = seriesList().filter(x => x.id !== s.id);
+      const d = parseIsoKey(occ.date);
+      const item = {id: uid(), text}; applyTimeFields(item, v);
+      const arr = (weekKey(startOfWeek(d)) === weekKey(weekStart) ? weekData : loadWeek(startOfWeek(d)))[DAY_DEFS[d.getDay()].key].events;
+      arr.push(item);
+      persistState(); renderBoard(); renderSummary();
+      showUndoToast('הסדרה בוטלה — נשאר רק האירוע של ' + fmtDate(d), () => { const i = arr.indexOf(item); if(i > -1) arr.splice(i, 1); undo(); });
+      return;
+    }
+    const seriesChanged = v.repeat !== s.repeat || (v.until || '') !== (s.until || '');
+    const detailsChanged = text !== (occ.text || '') || !!v.allDay !== !!occ.allDay || (v.start || '') !== (occ.start || '') || (v.end || '') !== (occ.end || '');
+    const applyAll = () => {
+      s.text = text; applyTimeFields(s, v); s.repeat = v.repeat; if(v.until) s.until = v.until; else delete s.until;
+      // details now come from the series again for this date
+      if(s.exceptions && s.exceptions[occ.date]){ const ex = s.exceptions[occ.date]; delete ex.text; delete ex.start; delete ex.end; delete ex.allDay; }
+      persistState(); renderBoard(); renderSummary();
+      showUndoToast('הסדרה עודכנה', undo);
+    };
+    if(seriesChanged){ applyAll(); return; }          // repeat/until belong to the whole series
+    if(!detailsChanged) return;
+    askSeriesScope('שינוי אירוע חוזר', {
+      thisLabel: 'רק באירוע הזה', allLabel: 'בכל האירועים בסדרה',
+      onThis: () => {
+        const patch = {text, allDay: !!v.allDay, start: v.allDay ? '' : v.start, end: v.allDay ? '' : v.end};
+        setException(s.id, occ.date, patch); renderBoard(); renderSummary();
+        showUndoToast('השינוי נשמר לאירוע הזה בלבד', undo);
+      },
+      onAll: applyAll
+    });
+  }
 
   /* ---------- week / month switching ---------- */
 
