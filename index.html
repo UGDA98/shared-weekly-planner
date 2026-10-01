@@ -6,7 +6,7 @@
 <!-- App build version, compared against version.txt to detect a new deploy in
      installed standalone PWA windows (which have no reload affordance). MUST be
      bumped together with version.txt on every deploy — see NOTES.md deploy step. -->
-<meta name="app-version" content="20261001-1616">
+<meta name="app-version" content="20261001-1632">
 <title>יומן ומשימות</title>
 <!-- PWA manifest + icons — no service worker on purpose: this is a live-data
      app on a 20s poll, a SW would only risk serving a stale index.html for
@@ -1356,7 +1356,7 @@ html,body{
 }
 /* mouse: row controls float over the row's end instead of taking text width,
    and the day's secondary "+ add" lines rest invisible except on today */
-@media (pointer:fine) and (min-width:1024px){
+@media (pointer:fine) and (min-width:768px){
   .board .row-del, .board .event-passed-toggle{ position:absolute; top:4px; inset-inline-end:2px; background:var(--s2); }
   .board .event-passed-toggle{ inset-inline-end:24px; }
   .board .event-row.passed .event-passed-toggle{ position:static; background:none; }
@@ -1597,6 +1597,95 @@ html,body{
   .mv-daylist-body .peek-section-label{ font-size:12px; color:var(--ink2); font-weight:600; padding:2px 0 4px; }
 }
 @media (prefers-reduced-motion: reduce){ .mv-num{ transition:none; } }
+
+/* ---------- G2 stage 5: selecting rows + "העברה ל…" ---------- */
+.planner-root.view-only #selectModeBtn{ display:none; }
+#selectModeBtn[aria-pressed="true"]{ background:var(--accent-tint); color:var(--accent-soft-ink); }
+/* while selecting, a row is one big checkbox: its own controls go inert */
+.task-row[data-id], .event-row[data-id]{ transition:padding .18s cubic-bezier(.2,.8,.2,1), background-color .15s ease; }
+.select-mode .task-row[data-id], .select-mode .event-row[data-id]{ cursor:pointer; position:relative; padding-inline-start:30px; border-radius:var(--r8); -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
+.select-mode .task-row[data-id]::before, .select-mode .event-row[data-id]::before{
+  content:""; position:absolute; inset-inline-start:6px; top:calc(50% - 9px); width:18px; height:18px; border-radius:50%;
+  border:1.5px solid var(--ink3); background:var(--s1); box-sizing:border-box;
+}
+.select-mode .task-row.is-selected, .select-mode .event-row.is-selected{ background:var(--accent-tint); }
+.select-mode .task-row.is-selected::before, .select-mode .event-row.is-selected::before{
+  border-color:var(--accent); background:var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.8 8.4l2.8 2.8 5.6-6.4' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/70% no-repeat;
+}
+.select-mode .task-row[data-id]:focus-visible, .select-mode .event-row[data-id]:focus-visible{ outline:2px solid var(--accent); outline-offset:-2px; }
+.select-mode .task-row *, .select-mode .event-row *{ pointer-events:none; }
+.select-mode .task-row input[type="checkbox"], .select-mode .drag-handle, .select-mode .row-del, .select-mode .row-more, .select-mode .event-passed-toggle{ visibility:hidden; }
+.select-mode .task-row input[type="checkbox"]{ width:0 !important; min-width:0 !important; margin:0; border:0; }
+.select-mode .add-line, .select-mode .day-banner-add, .select-mode .day-collapse{ opacity:.35; pointer-events:none; }
+.select-mode .task-meta{ display:none !important; }
+/* the row's own controls leave the layout entirely while selecting, so a narrow
+   7-column day never squeezes its text to one letter per line */
+.select-mode .drag-handle, .select-mode .row-del, .select-mode .row-more, .select-mode .event-passed-toggle, .select-mode .task-flag{ display:none !important; }
+.select-mode .board .task-text, .select-mode .board .event-text{ padding-inline-end:2px !important; }
+.move-quick{ flex-wrap:wrap; overflow:visible; }
+body.has-select-mode .fab, body.has-select-mode .m-tabbar{ visibility:hidden; }
+
+.sel-bar{
+  position:fixed; z-index:60; inset-inline:0; bottom:16px; margin-inline:auto; width:max-content; max-width:calc(100vw - 24px);
+  display:flex; align-items:center; gap:6px; padding:6px 6px 6px 8px; padding-inline-start:16px;
+  background:var(--ink); color:#fff; border-radius:12px; box-shadow:0 10px 30px -10px rgba(31,27,30,.5); direction:rtl;
+  font-family:'Assistant UI', system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@keyframes selBarIn{ from{ transform:translateY(16px); opacity:0; } }
+.sel-bar{ animation:selBarIn .2s cubic-bezier(.2,.8,.2,1); }
+@keyframes selDotIn{ from{ transform:scale(.4); opacity:0; } }
+.select-mode .task-row[data-id]::before, .select-mode .event-row[data-id]::before{ animation:selDotIn .18s ease-out; }
+@media (prefers-reduced-motion: reduce){ .sel-bar, .select-mode .task-row[data-id]::before, .select-mode .event-row[data-id]::before{ animation:none; } .task-row[data-id], .event-row[data-id]{ transition:none; } }
+.sel-count{ font-size:var(--t-label); font-weight:600; white-space:nowrap; padding-inline-end:6px; min-width:72px; }
+.sel-btn{ min-height:36px; padding:0 12px; border:0; border-radius:var(--r8); background:rgba(255,255,255,.12); color:#fff; font:inherit; font-size:var(--t-label); font-weight:600; cursor:pointer; white-space:nowrap; }
+.sel-btn:hover{ background:rgba(255,255,255,.2); }
+.sel-btn--primary{ background:var(--accent); }
+.sel-btn--primary:hover{ background:#9f3f60; }
+.sel-btn:disabled{ opacity:.45; cursor:default; }
+.sel-btn[hidden]{ display:none; }
+.sel-btn:focus-visible{ outline:2px solid #fff; outline-offset:1px; }
+@media (max-width:767px){
+  .sel-bar{ bottom:0; width:100%; max-width:none; border-radius:14px 14px 0 0; padding:8px 12px calc(8px + env(safe-area-inset-bottom, 0px)); justify-content:space-between; }
+  .sel-btn{ min-height:44px; }
+  #selectModeBtn{ display:none; }
+}
+.planner-root ~ .undo-toast{ z-index:330; }
+body.has-select-mode .undo-toast{ bottom:84px; }
+
+/* desktop: ⋯ appears on hover next to the row's other controls */
+@media (pointer:fine) and (min-width:768px){
+  .has-more .row-more{ display:flex; opacity:0; width:22px; height:22px; border:0; background:var(--s2); color:var(--ink2); align-items:center; justify-content:center; border-radius:6px; flex-shrink:0; cursor:pointer; transition:opacity .12s ease; }
+  .has-more .row-more svg{ width:16px; height:16px; }
+  .task-row:hover > .task-main > .row-more, .event-row:hover > .row-more, .has-more .row-more:focus-visible{ opacity:1; }
+  .has-more .row-more:hover{ background:var(--s3); color:var(--ink); }
+  .planner-root.view-only .row-more{ display:none !important; }
+}
+@media (pointer:fine) and (min-width:768px){
+  .board .task-row .row-more{ position:absolute; top:4px; inset-inline-end:24px; }
+  .board .event-row .row-more{ position:absolute; top:4px; inset-inline-end:46px; }
+  .board .event-row.passed .row-more{ inset-inline-end:24px; }
+  .board .task-row:hover .task-text{ padding-inline-end:44px; }
+  .board .event-row:hover .event-text{ padding-inline-end:68px; }
+}
+
+/* move picker */
+.move-sheet{ display:flex; flex-direction:column; gap:10px; }
+.move-hint{ font-size:12px; color:var(--ink2); text-align:center; margin-top:-2px; }
+.dp-head{ display:flex; align-items:center; justify-content:space-between; padding:2px 0 4px; }
+.dp-title{ font-size:15px; font-weight:700; }
+.dp-grid{ display:flex; flex-direction:column; gap:2px; }
+.dp-row{ display:grid; grid-template-columns:repeat(7, minmax(0,1fr)); gap:2px; border-radius:var(--r8); }
+.dp-h{ text-align:center; font-size:11px; color:var(--ink2); font-weight:600; padding:2px 0; }
+.dp-cell{ height:40px; border:0; border-radius:20px; background:none; font:inherit; font-size:15px; color:var(--ink); cursor:pointer; font-variant-numeric:tabular-nums; }
+.dp-cell:hover{ background:var(--s3); }
+.dp-cell:focus-visible{ outline:2px solid var(--accent); outline-offset:-2px; }
+.dp-cell--outside{ color:var(--ink3); }
+.dp-cell--today{ color:var(--accent); font-weight:700; }
+.dp--week .dp-row:not(.dp-row--head):hover{ background:var(--accent-tint); }
+.dp--week .dp-row:not(.dp-row--head):hover .dp-cell{ background:none; }
+.dp--week .dp-cell{ border-radius:0; }
+.dp--week .dp-row:focus-within{ background:var(--accent-tint); }
+@media (prefers-reduced-motion: reduce){ .has-more .row-more{ transition:none; } }
 </style>
 
 <div class="planner-root" id="root">
@@ -1663,6 +1752,7 @@ html,body{
       </button>
       <button class="filter-clear" id="filterClearBtn" type="button" aria-label="ניקוי הסינון" title="ניקוי הסינון" hidden>×</button>
       <span class="ctx-grow"></span>
+      <button class="ctx-link" id="selectModeBtn" type="button" aria-pressed="false" title="סימון כמה פריטים והעברה שלהם (או ⌘/Ctrl + לחיצה על שורה)">בחירה</button>
       <button class="ctx-link" id="collapseAllBtn" type="button" aria-pressed="false">קיפול המשימות</button>
       <button class="ctx-link" id="toSummaryBtn" type="button">לפי אנשים ↓</button>
       <span class="sync-pill" id="syncStatus" role="status" aria-live="polite"></span>
@@ -3011,6 +3101,7 @@ html,body{
   async function switchToBoard(boardId, opts){
     opts = opts || {};
     if(boardId === currentBoardId) return;
+    exitSelectMode();
     clearTimeout(saveTimer);
     // Only flush when there's actually something unsaved — this used to await
     // pushState() unconditionally on every switch, meaning every board change
@@ -3695,7 +3786,7 @@ html,body{
         moveTaskToDay(item, dayKey, sectionKey, targetDayKey);
         renderBoard();
         renderSummary();
-      });
+      }, {itemId: item.id});
     };
     meta.appendChild(dayChip);
 
@@ -3930,7 +4021,7 @@ html,body{
         moveTaskToDay(item, null, 'unscheduled', targetDayKey);
         renderBoard();
         renderSummary();
-      });
+      }, {itemId: item.id});
     };
     meta.appendChild(dayChip);
     row.appendChild(meta);
@@ -4004,6 +4095,7 @@ html,body{
     const icon = iconForKind(kind);
     list.forEach(entry => grid.appendChild(renderSummaryGroup(kind, entry.id, entry.name, icon, false)));
     grid.appendChild(renderSummaryGroup(kind, null, 'ללא שיוך', null, true));
+    applySelectionVisuals();
   }
 
   function syncItemVisual(id, done){
@@ -4076,7 +4168,7 @@ html,body{
     persistState();
   }
 
-  function openDayPicker(anchorEl, currentDayKey, onPick){
+  function openDayPicker(anchorEl, currentDayKey, onPick, opts){
     closePicker();
     const pop = document.createElement('div');
     pop.className = 'picker';
@@ -4102,6 +4194,14 @@ html,body{
       row.onclick = ()=>{ onPick(d.key); closePicker(); };
       ul.appendChild(row);
     });
+    if(opts && opts.itemId && currentRole === 'editor'){
+      ul.appendChild(Object.assign(document.createElement('div'), {className:'picker-divider'}));
+      const other = document.createElement('div');
+      other.className = 'picker-item';
+      other.textContent = 'תאריך אחר…';
+      other.onclick = ()=>{ closePicker(); openMovePicker([opts.itemId], anchorEl); };
+      ul.appendChild(other);
+    }
     pop.appendChild(ul);
 
     document.body.appendChild(pop);
@@ -5310,7 +5410,8 @@ html,body{
       }
     }
     document.addEventListener('keydown', onDayPeekKeydown);
-    const firstField = panel.querySelector('.event-text, .task-text');
+    applySelectionVisuals();
+    const firstField = !selectMode && panel.querySelector('.event-text, .task-text');
     if(firstField) firstField.focus();
   }
 
@@ -5443,6 +5544,7 @@ html,body{
       }, 250);
     });
     board.appendChild(wrap);
+    applySelectionVisuals();
   }
   // swipe the phone month grid sideways to change month (RTL: swipe left → next)
   (function wireMonthSwipe(){
@@ -5482,6 +5584,7 @@ html,body{
       updateCollapseAllBtn();
       document.getElementById('mStrip').innerHTML = '';
       paintMobileChrome();
+      applySelectionVisuals();
       // the event-zone equalizer and its ResizeObserver are week-view only —
       // both no-op safely here (no .zone-events to find), but skipping them
       // keeps the intent obvious rather than relying on that
@@ -5492,6 +5595,7 @@ html,body{
     afterWeekRender();
     paintMobileChrome();
     updateCollapseAllBtn();
+    applySelectionVisuals();
     applyFilterVisuals();
     equalizeEventZoneHeights();
     watchEventZoneSizes();
@@ -6211,7 +6315,9 @@ html,body{
     const openedAt = performance.now();
     // the finger that long-pressed the FAB lifts over the new sheet: that
     // first click must neither close it nor pick the item under the finger
-    overlay.addEventListener('click', (e) => {
+    // only for sheets opened by a long-press — a quick mouse click right
+    // after opening is a real choice
+    if(opts.guardLift) overlay.addEventListener('click', (e) => {
       if(performance.now() - openedAt < 400){ e.preventDefault(); e.stopPropagation(); }
     }, true);
     overlay.addEventListener('click', (e) => { if(e.target === overlay) closeSheet(); });
@@ -6274,12 +6380,16 @@ html,body{
       {label: 'עריכת הטקסט', run: edit},
       {label: 'שיוך לאיש צוות…', run: () => { ctx.row.classList.add('chips-open'); const chips = ctx.row.querySelectorAll('.task-meta .mini-chip'); if(chips[1]) chips[1].click(); }},
       {label: 'שיוך למופע / נושא…', run: () => { ctx.row.classList.add('chips-open'); const chips = ctx.row.querySelectorAll('.task-meta .mini-chip'); if(chips[0]) chips[0].click(); }},
+      {label: 'העברה ל…', run: () => openMovePicker([it.id])},
       {label: 'שכפול', run: duplicate},
+      {label: 'בחירת כמה פריטים…', run: () => { enterSelectMode(); toggleSelected(ctx.row, {}); }},
       {label: 'מחיקה', danger: true, run: () => ctx.del.click()}
     ] : [
       {label: it.passed ? 'ביטול "התקיים"' : 'סימון שהאירוע התקיים', run: () => ctx.toggle.click()},
       {label: 'עריכת הטקסט', run: edit},
+      {label: 'העברה ל…', run: () => openMovePicker([it.id])},
       {label: 'שכפול', run: duplicate},
+      {label: 'בחירת כמה פריטים…', run: () => { enterSelectMode(); toggleSelected(ctx.row, {}); }},
       {label: 'מחיקה', danger: true, run: () => ctx.del.click()}
     ];
     openSheet(label, sheetList(items));
@@ -6376,7 +6486,7 @@ html,body{
         if(add) add.click(); else { const b = card.querySelector('.day-banner'); if(b) b.focus(); }
       }},
       {label: 'לוח חדש', run: openNewBoardModal}
-    ]));
+    ]), {guardLift: true});
   }
   (function wireFab(){
     const fab = document.getElementById('fabBtn');
@@ -6402,11 +6512,387 @@ html,body{
     requestAnimationFrame(() => scrollDayIntoView(mSelectedDay, false));
   };
 
+  /* ---------- G2 stage 5: select several items and move them to any date or week ---------- */
+
+  const selection = new Map();   // id -> 'task' | 'event'   (ids are board-unique)
+  let selectMode = false;
+  let selAnchorId = null;        // shift-click range start
+
+  // Where an item lives right now, wherever that is (any week, any day, or the pool).
+  // Location is never cached: polls, drags and moves change it under us.
+  function locateItem(id){
+    const weeks = (appState && appState.weeks) || {};
+    for(const k of Object.keys(weeks)){
+      const w = weeks[k];
+      for(const d of DAY_DEFS){
+        const day = w[d.key];
+        if(!day) continue;
+        for(const sec of ['events'].concat(TASK_SECTIONS.map(s => s.key))){
+          const arr = day[sec] || [];
+          const i = arr.findIndex(x => x.id === id);
+          if(i > -1) return {id, item: arr[i], arr, index: i, weekIso: k.slice(STORAGE_PREFIX.length), day: d.key, section: sec, kind: sec === 'events' ? 'event' : 'task'};
+        }
+      }
+    }
+    const pool = (appState && appState.unscheduled) || [];
+    const i = pool.findIndex(x => x.id === id);
+    if(i > -1) return {id, item: pool[i], arr: pool, index: i, weekIso: null, day: null, section: 'unscheduled', kind: 'task'};
+    return null;
+  }
+  function parseIsoKey(iso){ const p = iso.split('-').map(Number); return new Date(p[0], p[1] - 1, p[2]); }
+  function rowKind(row){ return row.classList.contains('event-row') ? 'event' : 'task'; }
+  const SELECTABLE = '.task-row[data-id], .event-row[data-id]';
+  function isSelectableRow(row){
+    return !!row && !!row.closest('#board, .peek-panel, #summaryGrid') && !row.closest('.drawer-panel');
+  }
+
+  function enterSelectMode(){
+    if(currentRole !== 'editor' || currentBoardType === 'notes') return;
+    if(selectMode) return;
+    selectMode = true;
+    closePicker(); closeSheet();
+    if(document.activeElement && document.activeElement.isContentEditable) document.activeElement.blur();
+    document.getElementById('root').classList.add('select-mode');
+    document.body.classList.add('has-select-mode');
+    renderSelBar();
+    applySelectionVisuals();
+  }
+  function exitSelectMode(){
+    if(!selectMode && !selection.size) return;
+    selectMode = false;
+    selection.clear();
+    selAnchorId = null;
+    document.getElementById('root').classList.remove('select-mode');
+    document.body.classList.remove('has-select-mode');
+    const bar = document.getElementById('selBar');
+    if(bar) bar.remove();
+    applySelectionVisuals();
+    const btn = document.getElementById('selectModeBtn');
+    if(btn) btn.setAttribute('aria-pressed', 'false');
+  }
+  function toggleSelected(row, opts){
+    const id = row.getAttribute('data-id');
+    if(opts && opts.range && selAnchorId){
+      // range within the same list, in on-screen order
+      const list = row.parentElement;
+      const rows = Array.from(list.querySelectorAll(':scope > ' + (row.classList.contains('event-row') ? '.event-row' : '.task-row')));
+      const a = rows.findIndex(r => r.getAttribute('data-id') === selAnchorId);
+      const b = rows.indexOf(row);
+      if(a > -1 && b > -1){
+        rows.slice(Math.min(a, b), Math.max(a, b) + 1).forEach(r => selection.set(r.getAttribute('data-id'), rowKind(r)));
+        applySelectionVisuals(); updateSelBar();
+        return;
+      }
+    }
+    if(selection.has(id)) selection.delete(id); else selection.set(id, rowKind(row));
+    selAnchorId = id;
+    applySelectionVisuals(); updateSelBar();
+  }
+  // re-applied after every render (polls, navigation, peeks) — selection is by id
+  function applySelectionVisuals(){
+    for(const id of Array.from(selection.keys())) if(!locateItem(id)) selection.delete(id);
+    document.querySelectorAll(SELECTABLE).forEach(row => {
+      if(!isSelectableRow(row)) return;
+      const on = selectMode && selection.has(row.getAttribute('data-id'));
+      row.classList.toggle('is-selected', on);
+      if(selectMode){
+        row.setAttribute('role', 'checkbox');
+        row.setAttribute('aria-checked', String(on));
+        row.tabIndex = 0;
+      } else if(row.getAttribute('role') === 'checkbox'){
+        row.removeAttribute('role'); row.removeAttribute('aria-checked'); row.removeAttribute('tabindex');
+      }
+    });
+    if(selectMode) updateSelBar();
+  }
+
+  function renderSelBar(){
+    let bar = document.getElementById('selBar');
+    if(bar) return bar;
+    bar = document.createElement('div');
+    bar.id = 'selBar';
+    bar.className = 'sel-bar';
+    bar.setAttribute('role', 'toolbar');
+    bar.setAttribute('aria-label', 'פריטים מסומנים');
+    bar.innerHTML =
+      '<span class="sel-count" role="status" aria-live="polite"></span>' +
+      '<button type="button" class="sel-btn sel-btn--primary" data-act="move">העברה ל…</button>' +
+      '<button type="button" class="sel-btn" data-act="done">סימון כבוצע</button>' +
+      '<button type="button" class="sel-btn" data-act="cancel">ביטול</button>';
+    bar.querySelector('[data-act="move"]').onclick = (e) => { if(selection.size) openMovePicker(Array.from(selection.keys()), e.currentTarget); };
+    bar.querySelector('[data-act="done"]').onclick = markSelectionDone;
+    bar.querySelector('[data-act="cancel"]').onclick = exitSelectMode;
+    document.body.appendChild(bar);
+    updateSelBar();
+    return bar;
+  }
+  function updateSelBar(){
+    const bar = document.getElementById('selBar');
+    if(!bar) return;
+    const n = selection.size;
+    bar.querySelector('.sel-count').textContent = n ? (n === 1 ? 'פריט אחד נבחר' : n + ' נבחרו') : 'בחרו פריטים';
+    bar.querySelector('[data-act="move"]').disabled = !n;
+    const tasks = Array.from(selection.values()).filter(k => k === 'task').length;
+    const done = bar.querySelector('[data-act="done"]');
+    done.hidden = !tasks;
+    const btn = document.getElementById('selectModeBtn');
+    if(btn) btn.setAttribute('aria-pressed', String(selectMode));
+  }
+  function markSelectionDone(){
+    const changed = [];
+    selection.forEach((kind, id) => {
+      if(kind !== 'task') return;
+      const loc = locateItem(id);
+      if(loc && !loc.item.done){ loc.item.done = true; changed.push(loc.item); }
+    });
+    if(!changed.length){ exitSelectMode(); return; }
+    persistState();
+    exitSelectMode();
+    renderBoard(); renderSummary();
+    showUndoToast(changed.length === 1 ? 'סומנה משימה אחת כבוצעה' : 'סומנו ' + changed.length + ' משימות כבוצעו', () => {
+      changed.forEach(t => { t.done = false; });
+      persistState(); renderBoard(); renderSummary();
+    });
+  }
+
+  // click / tap handling while selecting: the whole row is the target
+  document.addEventListener('click', (e) => {
+    if(!selectMode) return;
+    const row = e.target.closest && e.target.closest(SELECTABLE);
+    if(!row || !isSelectableRow(row)) return;
+    e.preventDefault(); e.stopPropagation();
+    toggleSelected(row, {range: e.shiftKey});
+  }, true);
+  // desktop: ⌘/Ctrl-click a row starts selecting (and picks it)
+  document.addEventListener('click', (e) => {
+    if(selectMode || !(e.metaKey || e.ctrlKey) || currentRole !== 'editor') return;
+    const row = e.target.closest && e.target.closest(SELECTABLE);
+    if(!row || !isSelectableRow(row)) return;
+    e.preventDefault(); e.stopPropagation();
+    enterSelectMode();
+    toggleSelected(row, {});
+  }, true);
+  document.addEventListener('keydown', (e) => {
+    if(!selectMode) return;
+    if(e.key === 'Escape' && !openSheetEl && !openPickerEl){ e.preventDefault(); exitSelectMode(); return; }
+    const row = e.target.closest && e.target.closest(SELECTABLE);
+    if(row && isSelectableRow(row) && (e.key === ' ' || e.key === 'Enter')){ e.preventDefault(); toggleSelected(row, {range: e.shiftKey}); }
+  });
+  document.getElementById('selectModeBtn').onclick = () => { if(selectMode) exitSelectMode(); else enterSelectMode(); };
+
+  // touch: long-press a row (not its checkbox/drag handle, not text being
+  // edited) starts selecting with that row picked — the iOS Mail gesture
+  (function wireRowLongPress(){
+    let timer = null, x0 = 0, y0 = 0, fired = false;
+    document.addEventListener('pointerdown', (e) => {
+      if(e.pointerType !== 'touch' || selectMode || currentRole !== 'editor') return;
+      const row = e.target.closest && e.target.closest(SELECTABLE);
+      if(!row || !isSelectableRow(row)) return;
+      if(e.target.closest('input, button, .drag-handle, .mini-chip, .task-meta')) return;
+      const t = e.target.closest('[contenteditable="true"]');
+      if(t && document.activeElement === t) return;   // they're editing: leave text selection alone
+      x0 = e.clientX; y0 = e.clientY; fired = false;
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        fired = true;
+        if(navigator.vibrate) try{ navigator.vibrate(10); }catch(err){}
+        enterSelectMode();
+        toggleSelected(row, {});
+      }, 420);
+    }, true);
+    const cancel = () => clearTimeout(timer);
+    document.addEventListener('pointermove', (e) => { if(Math.abs(e.clientX - x0) > 8 || Math.abs(e.clientY - y0) > 8) cancel(); }, true);
+    document.addEventListener('pointerup', cancel, true);
+    document.addEventListener('pointercancel', cancel, true);
+    // the lifting finger must not also toggle/edit what's under it
+    // window-level capture runs before the document-level selection handler
+    window.addEventListener('click', (e) => { if(fired){ fired = false; e.preventDefault(); e.stopPropagation(); } }, true);
+    document.addEventListener('contextmenu', (e) => { if(fired || (selectMode && e.target.closest && e.target.closest(SELECTABLE))) e.preventDefault(); }, true);
+  })();
+
+  // ---- the move itself ----
+  // target: {date: Date} | {week: Date (its Sunday), keepDay: true} | {shiftWeeks: n} | {pool: true}
+  function moveItems(ids, target){
+    const located = ids.map(locateItem).filter(Boolean);
+    const plan = [];
+    let skipped = 0;
+    const todayWs = startOfWeek(new Date());
+    located.forEach(src => {
+      let destWs, destDay;
+      if(target.pool){
+        if(src.kind === 'event'){ skipped++; return; } // events always belong to a day
+        if(src.section === 'unscheduled'){ skipped++; return; }
+        plan.push({src, pool: true});
+        return;
+      }
+      if(target.date){
+        destWs = startOfWeek(target.date); destDay = DAY_DEFS[target.date.getDay()].key;
+      } else {
+        const baseWs = src.weekIso ? parseIsoKey(src.weekIso) : todayWs;
+        destWs = target.week ? startOfWeek(target.week) : new Date(baseWs.getFullYear(), baseWs.getMonth(), baseWs.getDate() + 7 * target.shiftWeeks);
+        destDay = src.day || 'sun';   // a pool task has no weekday: lands on Sunday
+      }
+      const destSection = src.kind === 'event' ? 'events' : (src.section === 'unscheduled' ? 'general' : src.section);
+      if(src.weekIso === isoKey(destWs) && src.day === destDay && src.section === destSection){ skipped++; return; }
+      plan.push({src, destWs, destDay, destSection});
+    });
+    if(!plan.length) return {moved: 0, skipped};
+    // take everything out first (highest index first per array), then append in selection order
+    const undo = plan.map(p => ({item: p.src.item, arr: p.src.arr, index: p.src.index}));
+    const byArr = new Map();
+    plan.forEach(p => { if(!byArr.has(p.src.arr)) byArr.set(p.src.arr, []); byArr.get(p.src.arr).push(p.src.item); });
+    byArr.forEach((items, arr) => {
+      items.map(it => arr.indexOf(it)).filter(i => i > -1).sort((a, b) => b - a).forEach(i => arr.splice(i, 1));
+    });
+    plan.forEach(p => {
+      if(p.pool){ if(!appState.unscheduled) appState.unscheduled = []; appState.unscheduled.push(p.src.item); p.dest = appState.unscheduled; return; }
+      // loadWeek creates the target week when nobody has opened it yet
+      const dest = (weekKey(p.destWs) === weekKey(weekStart) ? weekData : loadWeek(p.destWs))[p.destDay][p.destSection];
+      dest.push(p.src.item);
+      p.dest = dest;
+    });
+    persistState();
+    exitSelectMode();
+    if(currentView === 'month' && dayPeekEl) closeDayPeek();
+    renderBoard(); renderSummary();
+    requestAnimationFrame(() => plan.forEach(p => {
+      document.querySelectorAll('[data-id="' + p.src.item.id + '"]').forEach(r => { r.classList.remove('flash'); void r.offsetWidth; r.classList.add('flash'); setTimeout(() => r.classList.remove('flash'), 1800); });
+    }));
+    const n = plan.length;
+    const what = n === 1 ? 'הפריט הועבר' : 'הועברו ' + n + ' פריטים';
+    let where;
+    if(target.pool) where = 'למאגר המשימות';
+    else if(target.date) where = 'ל' + DAY_DEFS[target.date.getDay()].name + ' ' + fmtDate(target.date);
+    else if(target.week){ const e = new Date(target.week); e.setDate(e.getDate() + 6); where = 'לשבוע ' + fmtDate(target.week) + '–' + fmtDate(e); }
+    else where = target.shiftWeeks > 0 ? 'לשבוע הבא' : 'לשבוע הקודם';
+    showUndoToast(what + ' ' + where + (skipped ? ' (' + skipped + ' כבר היו שם)' : ''), () => {
+      plan.forEach(p => { const i = p.dest.indexOf(p.src.item); if(i > -1) p.dest.splice(i, 1); });
+      undo.slice().sort((a, b) => a.index - b.index).forEach(u => u.arr.splice(Math.min(u.index, u.arr.length), 0, u.item));
+      persistState(); renderBoard(); renderSummary();
+    });
+    return {moved: n, skipped};
+  }
+
+  // ---- "העברה ל…": a date or a whole week, with the common moves one tap away ----
+  function openMovePicker(ids, returnFocusEl){
+    if(currentRole !== 'editor' || !ids.length) return;
+    const located = ids.map(locateItem).filter(Boolean);
+    const hasTask = located.some(l => l.kind === 'task');
+    const allPool = located.every(l => l.section === 'unscheduled');
+    const first = located.find(l => l.weekIso);
+    let firstDate = new Date();
+    if(first){ firstDate = parseIsoKey(first.weekIso); firstDate.setDate(firstDate.getDate() + DAY_DEFS.findIndex(d => d.key === first.day)); }
+    let anchor = startOfMonth(firstDate);
+    let mode = 'date';
+    const today = new Date(); today.setHours(0,0,0,0);
+    const go = (t) => { closeSheet(); setTimeout(() => moveItems(ids, t), 0); };
+
+    const body = document.createElement('div');
+    body.className = 'move-sheet';
+    const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
+    const quick = document.createElement('div');
+    quick.className = 'chip-row move-quick';
+    const qb = (label, t) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'chip-opt'; b.textContent = label; b.onclick = () => go(t); quick.appendChild(b); };
+    qb('היום', {date: today});
+    qb('מחר', {date: tomorrow});
+    if(!allPool){ qb('שבוע הבא', {shiftWeeks: 1}); qb('שבוע קודם', {shiftWeeks: -1}); }
+    if(hasTask && !allPool) qb('למאגר (בלי תאריך)', {pool: true});
+    body.appendChild(quick);
+
+    const seg = document.createElement('div');
+    seg.className = 'seg';
+    seg.setAttribute('role', 'radiogroup');
+    seg.setAttribute('aria-label', 'מה בוחרים בלוח');
+    seg.innerHTML = '<button type="button" data-m="date" role="radio">יום מסוים</button><button type="button" data-m="week" role="radio">שבוע שלם</button>';
+    body.appendChild(seg);
+    const hint = document.createElement('div');
+    hint.className = 'move-hint';
+    body.appendChild(hint);
+
+    const cal = document.createElement('div');
+    cal.className = 'dp';
+    body.appendChild(cal);
+
+    function paint(focusIso){
+      seg.querySelectorAll('[data-m]').forEach(b => { const on = b.dataset.m === mode; b.classList.toggle('is-on', on); b.setAttribute('aria-checked', String(on)); });
+      hint.textContent = mode === 'date' ? 'בחרו יום — הפריטים יעברו אליו' : 'בחרו שבוע — כל פריט נשאר באותו יום בשבוע';
+      cal.classList.toggle('dp--week', mode === 'week');
+      cal.innerHTML = '';
+      const head = document.createElement('div');
+      head.className = 'dp-head';
+      head.innerHTML =
+        '<button type="button" class="nav-btn dp-prev" aria-label="חודש קודם"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3l5 5-5 5"/></svg></button>' +
+        '<span class="dp-title" aria-live="polite">' + monthLabel(anchor) + '</span>' +
+        '<button type="button" class="nav-btn dp-next" aria-label="חודש הבא"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3L5 8l5 5"/></svg></button>';
+      head.querySelector('.dp-prev').onclick = () => { anchor = new Date(anchor.getFullYear(), anchor.getMonth() - 1, 1); paint(); };
+      head.querySelector('.dp-next').onclick = () => { anchor = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 1); paint(); };
+      cal.appendChild(head);
+      const grid = document.createElement('div');
+      grid.className = 'dp-grid';
+      grid.setAttribute('role', 'grid');
+      grid.setAttribute('aria-label', monthLabel(anchor));
+      const hr = document.createElement('div');
+      hr.className = 'dp-row dp-row--head';
+      HEB_DAY_LETTER.forEach(l => { const c = document.createElement('span'); c.className = 'dp-h'; c.textContent = l; hr.appendChild(c); });
+      grid.appendChild(hr);
+      monthWeekStarts(anchor).forEach(ws => {
+        const r = document.createElement('div');
+        r.className = 'dp-row';
+        r.setAttribute('role', 'row');
+        DAY_DEFS.forEach((d, i) => {
+          const date = new Date(ws); date.setDate(date.getDate() + i);
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'dp-cell' + (date.getMonth() !== anchor.getMonth() ? ' dp-cell--outside' : '') + (sameDay(date, today) ? ' dp-cell--today' : '');
+          b.dataset.iso = isoKey(date);
+          b.textContent = date.getDate();
+          b.tabIndex = -1;
+          b.setAttribute('aria-label', d.name + ', ' + longDateLabel(date) + (mode === 'week' ? ' — כל השבוע' : ''));
+          b.onclick = () => go(mode === 'date' ? {date} : {week: ws});
+          r.appendChild(b);
+        });
+        grid.appendChild(r);
+      });
+      cal.appendChild(grid);
+      // roving focus, RTL arrows (→ = earlier day), PageUp/PageDown = month
+      const cells = Array.from(grid.querySelectorAll('.dp-cell'));
+      let idx = cells.findIndex(c => c.dataset.iso === (focusIso || isoKey(sameMonth(firstDate, anchor) ? firstDate : (sameMonth(today, anchor) ? today : anchor))));
+      if(idx < 0) idx = cells.findIndex(c => !c.classList.contains('dp-cell--outside'));
+      cells.forEach((c, i) => c.tabIndex = i === idx ? 0 : -1);
+      grid.addEventListener('keydown', (e) => {
+        const cur = cells.indexOf(document.activeElement);
+        if(cur < 0) return;
+        let next = null;
+        if(e.key === 'ArrowRight') next = cur - 1;
+        else if(e.key === 'ArrowLeft') next = cur + 1;
+        else if(e.key === 'ArrowUp') next = cur - 7;
+        else if(e.key === 'ArrowDown') next = cur + 7;
+        else if(e.key === 'PageUp' || e.key === 'PageDown'){
+          e.preventDefault();
+          anchor = new Date(anchor.getFullYear(), anchor.getMonth() + (e.key === 'PageDown' ? 1 : -1), 1);
+          paint(); const f = cal.querySelector('.dp-cell[tabindex="0"]'); if(f) f.focus();
+          return;
+        } else return;
+        e.preventDefault();
+        if(next < 0 || next >= cells.length) return;
+        cells.forEach((c, i) => c.tabIndex = i === next ? 0 : -1);
+        cells[next].focus();
+      });
+    }
+    function sameMonth(a, b){ return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth(); }
+    seg.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { mode = b.dataset.m; paint(); });
+    paint();
+    const n = located.length;
+    const panel = openSheet(n === 1 ? 'העברה של "' + ((located[0].item.text || '').trim().slice(0, 40) || 'פריט') + '"' : 'העברה של ' + n + ' פריטים', body, {cls: 'sheet--move', focus: body.querySelector('.dp-cell[tabindex="0"]')});
+    if(returnFocusEl) panel.parentElement.__returnFocus = returnFocusEl;
+  }
+
   /* ---------- week / month switching ---------- */
 
   function setView(view, opts){
     opts = opts || {};
     if(view !== 'week' && view !== 'month') view = 'week';
+    if(view !== currentView) exitSelectMode();
     currentView = view;
     if(view === 'month'){
       // a week that straddles two months opens on the month that holds
