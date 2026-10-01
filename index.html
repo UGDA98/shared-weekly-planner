@@ -6,7 +6,7 @@
 <!-- App build version, compared against version.txt to detect a new deploy in
      installed standalone PWA windows (which have no reload affordance). MUST be
      bumped together with version.txt on every deploy — see NOTES.md deploy step. -->
-<meta name="app-version" content="20261001-1608">
+<meta name="app-version" content="20261001-1616">
 <title>יומן ומשימות</title>
 <!-- PWA manifest + icons — no service worker on purpose: this is a live-data
      app on a 20s poll, a SW would only risk serving a stale index.html for
@@ -1525,6 +1525,78 @@ html,body{
 @media (prefers-reduced-motion: reduce){
   .sheet, .sheet-overlay, .ms-n{ transition:none; }
 }
+
+/* ---------- G2 stage 4: month ---------- */
+/* desktop: one calendar sheet with hairlines; rows of text (events = accent bar,
+   tasks = hollow circle), "עוד N"; today = accent number circle */
+.board.month-mode{ padding:12px 20px 8px; }
+.mv-grid{ gap:0; border:1px solid var(--hl); border-radius:var(--r12); overflow:hidden; background:var(--s1); }
+.mv-row{ gap:0; }
+.mv-row--head{ background:var(--s1); }
+.mv-head-cell{ padding:8px 4px 6px; font-size:var(--t-label); color:var(--ink2); }
+.mv-cell{
+  border:0; border-top:1px solid var(--hl); border-inline-start:1px solid var(--hl); border-radius:0;
+  min-height:112px; padding:6px 6px 8px; gap:3px; background:var(--s1); transition:background .12s ease;
+}
+.mv-row .mv-cell:first-child{ border-inline-start:0; }
+.mv-cell:hover{ background:var(--s2); border-color:var(--hl); }
+.mv-cell:focus-visible{ outline:2px solid var(--accent); outline-offset:-2px; }
+.mv-cell--empty{ background:var(--s1); }
+.mv-cell--outside{ background:var(--s2); }
+.mv-cell--today{ border-color:var(--hl); box-shadow:none; }
+.mv-date{ text-align:start; padding:0; }
+.mv-num{ display:inline-flex; min-width:24px; height:24px; padding:0 4px; border-radius:12px; align-items:center; justify-content:center; font-size:13px; font-weight:600; color:var(--ink2); }
+.mv-cell--outside .mv-num{ color:var(--ink3); }
+.mv-cell--today .mv-num{ background:var(--accent); color:#fff; }
+.mv-title{ border-radius:6px; padding:2px 6px; }
+.mv-items{ gap:1px; }
+.mv-chip{ display:flex; align-items:center; gap:6px; background:none; border:0; padding:1px 2px; font-size:var(--t-cap); line-height:16px; color:var(--ink); min-width:0; }
+.mv-chip--event, .mv-chip--task{ background:none; border:0; }
+.mv-chip-text{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
+.mv-mark{ flex:none; }
+.mv-chip--event .mv-mark{ width:3px; height:12px; border-radius:2px; background:var(--accent); }
+.mv-chip--task .mv-mark{ width:8px; height:8px; border-radius:50%; border:1.3px solid var(--ink3); }
+.mv-chip--task.done .mv-mark{ background:var(--done); border-color:var(--done); }
+.mv-chip.done{ color:var(--ink3); text-decoration:none; }
+.mv-more{ font-size:var(--t-cap); color:var(--ink2); padding-inline-start:16px; }
+.mv-mini, .mv-daylist{ display:none; }
+@media (min-width:768px) and (max-width:1365px){ .mv-cell{ min-height:100px; padding:4px 4px 6px; } }
+
+/* phones: dots grid (≈55% of the screen) + the selected day under it */
+@media (max-width:767px){
+  .board.month-mode{ padding:2px 0 8px; }
+  /* pan-y: a sideways swipe stays with our month-swipe handler instead of becoming a browser pan (pointercancel) */
+  .m-layout .mv-grid{ border:0; border-radius:0; background:transparent; touch-action:pan-y; }
+  .mv-head-cell{ font-size:11px; padding:4px 0 2px; }
+  .mv-row--head{ background:transparent; }
+  .mv-cell{ min-height:54px; padding:3px 1px 4px; align-items:center; border-inline-start:0; background:transparent; gap:2px; border-radius:0; }
+  .mv-cell:hover{ background:transparent; }
+  .mv-cell--outside{ background:transparent; }
+  .mv-date{ text-align:center; }
+  .mv-num{ width:30px; min-width:30px; height:30px; border-radius:50%; padding:0; font-size:15px; color:var(--ink); transition:background .15s ease, color .15s ease; }
+  .mv-cell--outside .mv-num{ color:var(--ink3); }
+  .mv-cell--today .mv-num{ background:transparent; color:var(--accent); }
+  .mv-cell--selected .mv-num{ background:var(--ink); color:#fff; }
+  .mv-cell--today.mv-cell--selected .mv-num{ background:var(--accent); color:#fff; }
+  .mv-items{ display:none; }
+  /* a day title is the one thing worth words in a 50px column */
+  .mv-title{
+    display:block; height:auto; width:100%; padding:0 2px; border-radius:0; background:none;
+    font-size:10.5px; line-height:13px; font-weight:600; color:var(--accent-soft-ink);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; word-break:keep-all; text-align:center;
+  }
+  .mv-mini{ display:flex; gap:3px; align-items:center; justify-content:center; min-height:12px; }
+  .mv-dot{ width:5px; height:5px; border-radius:50%; background:var(--accent); }
+  .mv-count{ font-size:10px; line-height:12px; color:var(--ink2); font-weight:600; }
+  .mv-empty{ display:none; }
+  .mv-daylist{ display:block; margin:10px 16px 0; background:var(--s1); border:1px solid var(--hl); border-radius:var(--r12); padding:10px 12px 8px; }
+  .mv-daylist-head{ display:flex; flex-direction:column; padding:2px 0 6px; }
+  .mv-daylist-title{ font-size:16px; line-height:22px; font-weight:700; }
+  .mv-daylist-body .peek-section, .mv-daylist-body > div + div{ margin-top:8px; }
+  .mv-daylist-body .peek-section + .peek-section{ padding-top:8px; border-top:1px solid var(--hl); }
+  .mv-daylist-body .peek-section-label{ font-size:12px; color:var(--ink2); font-weight:600; padding:2px 0 4px; }
+}
+@media (prefers-reduced-motion: reduce){ .mv-num{ transition:none; } }
 </style>
 
 <div class="planner-root" id="root">
@@ -3500,7 +3572,8 @@ html,body{
     // aren't part of weekData — matching them here would both throw (no .day
     // ancestor to read data-day from) and be meaningless (filters are a
     // per-day-section concept).
-    document.querySelectorAll('#board .task-row[data-id]').forEach(row=>{
+    // .day-scoped: the phone month's day list also renders .task-rows inside #board
+    document.querySelectorAll('#board .day .task-row[data-id]').forEach(row=>{
       const day = row.closest('.day').getAttribute('data-day');
       const section = row.getAttribute('data-section');
       const id = row.getAttribute('data-id');
@@ -4957,17 +5030,20 @@ html,body{
     weekData = loadWeek(weekStart);
   }
 
-  function monthCellMax(){
-    return window.matchMedia('(max-width:767px)').matches ? 4 : 3;
-  }
+  // desktop cells show text rows; phones show dots (see .mv-mini), so this
+  // only matters for the text layout
+  function monthCellMax(){ return 4; }
 
+  // events first (they are the fixed points of a day), then open tasks, then
+  // done ones — a done task is the least useful thing to spend a cell row on
   function monthCellEntries(dayData){
     const out = [];
     ((dayData && dayData.events) || []).forEach(item => out.push({item, kind:'event'}));
+    const open = [], done = [];
     TASK_SECTIONS.forEach(sec => {
-      ((dayData && dayData[sec.key]) || []).forEach(item => out.push({item, kind:'task', sectionKey:sec.key}));
+      ((dayData && dayData[sec.key]) || []).forEach(item => (item.done ? done : open).push({item, kind:'task', sectionKey:sec.key}));
     });
-    return out;
+    return out.concat(open, done);
   }
 
   function buildMonthChip(entry){
@@ -4977,6 +5053,10 @@ html,body{
     // ticked off inside the day peek — it already targets [data-id] globally.
     chip.setAttribute('data-id', entry.item.id);
     chip.__item = entry.item;
+    const mark = document.createElement('span');
+    mark.className = 'mv-mark';
+    mark.setAttribute('aria-hidden', 'true');
+    chip.appendChild(mark);
     const text = document.createElement('span');
     text.className = 'mv-chip-text';
     text.textContent = entry.item.text || '(ללא טקסט)';
@@ -4996,7 +5076,7 @@ html,body{
 
     const num = document.createElement('div');
     num.className = 'mv-date';
-    num.textContent = String(date.getDate());
+    num.innerHTML = '<span class="mv-num">' + date.getDate() + '</span>';
     cell.appendChild(num);
 
     // a day title means "the whole day is X" — exactly the kind of thing a
@@ -5029,13 +5109,27 @@ html,body{
 
     const evCount = ((dayData && dayData.events) || []).length;
     const taskCount = entries.length - evCount;
+    // phones: up to 3 event dots + the number of open tasks (no text fits in a
+    // 50px column); a day title still shows as one line of text above them
+    const openTasks = entries.filter(e => e.kind === 'task' && !e.item.done).length;
+    const mini = document.createElement('div');
+    mini.className = 'mv-mini';
+    mini.setAttribute('aria-hidden', 'true');
+    for(let i = 0; i < Math.min(3, evCount); i++){ const dot = document.createElement('span'); dot.className = 'mv-dot'; mini.appendChild(dot); }
+    if(openTasks){ const c = document.createElement('span'); c.className = 'mv-count'; c.textContent = String(openTasks); mini.appendChild(c); }
+    cell.appendChild(mini);
     cell.setAttribute('aria-label',
       dayDef.name + ', ' + date.getDate() + ' ב' + HEB_MONTHS[date.getMonth()] +
       (dayTitle ? ', ' + dayTitle : '') +
       ', ' + evCount + ' אירועים, ' + taskCount + ' משימות');
 
     if(!entries.length && !dayTitle) cell.classList.add('mv-cell--empty');
-    cell.addEventListener('click', ()=> openDayPeek(ws, dayDef, date));
+    if(mMonthSel && mMonthSel.week === isoKey(ws) && mMonthSel.day === dayDef.key) cell.classList.add('mv-cell--selected');
+    cell.addEventListener('click', ()=> {
+      // phones: select the day and show it under the grid; desktop: the peek
+      if(isMobileLayout()) selectMonthDay(ws, dayDef.key);
+      else openDayPeek(ws, dayDef, date);
+    });
     cell.__count = entries.length;
     return cell;
   }
@@ -5083,6 +5177,7 @@ html,body{
 
     board.appendChild(grid);
     wireMonthKeyboard(grid);
+    if(isMobileLayout()) renderMonthDayList(board, grid);
 
     if(total === 0){
       const empty = document.createElement('div');
@@ -5194,8 +5289,36 @@ html,body{
     head.appendChild(closeBtn);
     panel.appendChild(head);
 
-    const body = document.createElement('div');
+    const body = buildDayDetail(dayDef, data);
     body.className = 'peek-body';
+
+    panel.appendChild(body);
+    overlay.appendChild(panel);
+    document.body.appendChild(overlay);
+
+    dayPeekEl = overlay;
+    overlay.__focusBack = { week: isoKey(ws), day: dayDef.key };
+
+    // desktop: anchored popover, reusing the shared placement helper that
+    // already clamps horizontally and flips above when there's no room below.
+    // mobile: CSS bottom sheet, no positioning needed.
+    if(!window.matchMedia('(max-width:767px)').matches){
+      const anchor = document.querySelector('#board .mv-cell[data-week="'+isoKey(ws)+'"][data-day="'+dayDef.key+'"]');
+      if(anchor){
+        panel.classList.add('peek-panel--anchored');
+        positionPopover(panel, anchor.getBoundingClientRect(), {width:320});
+      }
+    }
+    document.addEventListener('keydown', onDayPeekKeydown);
+    const firstField = panel.querySelector('.event-text, .task-text');
+    if(firstField) firstField.focus();
+  }
+
+  // The editable contents of one day (title, events, both task sections),
+  // built from the same row renderers as the week board. The caller must have
+  // aimed the week context (setWeekContext) at this day's week first.
+  function buildDayDetail(dayDef, data){
+    const body = document.createElement('div');
 
     // the day-title banner, reused verbatim — it writes via saveWeek(weekStart,
     // weekData), which setWeekContext above has already aimed at this week
@@ -5258,28 +5381,93 @@ html,body{
       wrap.appendChild(add);
       body.appendChild(wrap);
     });
-
-    panel.appendChild(body);
-    overlay.appendChild(panel);
-    document.body.appendChild(overlay);
-
-    dayPeekEl = overlay;
-    overlay.__focusBack = { week: isoKey(ws), day: dayDef.key };
-
-    // desktop: anchored popover, reusing the shared placement helper that
-    // already clamps horizontally and flips above when there's no room below.
-    // mobile: CSS bottom sheet, no positioning needed.
-    if(!window.matchMedia('(max-width:767px)').matches){
-      const anchor = document.querySelector('#board .mv-cell[data-week="'+isoKey(ws)+'"][data-day="'+dayDef.key+'"]');
-      if(anchor){
-        panel.classList.add('peek-panel--anchored');
-        positionPopover(panel, anchor.getBoundingClientRect(), {width:320});
-      }
-    }
-    document.addEventListener('keydown', onDayPeekKeydown);
-    const firstField = panel.querySelector('.event-text, .task-text');
-    if(firstField) firstField.focus();
+    return body;
   }
+
+  // ---- phone month: tap selects a day, its contents show under the grid ----
+  let mMonthSel = null; // {week: isoKey(weekStart), day: dayKey}
+  function monthDefaultSel(){
+    const t = new Date();
+    const inMonth = t.getFullYear() === monthAnchor.getFullYear() && t.getMonth() === monthAnchor.getMonth();
+    const d = inMonth ? t : startOfMonth(monthAnchor);
+    return {week: isoKey(startOfWeek(d)), day: DAY_DEFS[d.getDay()].key};
+  }
+  function selectMonthDay(ws, dayKey){
+    mMonthSel = {week: isoKey(startOfWeek(ws)), day: dayKey};
+    // a greyed day of the previous/next month opens that month, like iOS Calendar
+    const d = new Date(startOfWeek(ws)); d.setDate(d.getDate() + DAY_DEFS.findIndex(x => x.key === dayKey));
+    if(d.getMonth() !== monthAnchor.getMonth() || d.getFullYear() !== monthAnchor.getFullYear()){
+      monthAnchor = startOfMonth(d);
+      updateWeekRange(); renderBoard(); renderSummary(); paintMobileChrome();
+      return;
+    }
+    document.querySelectorAll('#board .mv-cell--selected').forEach(c => c.classList.remove('mv-cell--selected'));
+    const cell = document.querySelector('#board .mv-cell[data-week="' + mMonthSel.week + '"][data-day="' + dayKey + '"]');
+    if(cell) cell.classList.add('mv-cell--selected');
+    const board = document.getElementById('board');
+    const old = board.querySelector('.mv-daylist');
+    if(old) old.remove();
+    renderMonthDayList(board, board.querySelector('.mv-grid'));
+  }
+  function renderMonthDayList(board, grid){
+    // the selection must be a day of the month on screen (a week can straddle two months)
+    const selDate = (sel) => { const q = sel.week.split('-').map(Number); const d = new Date(q[0], q[1] - 1, q[2]); d.setDate(d.getDate() + DAY_DEFS.findIndex(x => x.key === sel.day)); return d; };
+    if(!mMonthSel || selDate(mMonthSel).getMonth() !== monthAnchor.getMonth() || selDate(mMonthSel).getFullYear() !== monthAnchor.getFullYear()) mMonthSel = monthDefaultSel();
+    const cell = grid.querySelector('.mv-cell[data-week="' + mMonthSel.week + '"][data-day="' + mMonthSel.day + '"]');
+    if(cell) cell.classList.add('mv-cell--selected');
+    const p = mMonthSel.week.split('-').map(Number);
+    const ws = new Date(p[0], p[1] - 1, p[2]);
+    const dayDef = DAY_DEFS.find(d => d.key === mMonthSel.day);
+    const date = new Date(ws); date.setDate(date.getDate() + DAY_DEFS.indexOf(dayDef));
+    setWeekContext(ws);
+    const wrap = document.createElement('section');
+    wrap.className = 'mv-daylist';
+    wrap.setAttribute('aria-label', dayDef.name + ', ' + longDateLabel(date));
+    const h = document.createElement('div');
+    h.className = 'mv-daylist-head';
+    h.innerHTML = '<span class="mv-daylist-title"></span><span class="mv-daylist-sub"></span>';
+    h.querySelector('.mv-daylist-title').textContent = HEB_DAY_LONG[date.getDay()] + ', ' + longDateLabel(date);
+    wrap.appendChild(h);
+    const body = buildDayDetail(dayDef, weekData[dayDef.key]);
+    body.className = 'mv-daylist-body';
+    wrap.appendChild(body);
+    // edits here change this day's dots/count — refresh the grid once focus
+    // leaves the list (not while typing)
+    wrap.addEventListener('focusout', () => {
+      setTimeout(() => {
+        if(wrap.isConnected && !wrap.contains(document.activeElement) && currentView === 'month' && isMobileLayout()){
+          const y = window.scrollY;
+          renderBoard();
+          window.scrollTo(0, y);
+        }
+      }, 250);
+    });
+    board.appendChild(wrap);
+  }
+  // swipe the phone month grid sideways to change month (RTL: swipe left → next)
+  (function wireMonthSwipe(){
+    const board = document.getElementById('board');
+    let x0 = null, y0 = 0, onGrid = false;
+    board.addEventListener('pointerdown', (e) => {
+      onGrid = !!(e.target.closest && e.target.closest('.mv-grid')) && isMobileLayout() && currentView === 'month';
+      if(onGrid){ x0 = e.clientX; y0 = e.clientY; }
+    });
+    board.addEventListener('pointerup', (e) => {
+      if(!onGrid || x0 === null) return;
+      const dx = e.clientX - x0, dy = e.clientY - y0;
+      x0 = null;
+      if(Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5){
+        // swallow the click the lifting finger would send to a cell
+        const swallow = (ev) => { ev.stopPropagation(); ev.preventDefault(); };
+        board.addEventListener('click', swallow, {capture:true, once:true});
+        setTimeout(() => board.removeEventListener('click', swallow, {capture:true}), 400);
+        mMonthSel = null;
+        stepMonth(dx < 0 ? 1 : -1);
+        paintMobileChrome();
+      }
+    });
+    board.addEventListener('pointercancel', () => { x0 = null; });
+  })();
 
   function renderBoard(){
     const board = document.getElementById('board');
@@ -5759,6 +5947,14 @@ html,body{
       if(currentView !== 'month') setView('month'); else { renderBoard(); renderSummary(); }
     } else {
       if(currentView !== 'week') setView('week');
+      // leaving the month on a selected day: the week opens on that day
+      if(prevTab === 'month' && tab === 'week' && mMonthSel){
+        const q = mMonthSel.week.split('-').map(Number);
+        const ws = new Date(q[0], q[1] - 1, q[2]);
+        if(weekKey(ws) !== weekKey(weekStart)) goToWeek(ws, false);
+        mSelectedDay = mMonthSel.day;
+        paintStripSelection();
+      }
       if(tab === 'today' && !isCurrentWeek()) goToWeek(startOfWeek(new Date()), false);
       else { renderBoard(); renderSummary(); }
       if(tab === 'today') mSelectedDay = DAY_DEFS[new Date().getDay()].key;
