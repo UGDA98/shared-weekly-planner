@@ -6,7 +6,7 @@
 <!-- App build version, compared against version.txt to detect a new deploy in
      installed standalone PWA windows (which have no reload affordance). MUST be
      bumped together with version.txt on every deploy — see NOTES.md deploy step. -->
-<meta name="app-version" content="20261001-1513">
+<meta name="app-version" content="20261001-1521">
 <title>יומן ומשימות</title>
 <!-- PWA manifest + icons — no service worker on purpose: this is a live-data
      app on a 20s poll, a SW would only risk serving a stale index.html for
@@ -2056,7 +2056,10 @@ html,body{
             if(prevLocal && prevLocal !== serverJson) localStorage.setItem(backupCacheKeyFor(reqBoard), prevLocal);
             localStorage.setItem(cacheKeyFor(reqBoard), serverJson);
             renderAll();
-            setSyncStatus('עודכן ממכשיר אחר');
+            // on a fresh load lastSyncedJson is empty, so this branch always
+            // ran — only claim "another device" when the server really differs
+            // from what this device had cached
+            setSyncStatus(isInitial && (!prevLocal || prevLocal === serverJson) ? 'מסונכרן ✓' : 'עודכן ממכשיר אחר');
           }
         } else if(isInitial){
           setSyncStatus('מסונכרן ✓');
@@ -2184,8 +2187,21 @@ html,body{
         if(result !== null) break;
       }
     }
-    if(result !== null) boardsList = result;
+    if(result !== null){
+      boardsList = result;
+      try{ localStorage.setItem(BOARDS_CACHE_KEY, JSON.stringify(result)); }catch(e){}
+    }
     renderBoardSwitcher();
+  }
+  // the board list (names for the title + picker) is cached so the header
+  // shows the real board name on the very first paint instead of waiting for
+  // a cold Apps Script round-trip
+  const BOARDS_CACHE_KEY = 'planner_boards_cache_v1';
+  function loadCachedBoardsList(){
+    try{
+      const list = JSON.parse(localStorage.getItem(BOARDS_CACHE_KEY) || 'null');
+      if(Array.isArray(list)) boardsList = list.filter(b => b && b.id && typeof b.name === 'string');
+    }catch(e){}
   }
 
   function resolveInitialBoardId(){
@@ -6614,6 +6630,7 @@ html,body{
     const session = currentSession;
     currentSession = ''; currentEmail = ''; currentRole = 'viewer'; currentBoardId = ''; boardsList = [];
     localStorage.removeItem(SESSION_KEY);
+    try{ localStorage.removeItem(BOARDS_CACHE_KEY); }catch(e){}
     if(window.google && google.accounts && google.accounts.id){
       try{ google.accounts.id.disableAutoSelect(); }catch(e){}
     }
@@ -6649,14 +6666,19 @@ html,body{
       weekData = loadWeek(weekStart);
     }
     setView(resolveInitialView(currentBoardId), {silent:true});
+    loadCachedBoardsList();
+    renderBoardSwitcher();
     renderAll();
     if(currentBoardType !== 'notes' && currentView === 'week') scrollTodayIntoView();
 
     setSyncStatus('מתחבר…');
+    // fetched alongside the board itself, not after it — it only feeds the
+    // header/picker and used to arrive several seconds late on a cold start
+    const boardsListP = refreshBoardsList();
     await refreshFromServer(true);
     startPolling();
 
-    await refreshBoardsList();
+    await boardsListP;
   }
 
   function boot(){
