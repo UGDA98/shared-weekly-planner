@@ -6,7 +6,7 @@
 <!-- App build version, compared against version.txt to detect a new deploy in
      installed standalone PWA windows (which have no reload affordance). MUST be
      bumped together with version.txt on every deploy — see NOTES.md deploy step. -->
-<meta name="app-version" content="20261001-1505">
+<meta name="app-version" content="20261001-1513">
 <title>יומן ומשימות</title>
 <!-- PWA manifest + icons — no service worker on purpose: this is a live-data
      app on a 20s poll, a SW would only risk serving a stale index.html for
@@ -1194,6 +1194,198 @@ html,body{
   .task-row input[type="checkbox"],
   .summary-row-main input[type="checkbox"]{ width:22px; height:22px; min-width:22px; }
 }
+
+/* ---------- G2 stage 2: header, context row, 7-column week, day collapse ---------- */
+.top{ padding:0 20px; }
+.top-row{ display:flex; align-items:center; gap:12px; min-height:56px; flex-wrap:nowrap; }
+.title-cluster{ gap:4px; flex:0 1 auto; min-width:0; }
+.board-pick{
+  display:inline-flex; align-items:center; gap:6px; min-width:0; max-width:360px; height:40px;
+  padding:0 8px; margin-inline-start:-8px; border:0; background:none; border-radius:var(--r8);
+  color:var(--ink); cursor:pointer; font:inherit;
+}
+.board-pick:hover, .board-pick[aria-expanded="true"]{ background:var(--s3); }
+.board-pick:focus-visible, .menu-btn:focus-visible, .split button:focus-visible, .ctx-link:focus-visible,
+.filter-clear:focus-visible, .day-collapse:focus-visible, .day-tasks-folded:focus-visible, .add-line:focus-visible,
+.nav-btn:focus-visible, .highlight-btn:focus-visible{ outline:2px solid var(--accent); outline-offset:1px; }
+.board-pick .title{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; font-weight:700; }
+.board-pick-chev{ width:14px; height:14px; color:var(--ink2); flex:none; }
+.menu-btn{ width:36px; height:36px; border:0; background:none; color:var(--ink2); }
+.menu-btn svg{ width:18px; height:18px; }
+.menu-btn:hover{ background:var(--s3); color:var(--ink); }
+.week-nav{ flex:1 1 auto; justify-content:center; gap:16px; flex-wrap:nowrap; }
+.nav-group{ display:flex; align-items:center; gap:6px; }
+.nav-btn{ width:32px; height:32px; border:0; background:none; color:var(--ink2); }
+.nav-btn:hover{ color:var(--ink); }
+.nav-btn.today-btn{ width:auto; border:1px solid var(--hl2); background:var(--s1); color:var(--ink); padding:0 12px; }
+.week-range{ min-width:96px; text-align:start; font-weight:600; white-space:nowrap; }
+.top-actions{ display:flex; align-items:center; gap:10px; flex:0 0 auto; }
+.search-box{
+  display:flex; align-items:center; gap:8px; height:32px; width:220px; padding-inline:10px 6px;
+  background:var(--s3); border:1px solid transparent; border-radius:var(--r8); color:var(--ink3); cursor:text;
+  transition:border-color .15s ease, background .15s ease, width .2s ease;
+}
+.search-box:hover{ background:var(--hl); }
+.search-box:focus-within{ background:var(--s1); border-color:var(--accent); width:280px; }
+.search-box svg{ width:15px; height:15px; flex:none; color:var(--ink2); }
+.search-box input{ flex:1; min-width:0; border:0; outline:0; background:transparent; font:inherit; font-size:var(--t-label); color:var(--ink); height:100%; }
+.search-box input::placeholder{ color:var(--ink2); }
+.search-box input::-webkit-search-cancel-button{ display:none; }
+.kbd{
+  display:inline-flex; align-items:center; height:18px; padding:0 5px; border-radius:4px; background:var(--s1);
+  border:1px solid var(--hl2); font-size:11px; color:var(--ink2); direction:ltr; unicode-bidi:isolate; white-space:nowrap; flex:none;
+}
+.search-box:focus-within .kbd{ display:none; }
+.split{ display:inline-flex; align-items:stretch; height:32px; border-radius:var(--r8); background:var(--accent); color:var(--accent-ink); overflow:hidden; flex:none; }
+.split button{ border:0; background:none; color:inherit; font:inherit; font-size:var(--t-label); font-weight:600; display:inline-flex; align-items:center; gap:6px; padding-inline:10px 12px; cursor:pointer; }
+.split button:hover{ background:rgba(0,0,0,.12); }
+.split button svg{ width:14px; height:14px; }
+.split #newMenuBtn{ padding:0 8px; border-inline-start:1px solid rgba(255,255,255,.28); }
+.planner-root.view-only .split{ display:none; }
+.role-badge{ margin-inline-start:6px; }
+
+/* header menus */
+.picker--menu{ max-height:min(70vh, 460px); padding:6px; }
+.picker--menu .picker-item{ gap:10px; min-height:36px; padding:6px 8px; }
+.picker--menu .picker-item.selected{ background:transparent; font-weight:400; }
+.picker--menu .picker-item.selected:hover, .picker--menu .picker-item:focus{ background:var(--s3); outline:none; }
+.mi-icon{ width:16px; height:16px; display:inline-flex; color:var(--ink2); flex:none; }
+.mi-icon svg{ width:16px; height:16px; }
+.mi-main{ display:flex; flex-direction:column; min-width:0; flex:1; }
+.mi-name{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.picker-item.selected .mi-name{ font-weight:600; }
+.mi-sub{ font-size:var(--t-cap); color:var(--ink2); }
+.mi-check{ color:var(--accent); display:inline-flex; flex:none; }
+.mi-check svg{ width:16px; height:16px; }
+.picker-item--accent, .picker-item--accent .mi-icon{ color:var(--accent); }
+.picker-empty{ padding:10px 8px; color:var(--ink2); font-size:var(--t-label); }
+
+/* search results */
+.search-pop{ padding:6px; max-height:min(60vh, 420px); overflow-y:auto; display:block; }
+.search-opt{ display:flex; align-items:center; gap:10px; min-height:36px; padding:6px 8px; border-radius:var(--r8); cursor:pointer; font-size:var(--t-body); }
+.search-opt.is-active, .search-opt:hover{ background:var(--s3); }
+.search-opt .so-text{ flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.search-opt .so-meta{ font-size:var(--t-cap); color:var(--ink2); white-space:nowrap; flex:none; }
+.search-opt .so-icon{ width:14px; height:14px; display:inline-flex; flex:none; color:var(--accent); }
+.search-opt .so-icon svg{ width:14px; height:14px; }
+.so-icon--task{ border:1.5px solid var(--ink3); border-radius:50%; width:12px !important; height:12px !important; margin:1px; }
+.so-icon--event{ width:4px !important; height:14px !important; border-radius:2px; background:var(--accent-deco); }
+.search-opt.is-done .so-text{ color:var(--ink3); }
+.search-opt--add .so-text{ font-weight:600; }
+.search-opt--add{ border-bottom:1px solid var(--hl); border-radius:var(--r8) var(--r8) 0 0; margin-bottom:4px; }
+.search-none{ padding:10px 8px; color:var(--ink2); font-size:var(--t-label); }
+
+/* context row */
+.filters-bar{ display:flex; align-items:center; gap:6px; padding:8px 20px 0; }
+.highlight-btn{ border-color:transparent; background:transparent; color:var(--ink2); padding:4px 8px; margin-inline-start:-8px; }
+.highlight-btn:hover{ background:var(--s3); color:var(--ink); border-color:transparent; }
+.highlight-btn.is-active{ background:var(--accent-tint); color:var(--accent-soft-ink); margin-inline-start:0; }
+.highlight-btn.is-active .highlight-btn-icon, .highlight-btn.is-active .highlight-btn-chevron{ color:var(--accent-soft-ink); }
+.filter-clear{ width:28px; height:28px; border:0; border-radius:var(--r8); background:var(--accent-tint); color:var(--accent-soft-ink); font-size:16px; cursor:pointer; margin-inline-start:-6px; }
+.filter-clear[hidden]{ display:none; }
+.ctx-grow{ flex:1; }
+.ctx-link{ border:0; background:none; color:var(--ink2); font:inherit; font-size:var(--t-label); padding:4px 8px; border-radius:var(--r8); cursor:pointer; white-space:nowrap; }
+.ctx-link:hover{ background:var(--s3); color:var(--ink); }
+.ctx-link[hidden]{ display:none; }
+.sync-pill{ display:inline-flex; align-items:center; gap:6px; font-size:var(--t-cap); color:var(--ink2); white-space:nowrap; padding-inline-start:4px; }
+.sync-pill:empty{ display:none; }
+.sync-pill::before{ content:""; width:6px; height:6px; border-radius:50%; background:var(--hl2); }
+.sync-pill.ok::before{ background:var(--done); }
+.sync-pill.warn{ color:var(--danger); }
+.sync-pill.warn::before{ background:var(--danger); }
+
+/* day collapse */
+.day-head{ gap:6px; }
+.day-head .day-name{ flex:1; min-width:0; }
+.day-collapse{
+  width:24px; height:24px; border:0; background:none; border-radius:6px; color:var(--ink3);
+  display:inline-flex; align-items:center; justify-content:center; cursor:pointer; flex:none; margin-inline-end:-4px;
+}
+.day-collapse:hover{ background:var(--s3); color:var(--ink); }
+.day-collapse .collapse-chevron{ margin:0; width:14px; height:14px; color:currentColor; }
+.day.tasks-collapsed .day-collapse .collapse-chevron{ transform:rotate(90deg); }
+.day.tasks-collapsed .zone-tasks > .section{ display:none; }
+.day-tasks-folded{ display:none; }
+.day.tasks-collapsed .day-tasks-folded{
+  display:block; width:calc(100% - 16px); margin:8px; padding:8px 10px; text-align:start; border:0; border-radius:var(--r8);
+  background:var(--s2); color:var(--ink2); font:inherit; font-size:var(--t-label); cursor:pointer;
+}
+.day.tasks-collapsed .day-tasks-folded:hover{ background:var(--s3); color:var(--ink); }
+.collapse-head{ border-radius:6px; }
+/* RTL disclosure: a folded section's chevron points toward the reading direction (left) */
+.collapse-head[aria-expanded="false"] .collapse-chevron{ transform:rotate(90deg); }
+
+/* a row found by search / quick add */
+@keyframes rowFlash{ 0%,30%{ background:var(--accent-tint); box-shadow:0 0 0 2px var(--accent-deco); } 100%{ background:transparent; box-shadow:0 0 0 0 transparent; } }
+.flash{ animation:rowFlash 1.6s ease-out; }
+
+/* week change: cards slide in from the side time moved toward (RTL: next = from the left) */
+@keyframes wkInNext{ from{ opacity:0; transform:translateX(-14px); } }
+@keyframes wkInPrev{ from{ opacity:0; transform:translateX(14px); } }
+.board.wk-next > .day{ animation:wkInNext .16s ease-out; }
+.board.wk-prev > .day{ animation:wkInPrev .16s ease-out; }
+
+/* tablet / narrow desktop: still a horizontal strip, narrower columns */
+@media (min-width:641px) and (max-width:1023px){
+  .day{ width:232px; }
+  .search-box{ width:160px; }
+  .search-box:focus-within{ width:220px; }
+  .week-range{ display:none; }
+}
+
+/* ≥1024: the whole week on one screen — 7 equal columns, no horizontal scroll */
+@media (min-width:1024px){
+  .board:not(.month-mode){ display:grid; grid-template-columns:repeat(7, minmax(0, 1fr)); overflow-x:visible; scroll-snap-type:none; }
+  .board:not(.month-mode) .day{ width:auto; min-width:0; }
+  /* owner/topic moves to its own line under the text, so the text keeps the full column */
+  .board .task-main{ flex-wrap:wrap; }
+  .board .task-flag{ display:none; }
+  .board .task-flag-label{ order:5; flex-basis:100%; max-width:none; margin:0; padding-inline-start:24px; }
+  .board .task-flag-label:empty{ display:none; }
+  .board .task-text, .board .event-text{ overflow-wrap:anywhere; }
+}
+@media (min-width:1024px) and (max-width:1365px){
+  .board{ gap:8px; padding-inline:16px; }
+  .filters-bar, .summary-section{ padding-inline:16px; }
+  .top{ padding:0 16px; }
+  .day-head{ padding:10px 8px 4px; }
+  .zone-events{ padding-inline:4px; }
+  .section{ padding-inline:4px; }
+  .board .task-flag-label{ padding-inline-start:22px; }
+  .search-box{ width:180px; }
+}
+/* mouse: row controls float over the row's end instead of taking text width,
+   and the day's secondary "+ add" lines rest invisible except on today */
+@media (pointer:fine) and (min-width:1024px){
+  .board .row-del, .board .event-passed-toggle{ position:absolute; top:4px; inset-inline-end:2px; background:var(--s2); }
+  .board .event-passed-toggle{ inset-inline-end:24px; }
+  .board .event-row.passed .event-passed-toggle{ position:static; background:none; }
+  .board .event-row:hover .event-text, .board .task-row:hover .task-text{ padding-inline-end:20px; }
+  .board .event-row:hover .event-text{ padding-inline-end:44px; }
+  .day:not(.is-today):not(:hover):not(:focus-within) .zone-events > .add-line,
+  .day:not(.is-today):not(:hover):not(:focus-within) .day-banner-add{ opacity:0; }
+}
+
+/* phones (until stage 3 brings the tab bar): two compact header lines */
+@media (max-width:640px){
+  .top{ padding:6px 14px 8px; }
+  .top-row{ flex-wrap:wrap; gap:6px 8px; min-height:0; }
+  .title-cluster{ flex:1 1 100%; }
+  .week-nav{ flex:1 1 100%; justify-content:space-between; gap:8px; }
+  .top-actions{ display:none !important; }
+  .nav-group{ gap:4px; }
+  .nav-btn{ width:40px; height:40px; }
+  .week-range{ display:none; }
+  .filters-bar{ padding:8px 14px 0; }
+  .ctx-link#collapseAllBtn{ display:none; }
+  .board-pick{ height:44px; }
+}
+@media (prefers-reduced-motion: reduce){
+  @keyframes wkInNext{ from{ opacity:0; } }
+  @keyframes wkInPrev{ from{ opacity:0; } }
+  .flash{ animation-duration:.01s; background:var(--accent-tint); }
+  .search-box{ transition:none; }
+}
 </style>
 
 <div class="planner-root" id="root">
@@ -1212,26 +1404,40 @@ html,body{
   <div class="top">
     <div class="top-row">
       <div class="title-cluster">
-        <button class="menu-btn" id="menuBtn" type="button" aria-label="ניהול לוחות" title="ניהול לוחות">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="14" y2="17"/></svg>
+        <button class="board-pick" id="boardPickBtn" type="button" aria-haspopup="true" aria-expanded="false" title="החלפת לוח">
+          <h1 class="title" id="boardTitle">יומן ומשימות</h1>
+          <svg class="board-pick-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
         </button>
-        <div class="title-group">
-          <h1 class="title">יומן ומשימות</h1>
-          <span class="board-subtitle" id="boardSubtitle"></span>
-        </div>
+        <button class="menu-btn" id="menuBtn" type="button" aria-label="הגדרות הלוח" title="הגדרות הלוח">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+        <span class="board-subtitle" id="boardSubtitle" hidden></span>
+        <span class="role-badge" id="roleBadge">צפייה בלבד</span>
       </div>
-      <span class="role-badge" id="roleBadge">צפייה בלבד</span>
       <div class="week-nav">
         <div class="view-toggle" role="group" aria-label="תצוגה">
           <button class="view-toggle-btn is-active" id="viewWeekBtn" type="button" aria-pressed="true">שבוע</button>
           <button class="view-toggle-btn" id="viewMonthBtn" type="button" aria-pressed="false">חודש</button>
         </div>
-        <!-- RTL: time runs right→left, so "earlier" sits on the right and points right.
-             Inline SVG, not ‹ ›: those are Bidi_Mirrored and render flipped inside dir="rtl". -->
-        <button class="nav-btn" id="prevWeek" type="button" title="שבוע קודם" aria-label="שבוע קודם"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3l5 5-5 5"/></svg></button>
-        <span class="week-range" id="weekRange"></span>
-        <button class="nav-btn" id="nextWeek" type="button" title="שבוע הבא" aria-label="שבוע הבא"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3L5 8l5 5"/></svg></button>
-        <button class="nav-btn today-btn" id="gotoToday">היום</button>
+        <div class="nav-group">
+          <!-- RTL: time runs right→left, so "earlier" sits on the right and points right.
+               Inline SVG, not ‹ ›: those are Bidi_Mirrored and render flipped inside dir="rtl". -->
+          <button class="nav-btn" id="prevWeek" type="button" title="שבוע קודם" aria-label="שבוע קודם"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3l5 5-5 5"/></svg></button>
+          <button class="nav-btn" id="nextWeek" type="button" title="שבוע הבא" aria-label="שבוע הבא"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3L5 8l5 5"/></svg></button>
+          <button class="nav-btn today-btn" id="gotoToday" type="button">היום</button>
+          <span class="week-range" id="weekRange"></span>
+        </div>
+      </div>
+      <div class="top-actions planner-only">
+        <label class="search-box" for="searchInput">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input id="searchInput" type="search" placeholder="חיפוש או הוספה…" aria-label="חיפוש משימות ואירועים, או הוספת משימה" autocomplete="off" aria-keyshortcuts="Meta+K Control+K" aria-expanded="false" aria-controls="searchPop">
+          <span class="kbd" aria-hidden="true">⌘K</span>
+        </label>
+        <span class="split" id="newSplit">
+          <button type="button" id="newMainBtn" title="משימה חדשה להיום (N)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>חדש</span></button>
+          <button type="button" id="newMenuBtn" aria-haspopup="true" aria-expanded="false" aria-label="עוד אפשרויות הוספה" title="עוד אפשרויות הוספה"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg></button>
+        </span>
       </div>
     </div>
   </div>
@@ -1239,10 +1445,15 @@ html,body{
   <div id="boardSection">
     <div class="filters-bar">
       <button class="highlight-btn" id="highlightBtn" type="button" aria-haspopup="true" aria-expanded="false">
-        <svg class="highlight-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/></svg>
-        <span id="highlightBtnLabel">הכל</span>
-        <svg class="highlight-btn-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        <svg class="highlight-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/></svg>
+        <span id="highlightBtnLabel">סינון</span>
+        <svg class="highlight-btn-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
       </button>
+      <button class="filter-clear" id="filterClearBtn" type="button" aria-label="ניקוי הסינון" title="ניקוי הסינון" hidden>×</button>
+      <span class="ctx-grow"></span>
+      <button class="ctx-link" id="collapseAllBtn" type="button" aria-pressed="false">קיפול המשימות</button>
+      <button class="ctx-link" id="toSummaryBtn" type="button">לפי אנשים ↓</button>
+      <span class="sync-pill" id="syncStatus" role="status" aria-live="polite"></span>
     </div>
 
     <div class="board" id="board"></div>
@@ -1317,7 +1528,7 @@ html,body{
 <div class="drawer-overlay" id="drawerOverlay">
   <div class="drawer-panel" id="drawerPanel">
     <div class="drawer-header">
-      <span class="drawer-title">ניהול לוחות</span>
+      <span class="drawer-title">הגדרות</span>
       <button class="drawer-close" id="drawerCloseBtn" type="button" aria-label="סגירה">×</button>
     </div>
 
@@ -1377,7 +1588,6 @@ html,body{
       <button class="drawer-action" id="drawerExportBtn" type="button">ייצוא גיבוי (JSON)</button>
       <button class="drawer-action" id="drawerRestoreBackupBtn" type="button" style="display:none;">שחזור מהגיבוי האחרון</button>
       <button class="drawer-action" id="drawerSwitchUserBtn" type="button"></button>
-      <span class="sync-status" id="syncStatus" role="status" aria-live="polite"></span>
     </div>
   </div>
 </div>
@@ -2030,6 +2240,10 @@ html,body{
 
     const current = boardsList.find(b => b.id === currentBoardId);
     subtitle.textContent = current ? current.name : '';
+    // G2: the board name IS the page title (the app name lives in <title>)
+    const titleEl = document.getElementById('boardTitle');
+    if(titleEl) titleEl.textContent = current ? current.name : 'יומן ומשימות';
+    document.title = current ? current.name + ' · יומן ומשימות' : 'יומן ומשימות';
 
     list.innerHTML = '';
     if(!boardsList.length){
@@ -2627,7 +2841,10 @@ html,body{
 
   function setSyncStatus(text){
     const el = document.getElementById('syncStatus');
-    if(el) el.textContent = text;
+    if(!el) return;
+    el.textContent = text;
+    el.classList.toggle('warn', /נכשל|אין חיבור|שגיאת/.test(text));
+    el.classList.toggle('ok', /מסונכרן/.test(text));
   }
 
   function updateRoleUI(){
@@ -2644,6 +2861,7 @@ html,body{
   }
 
   function renderAll(){
+    document.querySelectorAll('.planner-only').forEach(el => { el.style.display = currentBoardType === 'notes' ? 'none' : ''; });
     const weekNav = document.querySelector('.week-nav');
     const notesSection = document.getElementById('notesSection');
     if(currentBoardType === 'notes'){
@@ -2706,6 +2924,8 @@ html,body{
     document.querySelector('.filters-bar').style.display = showBoard ? '' : 'none';
     document.getElementById('board').style.display = showBoard ? '' : 'none';
     document.getElementById('summarySection').style.display = showSummary ? '' : 'none';
+    const toSummary = document.getElementById('toSummaryBtn');
+    if(toSummary) toSummary.hidden = !showSummary;
   }
 
   // ---------- global lists: people & topics ----------
@@ -3005,16 +3225,27 @@ html,body{
   }
 
   function highlightLabelFor(filter){
-    if(filter.type === 'all') return 'הכל';
-    if(filter.type === 'person'){ const p = people.find(x=>x.id===filter.value); return p ? p.name : 'הכל'; }
-    if(filter.type === 'topic'){ const t = topics.find(x=>x.id===filter.value); return t ? t.name : 'הכל'; }
-    return 'הכל';
+    if(filter.type === 'all') return 'סינון';
+    if(filter.type === 'person'){ const p = people.find(x=>x.id===filter.value); return p ? p.name : 'סינון'; }
+    if(filter.type === 'topic'){ const t = topics.find(x=>x.id===filter.value); return t ? t.name : 'סינון'; }
+    return 'סינון';
   }
 
   function renderFilters(){
     const label = document.getElementById('highlightBtnLabel');
     if(label) label.textContent = highlightLabelFor(activeFilter);
+    // an active filter reads as a removable chip ("נועה ×"), not a quiet dropdown
+    const on = activeFilter.type !== 'all' && highlightLabelFor(activeFilter) !== 'סינון';
+    const hb = document.getElementById('highlightBtn');
+    if(hb) hb.classList.toggle('is-active', on);
+    const clr = document.getElementById('filterClearBtn');
+    if(clr) clr.hidden = !on;
   }
+  document.getElementById('filterClearBtn').onclick = () => {
+    activeFilter = {type:'all', value:null};
+    renderFilters(); applyFilterVisuals();
+    document.getElementById('highlightBtn').focus();
+  };
 
   // shared popover placement for .picker-style dropdowns: clamps horizontally like
   // before, and now also flips above the anchor when there isn't room below (a picker
@@ -3676,6 +3907,7 @@ html,body{
       document.removeEventListener('mousedown', onDocClick, true);
       const hb = document.getElementById('highlightBtn');
       if(hb) hb.setAttribute('aria-expanded', 'false'); // no-op unless this was the trigger
+      document.querySelectorAll('[data-pop-anchor][aria-expanded="true"]').forEach(el => el.setAttribute('aria-expanded', 'false'));
       if(pickerReturnFocusEl){ try{ pickerReturnFocusEl.focus(); }catch(e){} pickerReturnFocusEl = null; }
     }
   }
@@ -4152,6 +4384,13 @@ html,body{
     const head = document.createElement('div');
     head.className = 'day-head';
     head.innerHTML = '<span class="day-name">'+dayDef.name+'</span><span class="day-date">'+fmtDate(date)+'</span>';
+    // folds this day's whole tasks area (both sections); the sections below
+    // still fold on their own — "both levels" was the owner's call
+    const dayToggle = document.createElement('button');
+    dayToggle.type = 'button';
+    dayToggle.className = 'day-collapse';
+    dayToggle.innerHTML = CHEVRON_SVG;
+    head.appendChild(dayToggle);
     card.appendChild(head);
 
     card.appendChild(renderDayBanner(dayDef, data));
@@ -4226,6 +4465,27 @@ html,body{
       makeCollapsible(head, body, 'sec:' + currentBoardId + ':' + weekKey(weekStart) + ':' + dayDef.key + ':' + sec.key, items.length);
       tZone.appendChild(sSection);
     });
+
+    const allTasks = TASK_SECTIONS.reduce((n, sec) => n + (data[sec.key]||[]).length, 0);
+    const doneTasks = TASK_SECTIONS.reduce((n, sec) => n + (data[sec.key]||[]).filter(t => t.done).length, 0);
+    const folded = document.createElement('button');
+    folded.type = 'button';
+    folded.className = 'day-tasks-folded';
+    folded.textContent = !allTasks ? 'אין משימות' : (allTasks === 1 ? 'משימה אחת' : allTasks + ' משימות') + (doneTasks ? ' · ' + doneTasks + ' בוצעו' : '');
+    tZone.appendChild(folded);
+    const dayCollapseKey = 'day:' + currentBoardId + ':' + weekKey(weekStart) + ':' + dayDef.key;
+    function setTasksCollapsed(collapsed, persist){
+      card.classList.toggle('tasks-collapsed', collapsed);
+      dayToggle.setAttribute('aria-expanded', String(!collapsed));
+      const lbl = (collapsed ? 'פתיחת' : 'קיפול') + ' המשימות של ' + dayDef.name;
+      dayToggle.setAttribute('aria-label', lbl);
+      dayToggle.title = lbl;
+      if(persist) writeCollapseState(dayCollapseKey, !collapsed);
+    }
+    card.__setTasksCollapsed = setTasksCollapsed;
+    dayToggle.onclick = () => { setTasksCollapsed(!card.classList.contains('tasks-collapsed'), true); updateCollapseAllBtn(); };
+    folded.onclick = () => { setTasksCollapsed(false, true); updateCollapseAllBtn(); };
+    setTasksCollapsed(readCollapseState(dayCollapseKey) === '0', false);
     card.appendChild(tZone);
 
     return card;
@@ -4859,6 +5119,7 @@ html,body{
     board.innerHTML = '';
     if(currentView === 'month'){
       renderMonthGrid();
+      updateCollapseAllBtn();
       // the event-zone equalizer and its ResizeObserver are week-view only —
       // both no-op safely here (no .zone-events to find), but skipping them
       // keeps the intent obvious rather than relying on that
@@ -4866,6 +5127,7 @@ html,body{
     }
     board.classList.remove('month-mode');
     DAY_DEFS.forEach((d,i) => board.appendChild(renderDay(d,i)));
+    updateCollapseAllBtn();
     applyFilterVisuals();
     equalizeEventZoneHeights();
     watchEventZoneSizes();
@@ -4882,9 +5144,15 @@ html,body{
     if(scrollToToday) scrollTodayIntoView();
   }
 
+  // horizontal only: scrollIntoView also scrolled the PAGE vertically when
+  // today's card was taller than the viewport (pushing the header rows off
+  // screen), and on the 7-column desktop grid there is nothing to scroll
   function scrollTodayIntoView(){
-    const el = document.querySelector('.day.is-today');
-    if(el) el.scrollIntoView({inline:'center', block:'nearest'});
+    const el = document.querySelector('#board .day.is-today');
+    const board = document.getElementById('board');
+    if(!el || !board || board.scrollWidth <= board.clientWidth + 1) return;
+    const br = board.getBoundingClientRect(), r = el.getBoundingClientRect();
+    board.scrollLeft += (r.left + r.width / 2) - (br.left + br.width / 2);
   }
 
   // same buttons in both views, branching on currentView — no parallel controls
@@ -4897,11 +5165,11 @@ html,body{
 
   document.getElementById('prevWeek').onclick = () => {
     if(currentView === 'month'){ stepMonth(-1); return; }
-    const ns=new Date(weekStart); ns.setDate(ns.getDate()-7); goToWeek(ns,false);
+    const ns=new Date(weekStart); ns.setDate(ns.getDate()-7); goToWeek(ns,false); animateWeekChange(-1);
   };
   document.getElementById('nextWeek').onclick = () => {
     if(currentView === 'month'){ stepMonth(1); return; }
-    const ns=new Date(weekStart); ns.setDate(ns.getDate()+7); goToWeek(ns,false);
+    const ns=new Date(weekStart); ns.setDate(ns.getDate()+7); goToWeek(ns,false); animateWeekChange(1);
   };
   document.getElementById('gotoToday').onclick = () => {
     const today = new Date();
@@ -4919,6 +5187,370 @@ html,body{
     }
     goToWeek(startOfWeek(today), true);
   };
+
+  /* ---------- G2 header: board picker, "+ חדש", search, collapse-all ---------- */
+
+  const ICON_BOARD_PLANNER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
+  const ICON_BOARD_NOTES = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
+  const ICON_CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
+
+  // a .picker anchored under a header control; RTL: its inline-start edge
+  // lines up with the anchor's inline-start (right) edge
+  function openHeaderMenu(anchorEl, width, build){
+    closePicker();
+    const pop = document.createElement('div');
+    pop.className = 'picker picker--menu';
+    pop.style.width = width + 'px';
+    build(pop);
+    document.body.appendChild(pop);
+    const rect = anchorEl.getBoundingClientRect();
+    positionPopover(pop, rect, {width, leftOffset: rect.width - width});
+    openPickerEl = pop;
+    anchorEl.setAttribute('data-pop-anchor', '');
+    anchorEl.setAttribute('aria-expanded', 'true');
+    wirePickerKeyboard(pop, anchorEl);
+    setTimeout(()=> document.addEventListener('mousedown', onDocClick, true), 0);
+  }
+  function menuItem(html, onPick, opts){
+    const r = document.createElement('div');
+    r.className = 'picker-item' + (opts && opts.selected ? ' selected' : '') + (opts && opts.accent ? ' picker-item--accent' : '');
+    r.innerHTML = html;
+    r.onclick = () => { closePicker(); onPick(); };
+    return r;
+  }
+  function toggleHeaderMenu(anchorEl, open){
+    if(openPickerEl && anchorEl.getAttribute('aria-expanded') === 'true') closePicker();
+    else open();
+  }
+
+  function openBoardPicker(){
+    const anchor = document.getElementById('boardPickBtn');
+    openHeaderMenu(anchor, 280, (pop) => {
+      const title = document.createElement('div');
+      title.className = 'picker-title';
+      title.textContent = 'לוחות';
+      pop.appendChild(title);
+      const list = document.createElement('div');
+      list.className = 'picker-list';
+      boardsList.forEach(b => {
+        const cur = b.id === currentBoardId;
+        list.appendChild(menuItem(
+          '<span class="mi-icon">' + (b.type === 'notes' ? ICON_BOARD_NOTES : ICON_BOARD_PLANNER) + '</span>' +
+          '<span class="mi-main"><span class="mi-name"></span><span class="mi-sub">' + (b.type === 'notes' ? 'לוח כתיבה · ' : '') + (b.role === 'editor' ? 'עריכה' : 'צפייה') + '</span></span>' +
+          (cur ? '<span class="mi-check">' + ICON_CHECK + '</span>' : ''),
+          () => { if(!cur) switchToBoard(b.id, {}); },
+          {selected: cur}
+        ));
+        list.lastChild.querySelector('.mi-name').textContent = b.name;
+      });
+      if(!boardsList.length){
+        const empty = document.createElement('div');
+        empty.className = 'picker-empty';
+        empty.textContent = 'עדיין אין לוחות';
+        list.appendChild(empty);
+      }
+      list.appendChild(Object.assign(document.createElement('div'), {className:'picker-divider'}));
+      list.appendChild(menuItem('<span class="mi-icon">' + ICON_PLUS_SMALL + '</span><span class="mi-main"><span class="mi-name">לוח חדש</span></span>', openNewBoardModal, {accent:true}));
+      list.appendChild(menuItem('<span class="mi-icon"></span><span class="mi-main"><span class="mi-name">ניהול הלוחות…</span></span>', openDrawer));
+      pop.appendChild(list);
+    });
+  }
+  const ICON_PLUS_SMALL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
+  document.getElementById('boardPickBtn').onclick = (e) => { e.stopPropagation(); toggleHeaderMenu(e.currentTarget, openBoardPicker); };
+
+  // "+ חדש": the body adds a task to today (an event in month view); the
+  // chevron offers the other kinds. Reuses each day's own "+ הוספת…" line so
+  // there is exactly one code path that creates an item.
+  function addNew(kind){
+    if(kind === 'board'){ openNewBoardModal(); return; }
+    if(currentRole !== 'editor' || currentBoardType === 'notes') return;
+    const today = new Date();
+    const ws = startOfWeek(today);
+    if(currentView === 'month') setView('week');
+    if(weekKey(ws) !== weekKey(weekStart)) goToWeek(ws, false);
+    const card = document.querySelector('#board .day.is-today') || document.querySelector('#board .day');
+    if(!card) return;
+    card.scrollIntoView({block:'nearest', inline:'nearest'});
+    if(kind === 'task'){
+      if(card.__setTasksCollapsed){ card.__setTasksCollapsed(false, true); updateCollapseAllBtn(); }
+      const sec = card.querySelector('.zone-tasks .section');
+      if(!sec) return;
+      const body = sec.querySelector('.collapse-body');
+      if(body && body.hidden) sec.querySelector('.collapse-head').click();
+      const add = sec.querySelector('.add-line');
+      if(add) add.click();
+    } else if(kind === 'event'){
+      const add = card.querySelector('.zone-events > .add-line');
+      if(add) add.click();
+    } else if(kind === 'title'){
+      const add = card.querySelector('.day-banner-add');
+      if(add) add.click(); else { const b = card.querySelector('.day-banner'); if(b) b.focus(); }
+    }
+  }
+  document.getElementById('newMainBtn').onclick = () => addNew(currentView === 'month' ? 'event' : 'task');
+  document.getElementById('newMenuBtn').onclick = (e) => {
+    e.stopPropagation();
+    toggleHeaderMenu(e.currentTarget, () => openHeaderMenu(document.getElementById('newSplit'), 220, (pop) => {
+      const list = document.createElement('div');
+      list.className = 'picker-list';
+      [['משימה', 'N', 'task'], ['אירוע', 'E', 'event'], ['כותרת ליום', 'H', 'title']].forEach(([label, key, kind]) => {
+        list.appendChild(menuItem('<span class="mi-main"><span class="mi-name">' + label + '</span></span><span class="kbd">' + key + '</span>', () => addNew(kind)));
+      });
+      list.appendChild(Object.assign(document.createElement('div'), {className:'picker-divider'}));
+      list.appendChild(menuItem('<span class="mi-main"><span class="mi-name">לוח חדש</span></span>', () => addNew('board')));
+      pop.appendChild(list);
+    }));
+    // openHeaderMenu marked the split wrapper; the chevron is what announces it
+    document.getElementById('newSplit').removeAttribute('aria-expanded');
+    e.currentTarget.setAttribute('data-pop-anchor', '');
+    e.currentTarget.setAttribute('aria-expanded', openPickerEl ? 'true' : 'false');
+  };
+
+  // fold / unfold the tasks area of every day on screen
+  function updateCollapseAllBtn(){
+    const btn = document.getElementById('collapseAllBtn');
+    if(!btn) return;
+    const cards = Array.from(document.querySelectorAll('#board .day'));
+    if(!cards.length || currentView === 'month'){ btn.hidden = true; return; }
+    btn.hidden = false;
+    const all = cards.every(c => c.classList.contains('tasks-collapsed'));
+    btn.textContent = all ? 'פתיחת המשימות' : 'קיפול המשימות';
+    btn.setAttribute('aria-pressed', String(all));
+  }
+  document.getElementById('collapseAllBtn').onclick = () => {
+    const cards = Array.from(document.querySelectorAll('#board .day'));
+    const all = cards.every(c => c.classList.contains('tasks-collapsed'));
+    cards.forEach(c => c.__setTasksCollapsed && c.__setTasksCollapsed(!all, true));
+    updateCollapseAllBtn();
+  };
+  document.getElementById('toSummaryBtn').onclick = () => {
+    const el = document.getElementById('summarySection');
+    if(el) el.scrollIntoView({block:'start', behavior: prefersReducedMotion() ? 'auto' : 'smooth'});
+  };
+  function prefersReducedMotion(){ return window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
+
+  function animateWeekChange(dir){
+    const b = document.getElementById('board');
+    if(!b) return;
+    b.classList.remove('wk-next', 'wk-prev');
+    void b.offsetWidth; // restart the animation on rapid clicks
+    b.classList.add(dir > 0 ? 'wk-next' : 'wk-prev');
+  }
+
+  // "+ הוספת…" lines are plain divs — make every one of them a real,
+  // keyboard-reachable button wherever it gets rendered (week, peek, summary)
+  function decorateAddLines(root){
+    (root || document).querySelectorAll('.add-line:not([tabindex])').forEach(el => {
+      el.tabIndex = 0;
+      el.setAttribute('role', 'button');
+    });
+  }
+  new MutationObserver(() => decorateAddLines()).observe(document.body, {childList:true, subtree:true});
+  document.addEventListener('keydown', (e) => {
+    if((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('add-line')){
+      e.preventDefault(); e.target.click();
+    }
+  });
+
+  // find an item on the board (any week) and bring it into view
+  function revealItem(id, ws){
+    if(currentView === 'month') setView('week');
+    if(ws && weekKey(ws) !== weekKey(weekStart)) goToWeek(ws, false);
+    requestAnimationFrame(() => {
+      const sel = '[data-id="' + (window.CSS && CSS.escape ? CSS.escape(id) : id) + '"]';
+      const row = document.querySelector('#board ' + sel) || document.querySelector('#summaryGrid ' + sel);
+      if(!row) return;
+      const card = row.closest('.day');
+      if(card && card.classList.contains('tasks-collapsed') && card.__setTasksCollapsed){ card.__setTasksCollapsed(false, false); updateCollapseAllBtn(); }
+      const body = row.closest('.collapse-body');
+      if(body && body.hidden){ const head = body.parentElement && body.parentElement.querySelector('.collapse-head'); if(head) head.click(); }
+      row.scrollIntoView({block:'center', inline:'nearest', behavior: prefersReducedMotion() ? 'auto' : 'smooth'});
+      row.classList.remove('flash'); void row.offsetWidth; row.classList.add('flash');
+      setTimeout(() => row.classList.remove('flash'), 1800);
+    });
+  }
+
+  // ---- search ("חיפוש או הוספה…") ----
+  const searchInput = document.getElementById('searchInput');
+  let searchPop = null, searchResults = [], searchActive = -1, searchTimer = null;
+
+  function searchIndex(){
+    const out = [];
+    const weeks = (appState && appState.weeks) || {};
+    Object.keys(weeks).forEach(k => {
+      const iso = k.slice(STORAGE_PREFIX.length);
+      const parts = iso.split('-').map(Number);
+      if(parts.length !== 3 || parts.some(isNaN)) return;
+      const ws = new Date(parts[0], parts[1]-1, parts[2]);
+      DAY_DEFS.forEach((d, i) => {
+        const day = weeks[k][d.key];
+        if(!day) return;
+        const date = new Date(ws); date.setDate(date.getDate() + i);
+        (day.events || []).forEach(ev => out.push({id:ev.id, kind:'event', item:ev, ws, date, dayName:d.name}));
+        TASK_SECTIONS.forEach(sec => (day[sec.key] || []).forEach(t => out.push({id:t.id, kind:'task', item:t, ws, date, dayName:d.name})));
+      });
+    });
+    ((appState && appState.unscheduled) || []).forEach(t => out.push({id:t.id, kind:'task', item:t, ws:null, date:null, dayName:''}));
+    return out;
+  }
+  function runSearch(q){
+    const needle = q.trim().toLowerCase();
+    if(!needle) return [];
+    const today = new Date(); today.setHours(0,0,0,0);
+    return searchIndex().filter(r => {
+      const text = (r.item.text || '').toLowerCase();
+      if(text.includes(needle)) return true;
+      if(r.kind === 'task'){
+        if((r.item.personIds || []).some(pid => (nameById(people, pid) || '').toLowerCase().includes(needle))) return true;
+        if(r.item.topicId && (nameById(topics, r.item.topicId) || '').toLowerCase().includes(needle)) return true;
+      }
+      return false;
+    }).sort((a, b) => {
+      const da = a.date ? Math.abs(a.date - today) : 1e15, db = b.date ? Math.abs(b.date - today) : 1e15;
+      return da - db;
+    }).slice(0, 8);
+  }
+  function closeSearch(){
+    if(searchPop){ searchPop.remove(); searchPop = null; }
+    searchResults = []; searchActive = -1;
+    searchInput.setAttribute('aria-expanded', 'false');
+    searchInput.removeAttribute('aria-activedescendant');
+  }
+  function renderSearch(){
+    const q = searchInput.value.trim();
+    if(!q){ closeSearch(); return; }
+    searchResults = runSearch(q);
+    const canAdd = currentRole === 'editor';
+    if(!searchPop){
+      searchPop = document.createElement('div');
+      searchPop.className = 'picker search-pop';
+      searchPop.id = 'searchPop';
+      searchPop.setAttribute('role', 'listbox');
+      searchPop.setAttribute('aria-label', 'תוצאות חיפוש');
+      document.body.appendChild(searchPop);
+    }
+    searchPop.innerHTML = '';
+    const opts = [];
+    if(canAdd) opts.push({add:true});
+    searchResults.forEach(r => opts.push(r));
+    opts.forEach((o, i) => {
+      const el = document.createElement('div');
+      el.className = 'search-opt' + (o.add ? ' search-opt--add' : '');
+      el.id = 'searchOpt' + i;
+      el.setAttribute('role', 'option');
+      if(o.add){
+        el.innerHTML = '<span class="so-icon">' + ICON_PLUS_SMALL + '</span><span class="so-text"></span><span class="so-meta">משימה להיום</span>';
+        el.querySelector('.so-text').textContent = q;
+      } else {
+        el.innerHTML = '<span class="so-icon so-icon--' + o.kind + '"></span><span class="so-text"></span><span class="so-meta"></span>';
+        el.querySelector('.so-text').textContent = o.item.text || (o.kind === 'event' ? 'אירוע ללא שם' : 'משימה ללא שם');
+        el.querySelector('.so-meta').textContent = o.date ? o.dayName + ' · ' + fmtDate(o.date) : 'מאגר משימות';
+        if(o.kind === 'task' && o.item.done) el.classList.add('is-done');
+      }
+      el.addEventListener('mousedown', (e) => e.preventDefault()); // keep focus in the input
+      el.onclick = () => pickSearch(i);
+      searchPop.appendChild(el);
+    });
+    if(!searchResults.length){
+      const none = document.createElement('div');
+      none.className = 'search-none';
+      none.textContent = 'לא נמצאו משימות או אירועים';
+      searchPop.appendChild(none);
+    }
+    searchPop.__opts = opts;
+    searchActive = Math.min(Math.max(searchActive, 0), opts.length - 1);
+    // the first real result is the default when there is one; "add" otherwise
+    if(searchActive === 0 && canAdd && searchResults.length) searchActive = 1;
+    paintSearchActive();
+    const rect = searchInput.closest('.search-box').getBoundingClientRect();
+    const width = Math.max(rect.width, 340);
+    searchPop.style.width = width + 'px';
+    positionPopover(searchPop, rect, {width, leftOffset: rect.width - width});
+    searchInput.setAttribute('aria-expanded', 'true');
+  }
+  function paintSearchActive(){
+    if(!searchPop) return;
+    Array.from(searchPop.querySelectorAll('.search-opt')).forEach((el, i) => el.classList.toggle('is-active', i === searchActive));
+    if(searchActive >= 0) searchInput.setAttribute('aria-activedescendant', 'searchOpt' + searchActive);
+  }
+  function pickSearch(i){
+    const o = searchPop && searchPop.__opts && searchPop.__opts[i];
+    if(!o) return;
+    const q = searchInput.value;
+    searchInput.value = '';
+    closeSearch();
+    searchInput.blur();
+    if(o.add) quickAddTask(q);
+    else revealItem(o.id, o.ws);
+  }
+  // "@שם" assigns a person, "#נושא" a topic — the longest matching name wins
+  function quickAddTask(raw){
+    if(currentRole !== 'editor') return;
+    let text = ' ' + raw.trim() + ' ';
+    const personIds = []; let topicId = null;
+    people.slice().sort((a, b) => b.name.length - a.name.length).forEach(p => {
+      const tok = '@' + p.name;
+      if(text.includes(tok)){ personIds.push(p.id); text = text.replace(tok, ' '); }
+    });
+    topics.slice().sort((a, b) => b.name.length - a.name.length).forEach(t => {
+      const tok = '#' + t.name;
+      if(!topicId && text.includes(tok)){ topicId = t.id; text = text.replace(tok, ' '); }
+    });
+    text = text.replace(/\s{2,}/g, ' ').trim();
+    if(!text) return;
+    const today = new Date();
+    if(currentView === 'month') setView('week');
+    const ws = startOfWeek(today);
+    if(weekKey(ws) !== weekKey(weekStart)) goToWeek(ws, false);
+    const dayKey = DAY_DEFS[today.getDay()].key;
+    const item = Object.assign(emptyTask(), {text, personIds, topicId});
+    const arr = weekData[dayKey].general;
+    arr.push(item);
+    saveWeek(weekStart, weekData);
+    renderBoard(); renderSummary();
+    revealItem(item.id, null);
+    showUndoToast('המשימה נוספה להיום', () => {
+      const i = arr.findIndex(x => x.id === item.id);
+      if(i > -1) arr.splice(i, 1);
+      saveWeek(weekStart, weekData);
+      renderBoard(); renderSummary();
+    });
+  }
+  searchInput.addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    searchActive = 0;
+    searchTimer = setTimeout(renderSearch, 90);
+  });
+  searchInput.addEventListener('keydown', (e) => {
+    const n = searchPop && searchPop.__opts ? searchPop.__opts.length : 0;
+    if(e.key === 'ArrowDown' && n){ e.preventDefault(); searchActive = (searchActive + 1) % n; paintSearchActive(); }
+    else if(e.key === 'ArrowUp' && n){ e.preventDefault(); searchActive = (searchActive - 1 + n) % n; paintSearchActive(); }
+    else if(e.key === 'Enter'){ e.preventDefault(); clearTimeout(searchTimer); if(!searchPop) renderSearch(); if(searchActive >= 0) pickSearch(searchActive); }
+    else if(e.key === 'Escape'){
+      e.preventDefault();
+      if(searchInput.value){ searchInput.value = ''; closeSearch(); }
+      else searchInput.blur();
+    }
+  });
+  searchInput.addEventListener('blur', () => setTimeout(() => { if(document.activeElement !== searchInput) closeSearch(); }, 120));
+  window.addEventListener('resize', () => { if(searchPop) renderSearch(); });
+
+  // global shortcuts: ⌘K / Ctrl+K or "/" → search; N / E / H → new task / event / day title
+  function isTypingTarget(el){
+    return !!el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
+  }
+  document.addEventListener('keydown', (e) => {
+    if(!currentSession || currentBoardType === 'notes') return;
+    if((e.metaKey || e.ctrlKey) && !e.altKey && (e.key === 'k' || e.key === 'K' || e.code === 'KeyK')){
+      e.preventDefault(); searchInput.focus(); searchInput.select(); return;
+    }
+    if(e.metaKey || e.ctrlKey || e.altKey || isTypingTarget(e.target)) return;
+    if(openPickerEl || isDrawerOpen() || document.querySelector('.peek-panel') ||
+       document.querySelector('.modal-overlay[style*="flex"]')) return;
+    if(e.key === '/'){ e.preventDefault(); searchInput.focus(); return; }
+    const kind = {n:'task', e:'event', h:'title'}[e.code === 'KeyN' ? 'n' : e.code === 'KeyE' ? 'e' : e.code === 'KeyH' ? 'h' : ''];
+    if(kind && currentRole === 'editor'){ e.preventDefault(); addNew(kind); }
+  });
 
   /* ---------- week / month switching ---------- */
 
