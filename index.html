@@ -6,7 +6,7 @@
 <!-- App build version, compared against version.txt to detect a new deploy in
      installed standalone PWA windows (which have no reload affordance). MUST be
      bumped together with version.txt on every deploy — see NOTES.md deploy step. -->
-<meta name="app-version" content="20261002-1029">
+<meta name="app-version" content="20261002-1415">
 <title>יומן ומשימות</title>
 <!-- PWA manifest + icons — no service worker on purpose: this is a live-data
      app on a 20s poll, a SW would only risk serving a stale index.html for
@@ -1533,6 +1533,33 @@ html,body{
   .sheet-overlay--anchored .sheet-cancel{ display:none; }
 }
 .sheet--add .sheet-primary{ margin-top:auto; position:sticky; bottom:0; box-shadow:0 12px 0 var(--s1); }
+/* phones: a sheet with a text field is a tall page sheet that never moves.
+   It used to follow the visual viewport above the keyboard, and iOS reports
+   that late and in steps, so the sheet jumped every time the keyboard came or
+   went. Now the keyboard just covers its lower part: the field sits at the top,
+   the action sits in the header, and --kb (keyboard height) only pads the
+   scroll area so the last rows can be scrolled above the keyboard. */
+@media (max-width:767px){
+  .sheet.sheet--page{
+    display:flex; flex-direction:column; overflow:hidden; padding:0; max-height:none;
+    height:calc(100% - env(safe-area-inset-top, 0px) - 10px);
+    transform:translateY(40px); opacity:0; transition:transform .24s cubic-bezier(.2,.8,.2,1), opacity .2s ease;
+  }
+  .sheet-overlay.open .sheet.sheet--page{ transform:none; opacity:1; }
+  .sheet--page .sheet-head{ flex:none; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:8px; min-height:52px; padding:4px 8px; border-bottom:1px solid var(--hl); }
+  .sheet--page .sheet-head .sheet-title{ padding:0; font-size:16px; font-weight:700; color:var(--ink); }
+  .sheet--page .sheet-head-cancel, .sheet--page .sheet-head .sheet-primary{
+    min-height:44px; min-width:44px; padding:0 8px; margin:0; border:0; border-radius:8px; background:none; box-shadow:none; position:static;
+    font:inherit; font-size:16px; cursor:pointer; white-space:nowrap;
+  }
+  .sheet--page .sheet-head-cancel{ justify-self:start; color:var(--ink2); }
+  .sheet--page .sheet-head .sheet-primary{ justify-self:end; color:var(--accent); font-weight:700; }
+  .sheet--page .sheet-head .sheet-primary:disabled{ color:var(--ink3-text); opacity:1; }
+  .sheet--page .sheet-scroll{ flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; padding:14px 16px calc(24px + var(--kb, 0px) + env(safe-area-inset-bottom, 0px)); }
+}
+@media (max-width:767px) and (prefers-reduced-motion: reduce){
+  .sheet.sheet--page{ transform:none; transition:opacity .12s ease; }
+}
 @media (min-width:768px){
   .sheet-overlay{ align-items:center; padding:24px; }
   .sheet{ border-radius:14px; padding-bottom:16px; max-width:420px; transform:translateY(12px); opacity:0; transition:transform .18s ease, opacity .18s ease; }
@@ -6863,14 +6890,41 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     panel.setAttribute('role', 'dialog');
     panel.setAttribute('aria-modal', 'true');
     panel.setAttribute('aria-label', titleText || 'פעולות');
-    panel.innerHTML = '<div class="sheet-grip" aria-hidden="true"></div>';
-    if(titleText){
+    // phones + a sheet with a text field → a static page sheet (see .sheet--page CSS)
+    const page = !!opts.page && isMobileLayout();
+    if(page){
+      panel.classList.add('sheet--page');
+      const head = document.createElement('div');
+      head.className = 'sheet-head';
+      const cancel = document.createElement('button');
+      cancel.type = 'button'; cancel.className = 'sheet-head-cancel'; cancel.textContent = 'ביטול';
+      cancel.onclick = closeSheet;
       const h = document.createElement('div');
       h.className = 'sheet-title';
-      h.textContent = titleText;
-      panel.appendChild(h);
+      h.textContent = titleText || '';
+      head.append(cancel, h);
+      // the body's own action button moves up into the header, so it stays
+      // reachable above the keyboard (a form's submit button keeps submitting
+      // its form through the form attribute)
+      const act = body.querySelector(':scope > .sheet-primary');
+      if(act){
+        if(body.tagName === 'FORM'){ if(!body.id) body.id = 'sheetForm' + Date.now(); act.setAttribute('form', body.id); }
+        head.appendChild(act);
+      }
+      const scroll = document.createElement('div');
+      scroll.className = 'sheet-scroll';
+      scroll.appendChild(body);
+      panel.append(head, scroll);
+    } else {
+      panel.innerHTML = '<div class="sheet-grip" aria-hidden="true"></div>';
+      if(titleText){
+        const h = document.createElement('div');
+        h.className = 'sheet-title';
+        h.textContent = titleText;
+        panel.appendChild(h);
+      }
+      panel.appendChild(body);
     }
-    panel.appendChild(body);
     overlay.appendChild(panel);
     const openedAt = performance.now();
     // the finger that long-pressed the FAB lifts over the new sheet: that
@@ -6886,20 +6940,36 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     if(anchored) overlay.classList.add('sheet-overlay--anchored');
     document.body.appendChild(overlay);
     if(anchored) placeAnchoredPanel(panel, opts.anchor);
-    overlay.__untrack = anchored ? null : fitOverlayToVisualViewport(overlay);
+    overlay.__untrack = page ? trackKeyboardInset(panel) : null;
     openSheetEl = overlay;
     document.addEventListener('keydown', sheetKeydown, true);
     requestAnimationFrame(() => overlay.classList.add('open'));
-    setTimeout(() => {
+    if(page && opts.focus){
+      // iOS raises the keyboard only for a focus() made while the tap is
+      // still being handled — a timer is too late (the sheet then opened
+      // without a keyboard). The field is already in its final place (the
+      // page sheet only fades in from 40px below), so iOS has nothing to scroll.
+      try{ opts.focus.focus({preventScroll:true}); }catch(e){}
+    } else setTimeout(() => {
       const target = opts.focus || panel.querySelector('input, button');
       if(target) try{ target.focus({preventScroll:true}); }catch(e){}
     }, opts.focus ? 60 : 0);
     return panel;
   }
-  // Phones: the on-screen keyboard shrinks the visual viewport but not the
-  // layout viewport, so a bottom sheet pinned to the layout bottom ends up
-  // behind the keyboard. Pin the overlay to the visual viewport instead: the
-  // sheet then sits right above the keyboard and scrolls inside if it must.
+  // Page sheets never move with the keyboard; they only learn its height
+  // (layout viewport minus visual viewport) to pad their scroll area, so
+  // the rows under the keyboard can still be scrolled into view.
+  function trackKeyboardInset(panel){
+    const vv = window.visualViewport;
+    if(!vv) return null;
+    const fit = () => {
+      const kb = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+      panel.style.setProperty('--kb', kb + 'px');
+    };
+    fit();
+    vv.addEventListener('resize', fit);
+    return () => vv.removeEventListener('resize', fit);
+  }
   // desktop: a menu opened from a control on a row appears next to that
   // control (like any desktop context menu), not as a dialog in mid-screen
   function placeAnchoredPanel(panel, anchor){
@@ -6915,20 +6985,6 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     panel.style.left = Math.round(left) + 'px';
     panel.style.top = Math.round(top) + 'px';
   }
-  function fitOverlayToVisualViewport(overlay){
-    const vv = window.visualViewport;
-    if(!vv) return null;
-    const fit = () => {
-      if(!isMobileLayout()){ overlay.style.top = ''; overlay.style.height = ''; overlay.style.bottom = ''; return; }
-      overlay.style.top = vv.offsetTop + 'px';
-      overlay.style.height = vv.height + 'px';
-      overlay.style.bottom = 'auto';
-    };
-    fit();
-    vv.addEventListener('resize', fit);
-    vv.addEventListener('scroll', fit);
-    return () => { vv.removeEventListener('resize', fit); vv.removeEventListener('scroll', fit); };
-  }
   function sheetList(items){
     const list = document.createElement('div');
     list.className = 'sheet-list';
@@ -6938,7 +6994,9 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       b.type = 'button';
       b.className = 'sheet-item' + (it.danger ? ' is-danger' : '');
       b.textContent = it.label;
-      b.onclick = () => { closeSheet(); setTimeout(it.run, 0); };
+      // an item that opens a sheet with a text field runs inside the tap (sync),
+      // so iOS can raise the keyboard for it; the rest run after the close
+      b.onclick = () => { closeSheet(); if(it.sync) it.run(); else setTimeout(it.run, 0); };
       list.appendChild(b);
     });
     const cancel = document.createElement('button');
@@ -7005,7 +7063,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     const commit = () => { const v = input.value.trim(); if(!v) return; item.text = v; closeSheet(); onSaved(); };
     input.addEventListener('keydown', (e) => { if(e.key === 'Enter' && !e.isComposing){ e.preventDefault(); commit(); } });
     body.querySelector('.sheet-primary').onclick = commit;
-    openSheet('עריכת הטקסט', body, {focus: input});
+    openSheet('עריכת הטקסט', body, {focus: input, page: true});
   }
   // phones: one sheet where assigning a person / מופע and the common moves are
   // a single tap each — no menu inside a menu
@@ -7046,7 +7104,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       const liveRow = () => document.querySelector('#board [data-id="' + it.id + '"], .mv-daylist [data-id="' + it.id + '"], .peek-panel [data-id="' + it.id + '"]');
       body.appendChild(sheetList([
         {label: it.done ? 'ביטול "בוצע"' : 'סימון כבוצע', run: () => { it.done = !it.done; save(); }},
-        {label: 'עריכת הטקסט', run: () => openTextEditSheet(it, save)},
+        {label: 'עריכת הטקסט', sync: true, run: () => openTextEditSheet(it, save)},
         {label: 'שכפול', run: duplicate},
         {label: 'בחירת כמה משימות…', run: () => { const r = liveRow(); enterSelectMode(); if(r) toggleSelected(r, {}); }},
         {label: 'מחיקה', danger: true, run: () => {
@@ -7136,10 +7194,21 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       if(ppl){ ppl.innerHTML = ''; people.forEach(p => ppl.appendChild(chip(p.name, personIds.includes(p.id), () => { personIds = personIds.includes(p.id) ? personIds.filter(x => x !== p.id) : personIds.concat(p.id); paint(); }))); }
       const tps = body.querySelector('.add-topics');
       if(tps){ tps.innerHTML = ''; topics.forEach(t => tps.appendChild(chip(t.name, topicId === t.id, () => { topicId = topicId === t.id ? null : t.id; paint(); }))); }
-      primary.textContent = k === 'task' ? 'הוספת משימה' : 'הוספת אירוע';
+      // phones (page sheet): the header carries the title and a short "הוספה"
+      const pageSheet = body.closest('.sheet--page');
+      primary.textContent = pageSheet ? 'הוספה' : (k === 'task' ? 'הוספת משימה' : 'הוספת אירוע');
+      if(pageSheet) pageSheet.querySelector('.sheet-title').textContent = k === 'task' ? 'משימה חדשה' : 'אירוע חדש';
       primary.disabled = !input.value.trim();
     }
-    body.querySelectorAll('.seg [data-k]').forEach(b => b.onclick = () => { k = b.dataset.k; paint(); input.focus({preventScroll:true}); });
+    body.querySelectorAll('.seg [data-k]').forEach(b => b.onclick = () => { k = b.dataset.k; paint(); });
+    // While typing, a tap on a chip or on משימה/אירוע must not drop the
+    // keyboard (iOS blurs the field on any tap): give the focus back inside
+    // the same tap. Taps on the time/repeat fields are left alone.
+    let typing = false;
+    body.addEventListener('pointerdown', () => { typing = document.activeElement === input; }, true);
+    body.addEventListener('click', (e) => {
+      if(typing && e.target.closest('.chip-opt, .seg button')) try{ input.focus({preventScroll:true}); }catch(err){}
+    });
     input.addEventListener('input', () => { primary.disabled = !input.value.trim(); });
     input.addEventListener('keydown', (e) => { if(e.key === 'Enter' && !e.isComposing){ e.preventDefault(); submit(); } });
     // after an in-place add: re-render without leaving the tab/view, then flash the new row
@@ -7209,7 +7278,8 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     }
     primary.onclick = submit;
     paint();
-    const panel = openSheet('הוספה', body, {cls: 'sheet--add', focus: input});
+    const panel = openSheet('הוספה', body, {cls: 'sheet--add', focus: input, page: true});
+    if(panel.classList.contains('sheet--page')){ paint(); return; }   // a page sheet has a fixed height already
     lockAddSheetHeight(panel, body, () => { const cur = k; const out = []; (allowPool ? ['task'] : ['task', 'event']).forEach(m => { k = m; paint(); out.push(body.offsetHeight); }); k = cur; paint(); return out; });
   }
   // The task and event modes have different heights. Switching between them
@@ -7223,8 +7293,8 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   function openFabMenu(){
     if(currentRole !== 'editor') return;
     openSheet('מה להוסיף?', sheetList([
-      {label: 'משימה', run: () => openAddSheet('task')},
-      {label: 'אירוע', run: () => openAddSheet('event')},
+      {label: 'משימה', sync: true, run: () => openAddSheet('task')},
+      {label: 'אירוע', sync: true, run: () => openAddSheet('event')},
       {label: 'כותרת ליום', run: () => {
         if(currentView === 'month'){ mobileTab = 'week'; setView('week'); paintMobileChrome(); }
         const card = document.querySelector('#board .day[data-day="' + targetDayForAdd() + '"]');
@@ -7761,9 +7831,9 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       '<button type="submit" class="sheet-primary">' + (locked ? 'שמירה' : 'נעילת הלוח') + '</button>' +
       (locked ? '<button type="button" class="sheet-cancel lock-remove">הסרת הנעילה</button>' : '');
     const err = body.querySelector('.lock-err');
+    const primary = body.querySelector('.sheet-primary');   // kept: on phones it moves into the sheet header
     async function send(password){
       const cur = body.querySelector('#lockCur');
-      const primary = body.querySelector('.sheet-primary');
       primary.disabled = true;
       try{
         const res = await fetch(API_URL, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(authBody({action:'setBoardLock', board: currentBoardId, password, current: cur ? cur.value : ''}))});
@@ -7798,7 +7868,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     });
     const rm = body.querySelector('.lock-remove');
     if(rm) rm.onclick = () => { if(!body.querySelector('#lockCur').value){ err.textContent = 'צריך את הסיסמה הנוכחית'; return; } send(''); };
-    openSheet(locked ? 'נעילה בסיסמה' : 'נעילת הלוח בסיסמה', body, {focus: body.querySelector('input')});
+    openSheet(locked ? 'נעילה בסיסמה' : 'נעילת הלוח בסיסמה', body, {focus: body.querySelector('input'), page: true});
   }
   document.getElementById('lockManageBtn').onclick = openLockSheet;
 
@@ -8113,7 +8183,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       closeSheet();
       setTimeout(() => isOcc ? saveOccurrenceEdit(ctx.occ, s, text, v) : saveEventEdit(ctx, text, v), 0);
     });
-    openSheet(isOcc ? 'אירוע חוזר · ' + date.getDate() + ' ב' + HEB_MONTHS[date.getMonth()] : 'אירוע · ' + DAY_DEFS[date.getDay()].name + ' ' + fmtDate(date), body, {cls: 'sheet--event'});
+    openSheet(isOcc ? 'אירוע חוזר · ' + date.getDate() + ' ב' + HEB_MONTHS[date.getMonth()] : 'אירוע · ' + DAY_DEFS[date.getDay()].name + ' ' + fmtDate(date), body, {cls: 'sheet--event', page: true});
   }
   function saveEventEdit(ctx, text, v){
     const item = ctx.item, arr = weekData[ctx.dayKey].events;
