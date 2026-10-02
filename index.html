@@ -6,7 +6,7 @@
 <!-- App build version, compared against version.txt to detect a new deploy in
      installed standalone PWA windows (which have no reload affordance). MUST be
      bumped together with version.txt on every deploy — see NOTES.md deploy step. -->
-<meta name="app-version" content="20261002-0757">
+<meta name="app-version" content="20261002-0823">
 <title>יומן ומשימות</title>
 <!-- PWA manifest + icons — no service worker on purpose: this is a live-data
      app on a 20s poll, a SW would only risk serving a stale index.html for
@@ -1699,10 +1699,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
 .composer-slot:hover{ border-color:var(--ink3); color:var(--ink); background:var(--s2); }
 .composer-slot.is-set{ border-style:solid; border-color:var(--accent-deco); background:var(--accent-tint); color:var(--accent-soft-ink); font-weight:600; }
 .composer-slot:focus-visible, .composer-add:focus-visible, .row-tool:focus-visible{ outline:2px solid var(--accent); outline-offset:1px; }
-.composer-foot{ display:flex; align-items:center; justify-content:space-between; gap:6px; }
-.composer-hint{ font-size:11px; line-height:14px; color:var(--ink3-text); }
-.composer-hint kbd{ font-family:inherit; font-size:10.5px; border:1px solid var(--hl2); border-bottom-width:2px; border-radius:4px; padding:0 3px; color:var(--ink2); }
-.composer-add{ flex:none; min-height:24px; padding:0 10px; border:0; border-radius:6px; background:var(--ink); color:#fff; font:inherit; font-size:12px; font-weight:600; cursor:pointer; }
+.composer-add{ flex:none; margin-inline-start:auto; min-height:26px; padding:0 10px; border:0; border-radius:6px; background:var(--ink); color:#fff; font:inherit; font-size:12px; font-weight:600; cursor:pointer; }
 .composer-add:disabled{ opacity:.35; cursor:default; }
 .composer-ac{ z-index:340; }
 .row-tools{ display:none; }
@@ -2350,6 +2347,37 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     return true;
   }
 
+  // ---- no empty tasks/events, ever (owner rule 2026-10-02) ----
+  // A planner item is {id, text, …} inside a week's day lists, the pool or the
+  // series list. One with blank text is a placeholder someone opened and left
+  // (or is still typing into): it must never reach the server, the device
+  // cache or another device. The live row stays in memory while it's being
+  // edited; dropIfLeftEmpty removes it if it's left blank.
+  function isBlankItem(x){
+    return !!x && typeof x === 'object' && !Array.isArray(x) && typeof x.id === 'string' && 'text' in x && !String(x.text == null ? '' : x.text).trim();
+  }
+  function storeReplacer(key, value){
+    return Array.isArray(value) ? value.filter(x => !isBlankItem(x)) : value;
+  }
+  function stateJson(obj){
+    return (obj && obj.kind === 'notes') || currentBoardType === 'notes' ? JSON.stringify(obj) : JSON.stringify(obj, storeReplacer);
+  }
+  // incoming state (server, cache, an older client's save): drop the blanks
+  function pruneBlankItems(state){
+    if(!state || state.kind === 'notes' || !state.weeks) return state;
+    Object.keys(state.weeks).forEach(k => {
+      const w = state.weeks[k];
+      if(!w || typeof w !== 'object') return;
+      Object.keys(w).forEach(d => {
+        const day = w[d];
+        if(!day || typeof day !== 'object') return;
+        Object.keys(day).forEach(sec => { if(Array.isArray(day[sec])) day[sec] = day[sec].filter(x => !isBlankItem(x)); });
+      });
+    });
+    if(Array.isArray(state.unscheduled)) state.unscheduled = state.unscheduled.filter(x => !isBlankItem(x));
+    return state;
+  }
+
   function persistState(){
     // keep a one-step-back copy of whatever was cached *before* this write,
     // so a bad local write (or a save that raced with something else) always
@@ -2359,7 +2387,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     } else {
       const prev = localStorage.getItem(cacheKeyFor(currentBoardId));
       if(prev) localStorage.setItem(backupCacheKeyFor(currentBoardId), prev);
-      localStorage.setItem(cacheKeyFor(currentBoardId), JSON.stringify(appState));
+      localStorage.setItem(cacheKeyFor(currentBoardId), stateJson(appState));
     }
     scheduleSave();
   }
@@ -2459,14 +2487,15 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   async function pushState(){
     if(!currentSession || currentRole !== 'editor' || !currentBoardId) return true;
     const reqBoard = currentBoardId;               // this save is FOR this board
-    const payload = JSON.stringify(appState);
+    const payload = stateJson(appState);
+    const data = JSON.parse(payload);           // what is stored = what is sent: no blank items
     let note = '';
-    try{ note = summarizeChange(lastSyncedJson ? JSON.parse(lastSyncedJson) : null, appState); }catch(e){}
+    try{ note = summarizeChange(lastSyncedJson ? JSON.parse(lastSyncedJson) : null, data); }catch(e){}
     try{
       const res = await fetch(API_URL, {
         method:'POST',
         headers:{'Content-Type':'text/plain;charset=utf-8'},
-        body: JSON.stringify(authBody({ action:'saveBoard', board: reqBoard, data: appState, note }))
+        body: JSON.stringify(authBody({ action:'saveBoard', board: reqBoard, data, note }))
       });
       const json = await res.json().catch(()=>null);
       // This used to report 'מסונכרן ✓' unconditionally, without ever reading
@@ -2515,7 +2544,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     // board on close (audit 2026-09-17 #6, frontend half of B2.4).
     if(!hasPendingLocalChange) return;
     clearTimeout(saveTimer);
-    const payload = JSON.stringify(authBody({ action:'saveBoard', board: currentBoardId, data: appState }));
+    const payload = JSON.stringify(authBody({ action:'saveBoard', board: currentBoardId, data: JSON.parse(stateJson(appState)) }));
     try{
       navigator.sendBeacon(API_URL, new Blob([payload], {type:'text/plain;charset=utf-8'}));
     }catch(e){}
@@ -2591,7 +2620,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
         const serverJson = JSON.stringify(serverData);
         if(serverJson !== lastSyncedJson){
           if(!isUserEditing() && !hasPendingLocalChange){
-            appState = serverData;
+            appState = pruneBlankItems(serverData);
             if(currentBoardType === 'notes'){
               if(!Array.isArray(appState.pages)) appState.pages = [];
               if(!appState.settings) appState.settings = {};
@@ -3450,7 +3479,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     hideLockScreen();
     const cachedRaw = lockedEntry ? null : localStorage.getItem(cacheKeyFor(boardId));
     appState = null;
-    if(cachedRaw){ try{ appState = JSON.parse(cachedRaw); }catch(e){} }
+    if(cachedRaw){ try{ appState = pruneBlankItems(JSON.parse(cachedRaw)); }catch(e){} }
     if(!isValidStateFor(currentBoardType, appState)) appState = defaultStateFor(currentBoardType);
     if(currentBoardType === 'notes'){
       if(!appState.settings) appState.settings = {};
@@ -3784,7 +3813,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   // "+ הוספת משימה" opens a writing line in place instead of an empty row:
   // the text field plus two always-visible buttons, אחראי/ת and מופע, so
   // assigning is part of writing the task. "@name" / "#מופע" in the text do
-  // the same from the keyboard. Enter adds and keeps the line open for the
+  // the same from the keyboard (not advertised — the buttons are the way in). Enter adds and keeps the line open for the
   // next task (person and מופע stay chosen); Esc or leaving it empty closes.
   // Nothing is stored until there is text, so no empty rows.
   function openTaskComposer(cfg){
@@ -3795,8 +3824,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     c.className = 'composer';
     c.innerHTML =
       '<input class="composer-input" type="text" autocomplete="off" enterkeyhint="done" placeholder="מה צריך לעשות?" aria-label="משימה חדשה">' +
-      '<div class="composer-assign"><button type="button" class="composer-slot" data-k="person"></button><button type="button" class="composer-slot" data-k="topic"></button></div>' +
-      '<div class="composer-foot"><span class="composer-hint"><kbd>@</kbd> אחראי/ת · <kbd>#</kbd> מופע · <kbd>Enter</kbd> הוספה</span><button type="button" class="composer-add" disabled>הוספה</button></div>';
+      '<div class="composer-assign"><button type="button" class="composer-slot" data-k="person"></button><button type="button" class="composer-slot" data-k="topic"></button><button type="button" class="composer-add" disabled>הוספה</button></div>';
     const input = c.querySelector('.composer-input');
     const pSlot = c.querySelector('[data-k="person"]'), tSlot = c.querySelector('[data-k="topic"]');
     const addBtn = c.querySelector('.composer-add');
@@ -4235,7 +4263,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     text.className = 'summary-row-text';
     if(dayKey===null){
       text.textContent = item.text || '';
-      makeEditable(text, 'משימה…', (val)=>{ item.text = val; persistState(); });
+      makeEditable(text, 'משימה…', (val)=>{ if(!val && item.text){ text.textContent = item.text; return; } item.text = val; persistState(); });
     } else {
       text.textContent = item.text || '(ללא טקסט)';
     }
@@ -4427,7 +4455,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     const text = document.createElement('div');
     text.className = 'task-text';
     text.textContent = item.text || '';
-    makeEditable(text, 'משימה…', (val)=>{ item.text = val; persistState(); });
+    makeEditable(text, 'משימה…', (val)=>{ if(!val && item.text){ text.textContent = item.text; return; } item.text = val; persistState(); });
     main.appendChild(text);
 
     const updateFlag = wireChipReveal(row, main, ()=> !!item.topicId || !!(item.personIds||[]).length);
@@ -5349,7 +5377,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     const text = document.createElement('div');
     text.className = 'event-text';
     text.textContent = item.text || '';
-    makeEditable(text, 'שעה + תיאור…', (val)=>{ item.text = val; saveWeek(weekStart, weekData); });
+    makeEditable(text, 'שעה + תיאור…', (val)=>{ if(!val && item.text){ text.textContent = item.text; return; } item.text = val; saveWeek(weekStart, weekData); });
     row.appendChild(text);
 
     const del = document.createElement('button');
@@ -5462,7 +5490,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     const text = document.createElement('div');
     text.className = 'task-text';
     text.textContent = item.text || '';
-    makeEditable(text, 'משימה…', (val)=>{ item.text = val; saveWeek(weekStart, weekData); renderSummary(); });
+    makeEditable(text, 'משימה…', (val)=>{ if(!val && item.text){ text.textContent = item.text; return; } item.text = val; saveWeek(weekStart, weekData); renderSummary(); });
     main.appendChild(text);
 
     const updateFlag = wireChipReveal(row, main,
@@ -6958,8 +6986,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     if(ctx.kind === 'task'){ openTaskSheet(ctx, label, edit, duplicate); return; }
     const items = [
       {label: it.passed ? 'ביטול "התקיים"' : 'סימון שהאירוע התקיים', run: () => ctx.toggle.click()},
-      {label: 'שעה, יום שלם וחזרה…', run: () => openEventSheet({item: it, dayKey: ctx.dayKey})},
-      {label: 'עריכת הטקסט', run: edit},
+      {label: 'ערוך', run: () => openEventSheet({item: it, dayKey: ctx.dayKey})},   // the sheet edits text, time, all-day and repeat
       {label: 'העברה ל…', run: () => openMovePicker([it.id], null, {anchor: ctx.anchor})},
       {label: 'שכפול', run: duplicate}
     ];
@@ -7966,6 +7993,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     text.className = 'event-text';
     text.textContent = occ.text || '';
     makeEditable(text, 'אירוע…', (val) => {
+      if(!val){ text.textContent = occ.text || ''; return; }   // never empty an event
       if(val === (occ.text || '')) return;
       askSeriesScope('שינוי אירוע חוזר', {
         thisLabel: 'רק באירוע הזה', allLabel: 'בכל האירועים בסדרה',
@@ -7997,8 +8025,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     const s = seriesList().find(x => x.id === occ.seriesId);
     openSheet((occ.text || 'אירוע חוזר') + (s ? ' · ' + REPEAT_LABEL[s.repeat] : ''), sheetList([
       {label: occ.passed ? 'ביטול "התקיים"' : 'סימון שהאירוע התקיים', run: () => { setException(occ.seriesId, occ.date, {passed: !occ.passed}); renderBoard(); }},
-      {label: 'שעה, יום שלם וחזרה…', run: () => openEventSheet({occ, dayKey: ctx.dayKey})},
-      {label: 'עריכת הטקסט', run: () => { ctx.text.focus(); }},
+      {label: 'ערוך', run: () => openEventSheet({occ, dayKey: ctx.dayKey})},
       {label: 'העברת האירוע הזה ל…', run: () => openMovePicker([], null, {single: true, title: 'העברת "' + (occ.text || 'אירוע') + '"', from: parseIsoKey(occ.date), onPick: (target) => moveOccurrence(occ, target)})},
       {label: 'מחיקה…', danger: true, run: () => deleteOccurrence(occ)}
     ]));
@@ -8082,7 +8109,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     const read = wireEventFields(body, {allDay: src.allDay, start: src.start, end: src.end, repeat: s ? s.repeat : '', until: s ? s.until : ''}, isOcc ? parseIsoKey(s.from) : date);
     body.addEventListener('submit', (e) => {
       e.preventDefault();
-      const v = read(); const text = body.querySelector('.ev-text').value.trim();
+      const v = read(); const text = body.querySelector('.ev-text').value.trim() || (src.text || '');   // never empty an event
       closeSheet();
       setTimeout(() => isOcc ? saveOccurrenceEdit(ctx.occ, s, text, v) : saveEventEdit(ctx, text, v), 0);
     });
@@ -8214,7 +8241,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       message: 'זה יחליף את המצב הנוכחי של הלוח בגרסה השמורה שלפני העדכון האחרון. אפשר תמיד לשחזר בחזרה מיד אחרי, כי גם הפעולה הזו שומרת גיבוי משלה. להמשיך?',
       confirmLabel: 'שחזור',
       onConfirm: ()=>{
-        appState = backup;
+        appState = pruneBlankItems(backup);
         if(currentBoardType === 'notes'){
           if(!Array.isArray(appState.pages)) appState.pages = [];
           if(!appState.settings) appState.settings = {};
@@ -9241,7 +9268,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     hideLockScreen();
     const cachedRaw = lockedEntry ? null : localStorage.getItem(cacheKeyFor(currentBoardId));
     appState = null;
-    if(cachedRaw){ try{ appState = JSON.parse(cachedRaw); }catch(e){} }
+    if(cachedRaw){ try{ appState = pruneBlankItems(JSON.parse(cachedRaw)); }catch(e){} }
     if(!isValidStateFor(currentBoardType, appState)) appState = defaultStateFor(currentBoardType);
     if(currentBoardType === 'notes'){
       if(!appState.settings) appState.settings = {};
