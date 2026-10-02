@@ -6,7 +6,7 @@
 <!-- App build version, compared against version.txt to detect a new deploy in
      installed standalone PWA windows (which have no reload affordance). MUST be
      bumped together with version.txt on every deploy — see NOTES.md deploy step. -->
-<meta name="app-version" content="20261002-1650">
+<meta name="app-version" content="20261002-1551">
 <title>יומן ומשימות</title>
 <!-- PWA manifest + icons — no service worker on purpose: this is a live-data
      app on a 20s poll, a SW would only risk serving a stale index.html for
@@ -14,7 +14,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/horn-favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" sizes="180x180" href="icons/horn-apple-touch-180.png">
-<meta name="theme-color" content="#b24a6e">
+<meta name="theme-color" content="#D5205C">
 <meta name="apple-mobile-web-app-title" content="יומן ומשימות">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -47,7 +47,7 @@
   --bg:#f6f4f5;
   --surface:#ffffff;
   --surface-2:#f9f7f8;
-  --accent:#b24a6e;
+  --accent:#D5205C;
   --accent-ink:#ffffff;
   --accent-soft:#f9eaf0;
   --accent-soft-ink:#7e2f4c;
@@ -56,13 +56,13 @@
   --border:#eae5e8;
   --border-strong:#d8d1d5;
   --done:#3f9464;
-  --today-ring:#b24a6e;
+  --today-ring:#D5205C;
   /* darker text-only variants of --done/--today-ring for small text on white:
      the base colors pass the 3:1 non-text UI-component minimum (dots, rings,
      chip backgrounds) but fail AA 4.5:1 as text; these pass (audit #A9 / B3.4).
      Scoped so the decorative dot/ring colors stay unchanged. */
   --done-text:#2f7d54;
-  --today-text:#b24a6e;
+  --today-text:#D5205C;
   --shadow: 0 1px 2px rgba(40,24,32,.05), 0 6px 18px -12px rgba(40,24,32,.16);
   --shadow-lift: 0 2px 6px rgba(40,24,32,.08), 0 12px 28px -10px rgba(40,24,32,.20);
   color-scheme: light;
@@ -654,10 +654,6 @@ html,body{
   direction:rtl; font-family:'Assistant UI', system-ui, -apple-system, "Segoe UI", sans-serif; color:var(--ink);
   -webkit-tap-highlight-color:transparent;
 }
-.sp-atmo{ position:absolute; inset:-20%; pointer-events:none; }
-.sp-atmo i{ position:absolute; border-radius:50%; opacity:.9; }
-.sp-atmo i:nth-child(1){ width:56vmax; height:56vmax; inset-inline-start:8%; top:6%; background:radial-gradient(closest-side, rgba(246,207,221,.95), rgba(246,207,221,.45) 45%, rgba(246,207,221,0)); }
-.sp-atmo i:nth-child(2){ width:48vmax; height:48vmax; inset-inline-end:2%; bottom:0; background:radial-gradient(closest-side, rgba(249,224,232,.95), rgba(249,224,232,.45) 45%, rgba(249,224,232,0)); }
 .sp-lockup{ position:relative; display:flex; flex-direction:column; align-items:center; text-align:center; }
 .sp-icon{ position:relative; width:112px; height:112px; }
 .sp-icon svg{ position:relative; display:block; width:100%; height:100%; overflow:visible; }
@@ -692,7 +688,7 @@ html,body{
 .email-gate.is-connecting .sp-prog:nth-of-type(3){ animation-delay:.3s; }
 @keyframes spProg{ 0%{ transform:scaleX(0); opacity:1; } 55%{ transform:none; opacity:1; } 85%,100%{ transform:none; opacity:0; } }
 /* leaving: everything but the icon fades while the window opens */
-.email-gate.is-leaving .sp-atmo, .email-gate.is-leaving .sp-name, .email-gate.is-leaving .sp-tag, .email-gate.is-leaving .sp-cta, .email-gate.is-leaving .sp-halo{ opacity:0; transition:opacity .16s ease; }
+.email-gate.is-leaving .sp-name, .email-gate.is-leaving .sp-tag, .email-gate.is-leaving .sp-cta, .email-gate.is-leaving .sp-halo{ opacity:0; transition:opacity .16s ease; }
 @media (max-width:767px){
   /* phone: the icon at the optical centre, the button in the thumb zone */
   .email-gate{ justify-content:flex-start; }
@@ -701,10 +697,6 @@ html,body{
 }
 
 /* the intro (first show only) */
-.email-gate.is-intro .sp-atmo i{ opacity:0; animation:spGlow 1.6s var(--sp-out) .1s forwards, spDrift 18s ease-in-out 1.7s infinite alternate; }
-.email-gate.is-intro .sp-atmo i:nth-child(2){ animation-delay:.25s, 1.9s; animation-direction:normal, alternate-reverse; }
-@keyframes spGlow{ to{ opacity:.9; } }
-@keyframes spDrift{ from{ transform:translate3d(0,0,0) scale(1); } to{ transform:translate3d(-4%,3%,0) scale(1.08); } }
 .email-gate.is-intro .sp-halo{ opacity:0; animation:spHalo 1s var(--sp-out) .05s forwards; }
 @keyframes spHalo{ to{ opacity:.38; } }
 .email-gate.is-intro .sp-tile{ transform-origin:center; opacity:0; transform:scale(.82); animation:spIn .48s var(--sp-out) forwards; }
@@ -729,10 +721,10 @@ html,body{
 @keyframes spFade{ to{ opacity:1; } }
 
 @media (prefers-reduced-motion: reduce){
-  .email-gate.is-intro :is(.sp-atmo i, .sp-halo, .sp-p, .sp-pen, .sp-pen-fill, .sp-name span, .sp-tag), .email-gate.is-connecting .sp-prog{ animation:none !important; }
+  .email-gate.is-intro :is(.sp-halo, .sp-p, .sp-pen, .sp-pen-fill, .sp-name span, .sp-tag), .email-gate.is-connecting .sp-prog{ animation:none !important; }
   .email-gate.is-intro .sp-p, .email-gate.is-intro .sp-name span, .email-gate.is-intro .sp-tag, .email-gate.is-intro .sp-pen-fill{ opacity:1; transform:none; filter:none; }
   .email-gate.is-intro .sp-pen{ stroke-dashoffset:0; }
-  .email-gate.is-intro .sp-halo{ opacity:.38; } .email-gate.is-intro .sp-atmo i{ opacity:.9; }
+  .email-gate.is-intro .sp-halo{ opacity:.38; }
   #gsiButton{ transform:none; transition:opacity .2s ease; }
 }
 
@@ -1808,7 +1800,7 @@ body.has-select-mode .fab, body.has-select-mode .m-tabbar{ visibility:hidden; }
 .sel-btn{ min-height:36px; padding:0 12px; border:0; border-radius:var(--r8); background:rgba(255,255,255,.12); color:#fff; font:inherit; font-size:var(--t-label); font-weight:600; cursor:pointer; white-space:nowrap; }
 .sel-btn:hover{ background:rgba(255,255,255,.2); }
 .sel-btn--primary{ background:var(--accent); }
-.sel-btn--primary:hover{ background:#9f3f60; }
+.sel-btn--primary:hover{ background:#B3184B; }
 .sel-btn:disabled{ opacity:.45; cursor:default; }
 .sel-btn[hidden]{ display:none; }
 .sel-btn:focus-visible{ outline:2px solid #fff; outline-offset:1px; }
@@ -2011,7 +2003,6 @@ body.has-select-mode .undo-toast{ bottom:84px; }
 
 <!-- sign-in splash: outside .planner-root so the board can be revealed through it (revealBoard) -->
 <div class="email-gate" id="emailGate" role="dialog" aria-modal="true" aria-labelledby="signinCardTitle">
-  <div class="sp-atmo" aria-hidden="true"><i></i><i></i></div>
   <div class="sp-lockup">
     <div class="sp-icon" aria-hidden="true">
       <i class="sp-halo"></i>
