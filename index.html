@@ -6,7 +6,7 @@
 <!-- App build version, compared against version.txt to detect a new deploy in
      installed standalone PWA windows (which have no reload affordance). MUST be
      bumped together with version.txt on every deploy — see NOTES.md deploy step. -->
-<meta name="app-version" content="20261001-1752">
+<meta name="app-version" content="20261002-0742">
 <title>יומן ומשימות</title>
 <!-- PWA manifest + icons — no service worker on purpose: this is a live-data
      app on a 20s poll, a SW would only risk serving a stale index.html for
@@ -1487,7 +1487,7 @@ html,body{
 .sheet-overlay{ position:fixed; inset:0; z-index:310; background:rgba(31,27,30,0); transition:background .2s ease; display:flex; align-items:flex-end; justify-content:center; }
 .sheet-overlay.open{ background:rgba(31,27,30,.38); }
 .sheet{
-  width:100%; max-width:560px; max-height:88vh; overflow-y:auto; overscroll-behavior:contain; background:var(--s1); color:var(--ink);
+  width:100%; max-width:560px; max-height:min(88vh, calc(100% - 12px)); overflow-y:auto; overscroll-behavior:contain; background:var(--s1); color:var(--ink);
   border-radius:14px 14px 0 0; padding:6px 16px calc(16px + env(safe-area-inset-bottom, 0px)); direction:rtl;
   font-family:'Assistant UI', system-ui, -apple-system, "Segoe UI", sans-serif;
   transform:translateY(100%); transition:transform .22s cubic-bezier(.2,.8,.2,1); box-shadow:0 -8px 30px rgba(40,24,32,.12);
@@ -1517,6 +1517,9 @@ html,body{
 .chip-opt.is-on{ background:var(--accent-tint); border-color:var(--accent); color:var(--accent-soft-ink); font-weight:600; }
 .sheet-primary{ min-height:50px; border:0; border-radius:12px; background:var(--accent); color:#fff; font:inherit; font-size:16px; font-weight:700; margin-top:4px; cursor:pointer; }
 .sheet-primary:disabled{ opacity:.45; cursor:default; }
+/* add sheet: same height in both modes (see lockAddSheetHeight), button pinned to the bottom of it */
+.add-sheet [hidden]{ display:none !important; }
+.sheet--add .sheet-primary{ margin-top:auto; position:sticky; bottom:0; box-shadow:0 12px 0 var(--s1); }
 @media (min-width:768px){
   .sheet-overlay{ align-items:center; padding:24px; }
   .sheet{ border-radius:14px; padding-bottom:16px; max-width:420px; transform:translateY(12px); opacity:0; transition:transform .18s ease, opacity .18s ease; }
@@ -3669,6 +3672,19 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     undoToastEl = toast;
     undoToastTimer = setTimeout(hideUndoToast, 6000);
   }
+  // A runtime error used to fail silently on phones (no console there), so a
+  // tap could look like it did nothing. Say so on screen, with the message,
+  // so a screenshot is enough to find it. Cross-origin noise is skipped.
+  let lastErrorToastAt = 0;
+  function reportRuntimeError(msg){
+    if(!msg || /^Script error\.?$/.test(msg) || /ResizeObserver loop/.test(msg)) return;
+    const now = Date.now();
+    if(now - lastErrorToastAt < 15000) return;
+    lastErrorToastAt = now;
+    try{ showUndoToast('משהו השתבש: ' + String(msg).replace(/^Uncaught /, '').slice(0, 120), null); }catch(e){}
+  }
+  window.addEventListener('error', (e) => reportRuntimeError(e && e.message));
+  window.addEventListener('unhandledrejection', (e) => { const r = e && e.reason; if(r && r.name === 'AbortError') return; reportRuntimeError(r && (r.message || String(r))); });
   function hideUndoToast(){
     clearTimeout(undoToastTimer);
     if(undoToastEl){ undoToastEl.remove(); undoToastEl = null; }
@@ -3718,6 +3734,21 @@ body.has-select-mode .undo-toast{ bottom:84px; }
 
   function weekKey(ws){ return STORAGE_PREFIX + isoKey(ws); }
   function emptyTask(){ return {id:uid(), text:'', done:false, personIds:[], topicId:null}; }
+  // A row made by a "+ הוספת…" line that is left without text is removed
+  // again, instead of staying behind as an empty "משימה…" placeholder that
+  // syncs to everyone. Not while a picker/sheet opened from the row is up.
+  function dropIfLeftEmpty(row, textEl, item, after){
+    const check = () => setTimeout(() => {
+      if(String(item.text || '').trim()){ textEl.removeEventListener('blur', check); return; }
+      if(row.contains(document.activeElement) || openPickerEl || openSheetEl) return;
+      textEl.removeEventListener('blur', check);
+      const loc = locateItem(item.id);
+      if(loc){ loc.arr.splice(loc.index, 1); persistState(); }
+      row.remove();
+      if(after) after();
+    }, 0);
+    textEl.addEventListener('blur', check);
+  }
 
   // converts a legacy single personId into the personIds array in place, so
   // both already-saved tasks and ones from an old client version pick up the
@@ -4174,6 +4205,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     addRow.className = 'add-line';
     addRow.textContent = '+ הוספת משימה';
     addRow.onclick = () => {
+      if(isMobileLayout()){ openAddSheet('task', {inPlace:true, pool:true, day:null, personIds: (kind==='person'&&id) ? [id] : [], topicId: kind==='topic'?id:null}); return; }
       const item = {id:uid(), text:'', done:false, personIds: (kind==='person'&&id) ? [id] : [], topicId: kind==='topic'?id:null};
       if(!appState.unscheduled) appState.unscheduled = [];
       appState.unscheduled.push(item);
@@ -4185,7 +4217,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       const countEl = head.querySelector('.summary-group-count');
       if(countEl) countEl.textContent = String(parseInt(countEl.textContent||'0',10)+1);
       const textEl = row.querySelector('.summary-row-text');
-      if(textEl) textEl.focus();
+      if(textEl){ dropIfLeftEmpty(row, textEl, item, () => { if(countEl) countEl.textContent = String(Math.max(0, parseInt(countEl.textContent||'0',10)-1)); }); textEl.focus(); }
     };
     body.appendChild(addRow);
     card.appendChild(body);
@@ -4345,6 +4377,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     addRow.className = 'add-line';
     addRow.textContent = '+ הוספת משימה';
     addRow.onclick = () => {
+      if(isMobileLayout()){ openAddSheet('task', {inPlace:true, pool:true, day:null, personIds:[]}); return; }
       const item = {id:uid(), text:'', done:false, personIds:[], topicId:null};
       if(!appState.unscheduled) appState.unscheduled = [];
       appState.unscheduled.push(item);
@@ -4356,7 +4389,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       const countEl = head.querySelector('.summary-group-count');
       if(countEl) countEl.textContent = String(parseInt(countEl.textContent||'0',10)+1);
       const textEl = row.querySelector('.task-text');
-      if(textEl) textEl.focus();
+      if(textEl){ dropIfLeftEmpty(row, textEl, item, () => { if(countEl) countEl.textContent = String(Math.max(0, parseInt(countEl.textContent||'0',10)-1)); }); textEl.focus(); }
     };
     card.appendChild(addRow);
 
@@ -5031,14 +5064,18 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     const addEv = document.createElement('div');
     addEv.className = 'add-line';
     addEv.textContent = '+ הוספת אירוע';
+    const cardWs = weekStart;
     addEv.onclick = () => {
+      if(isMobileLayout()){ openAddSheet('event', {inPlace:true, ws:cardWs, day:dayDef.key}); return; }
       const item = {id:uid(), text:''};
       data.events.push(item);
       saveWeek(weekStart, weekData);
       const row = renderEventRow(dayDef.key, item);
       evList.appendChild(row);
       equalizeEventZoneHeights();
-      row.querySelector('.event-text').focus();
+      const t = row.querySelector('.event-text');
+      dropIfLeftEmpty(row, t, item, () => equalizeEventZoneHeights());
+      t.focus();
     };
     evZone.appendChild(addEv);
     card.appendChild(evZone);
@@ -5074,6 +5111,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       addT.className = 'add-line';
       addT.textContent = '+ הוספת משימה';
       addT.onclick = () => {
+        if(isMobileLayout()){ openAddSheet('task', {inPlace:true, ws:cardWs, day:dayDef.key, section:sec.key}); return; }
         const item = emptyTask();
         data[sec.key].push(item);
         saveWeek(weekStart, weekData);
@@ -5081,7 +5119,9 @@ body.has-select-mode .undo-toast{ bottom:84px; }
         const row = renderTaskRow(dayDef.key, sec.key, item);
         list.appendChild(row);
         count.textContent = String(data[sec.key].length);
-        row.querySelector('.task-text').focus();
+        const t = row.querySelector('.task-text');
+        dropIfLeftEmpty(row, t, item, () => { count.textContent = data[sec.key].length ? String(data[sec.key].length) : ''; renderSummary(); });
+        t.focus();
       };
       body.appendChild(addT);
       sSection.appendChild(body);
@@ -5738,13 +5778,17 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     const addEv = document.createElement('div');
     addEv.className = 'add-line';
     addEv.textContent = '+ הוספת אירוע';
+    const detailWs = weekStart;
     addEv.onclick = () => {
+      if(isMobileLayout()){ openAddSheet('event', {inPlace:true, ws:detailWs, day:dayDef.key}); return; }
       const item = {id:uid(), text:''};
       data.events.push(item);
       saveWeek(weekStart, weekData);
       const row = renderEventRow(dayDef.key, item);
       evList.appendChild(row);
-      row.querySelector('.event-text').focus();
+      const t = row.querySelector('.event-text');
+      dropIfLeftEmpty(row, t, item, null);
+      t.focus();
     };
     evWrap.appendChild(addEv);
     body.appendChild(evWrap);
@@ -5769,13 +5813,16 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       add.className = 'add-line';
       add.textContent = '+ הוספת משימה';
       add.onclick = () => {
+        if(isMobileLayout()){ openAddSheet('task', {inPlace:true, ws:detailWs, day:dayDef.key, section:sec.key}); return; }
         const item = emptyTask();
         data[sec.key].push(item);
         saveWeek(weekStart, weekData);
         renderSummary();
         const row = renderTaskRow(dayDef.key, sec.key, item);
         list.appendChild(row);
-        row.querySelector('.task-text').focus();
+        const t = row.querySelector('.task-text');
+        dropIfLeftEmpty(row, t, item, () => renderSummary());
+        t.focus();
       };
       wrap.appendChild(add);
       body.appendChild(wrap);
@@ -6599,6 +6646,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     if(!openSheetEl) return;
     const el = openSheetEl, ret = el.__returnFocus;
     openSheetEl = null;
+    if(el.__untrack) el.__untrack();
     el.classList.remove('open');
     document.removeEventListener('keydown', sheetKeydown, true);
     setTimeout(() => el.remove(), prefersReducedMotion() ? 0 : 200);
@@ -6646,6 +6694,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     overlay.addEventListener('click', (e) => { if(e.target === overlay) closeSheet(); });
     overlay.__returnFocus = document.activeElement;
     document.body.appendChild(overlay);
+    overlay.__untrack = fitOverlayToVisualViewport(overlay);
     openSheetEl = overlay;
     document.addEventListener('keydown', sheetKeydown, true);
     requestAnimationFrame(() => overlay.classList.add('open'));
@@ -6654,6 +6703,24 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       if(target) try{ target.focus({preventScroll:true}); }catch(e){}
     }, opts.focus ? 60 : 0);
     return panel;
+  }
+  // Phones: the on-screen keyboard shrinks the visual viewport but not the
+  // layout viewport, so a bottom sheet pinned to the layout bottom ends up
+  // behind the keyboard. Pin the overlay to the visual viewport instead: the
+  // sheet then sits right above the keyboard and scrolls inside if it must.
+  function fitOverlayToVisualViewport(overlay){
+    const vv = window.visualViewport;
+    if(!vv) return null;
+    const fit = () => {
+      if(!isMobileLayout()){ overlay.style.top = ''; overlay.style.height = ''; overlay.style.bottom = ''; return; }
+      overlay.style.top = vv.offsetTop + 'px';
+      overlay.style.height = vv.height + 'px';
+      overlay.style.bottom = 'auto';
+    };
+    fit();
+    vv.addEventListener('resize', fit);
+    vv.addEventListener('scroll', fit);
+    return () => { vv.removeEventListener('resize', fit); vv.removeEventListener('scroll', fit); };
   }
   function sheetList(items){
     const list = document.createElement('div');
@@ -6734,14 +6801,26 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     if(mobileTab === 'today' || !mSelectedDay) return DAY_DEFS[new Date().getDay()].key;
     return mSelectedDay;
   }
-  function openAddSheet(kind){
+  // opts (all optional) — used by the in-place "+ הוספת…" lines on phones:
+  //   inPlace: stay on the current tab/view (month day list, people tab) instead of jumping to the week
+  //   ws: the week the line belongs to; day: its day key, or null = the pool (tasks only)
+  //   section, personIds, topicId: presets; pool: offer "ללא יום" among the day chips
+  function openAddSheet(kind, opts){
     if(currentRole !== 'editor') return;
-    if(currentView === 'month'){ mobileTab = 'week'; setView('week'); paintMobileChrome(); }
-    if(mobileTab === 'today' && !isCurrentWeek()) goToWeek(startOfWeek(new Date()), false);
-    let k = kind || 'task';
-    let day = targetDayForAdd();
-    let section = 'general';
-    let personIds = getMe() ? [getMe()] : [];
+    opts = opts || {};
+    const inPlace = !!opts.inPlace;
+    if(!inPlace){
+      if(currentView === 'month'){ mobileTab = 'week'; setView('week'); paintMobileChrome(); }
+      if(mobileTab === 'today' && !isCurrentWeek()) goToWeek(startOfWeek(new Date()), false);
+    }
+    const ws = opts.ws ? startOfWeek(opts.ws) : weekStart;
+    setWeekContext(ws);
+    const allowPool = !!opts.pool;
+    let k = opts.kind || kind || 'task';
+    let day = 'day' in opts ? opts.day : targetDayForAdd();       // null = pool
+    let section = opts.section || 'general';
+    let personIds = opts.personIds ? opts.personIds.slice() : (getMe() ? [getMe()] : []);
+    const topicId = opts.topicId || null;
     let evRead = null;
     const body = document.createElement('div');
     body.className = 'add-sheet';
@@ -6750,13 +6829,15 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       '<input class="add-input" type="text" enterkeyhint="done" autocomplete="off">' +
       '<div class="add-label">יום</div><div class="chip-row add-days"></div>' +
       '<details class="add-more add-event-only"><summary>שעה, יום שלם וחזרה</summary><div class="add-more-body"></div></details>' +
-      '<div class="add-task-only"><div class="add-label">מקטע</div><div class="chip-row add-sections"></div>' +
+      '<div class="add-task-only"><div class="add-label add-sec-label">מקטע</div><div class="chip-row add-sections"></div>' +
       (people.length ? '<div class="add-label">אחראי/ת</div><div class="chip-row add-people"></div>' : '') + '</div>' +
       '<button type="button" class="sheet-primary" disabled>הוספה</button>';
+    if(allowPool) body.querySelector('.seg').hidden = true;   // the pool holds tasks only
     const input = body.querySelector('.add-input');
     const primary = body.querySelector('.sheet-primary');
     const chip = (label, on, fn) => { const c = document.createElement('button'); c.type = 'button'; c.className = 'chip-opt' + (on ? ' is-on' : ''); c.textContent = label; c.setAttribute('aria-pressed', String(!!on)); c.onclick = fn; return c; };
     function paint(){
+      if(k === 'event' && !day) day = targetDayForAdd();
       body.querySelectorAll('.seg [data-k]').forEach(b => { const on = b.dataset.k === k; b.classList.toggle('is-on', on); b.setAttribute('aria-checked', String(on)); });
       input.placeholder = k === 'task' ? 'מה צריך לעשות?' : 'שעה + תיאור, למשל 10:00 ישיבת צוות';
       input.setAttribute('aria-label', k === 'task' ? 'טקסט המשימה' : 'טקסט האירוע');
@@ -6766,10 +6847,12 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       const more = body.querySelector('.add-more-body');
       const keep = evRead ? evRead() : {};
       more.innerHTML = eventFieldsHtml();
-      evRead = wireEventFields(more, keep, dayDateOf(day));
+      evRead = wireEventFields(more, keep, dayDateOf(day || targetDayForAdd()));
       const days = body.querySelector('.add-days'); days.innerHTML = '';
+      if(allowPool) days.appendChild(chip('ללא יום', !day, () => { day = null; paint(); }));
       DAY_DEFS.forEach((d, i) => { const dt = dayDateOf(d.key); days.appendChild(chip(HEB_DAY_LETTER[i] + ' ' + dt.getDate(), d.key === day, () => { day = d.key; paint(); })); });
       const secs = body.querySelector('.add-sections'); secs.innerHTML = '';
+      secs.hidden = !day; body.querySelector('.add-sec-label').hidden = !day;   // the pool has no sections
       TASK_SECTIONS.forEach(s => secs.appendChild(chip(s.label, s.key === section, () => { section = s.key; paint(); })));
       const ppl = body.querySelector('.add-people');
       if(ppl){ ppl.innerHTML = ''; people.forEach(p => ppl.appendChild(chip(p.name, personIds.includes(p.id), () => { personIds = personIds.includes(p.id) ? personIds.filter(x => x !== p.id) : personIds.concat(p.id); paint(); }))); }
@@ -6779,11 +6862,47 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     body.querySelectorAll('.seg [data-k]').forEach(b => b.onclick = () => { k = b.dataset.k; paint(); input.focus({preventScroll:true}); });
     input.addEventListener('input', () => { primary.disabled = !input.value.trim(); });
     input.addEventListener('keydown', (e) => { if(e.key === 'Enter' && !e.isComposing){ e.preventDefault(); submit(); } });
+    // after an in-place add: re-render without leaving the tab/view, then flash the new row
+    function settle(id){
+      mSelectedDay = day || mSelectedDay;
+      renderBoard(); renderSummary(); paintMobileChrome();
+      if(inPlace && (currentView === 'month' || !day)){
+        requestAnimationFrame(() => {
+          const row = document.querySelector('[data-id="' + id + '"]');
+          if(!row) return;
+          row.scrollIntoView({block:'nearest', behavior: prefersReducedMotion() ? 'auto' : 'smooth'});
+          row.classList.remove('flash'); void row.offsetWidth; row.classList.add('flash');
+          setTimeout(() => row.classList.remove('flash'), 1800);
+        });
+        return;
+      }
+      if(mobileTab === 'week') scrollDayIntoView(day, true);
+      revealItem(id, null);
+    }
+    function undoAdd(id){
+      const loc = locateItem(id);
+      if(loc){ loc.arr.splice(loc.index, 1); persistState(); }
+      renderBoard(); renderSummary(); paintMobileChrome();
+    }
     function submit(){
       const text = input.value.trim();
       if(!text) return;
+      setWeekContext(ws);
       let item, arr;
-      if(k === 'task'){ item = Object.assign(emptyTask(), {text, personIds: personIds.slice()}); arr = weekData[day][section]; }
+      if(k === 'task'){
+        item = Object.assign(emptyTask(), {text, personIds: personIds.slice()});
+        if(topicId) item.topicId = topicId;
+        if(!day){
+          if(!appState.unscheduled) appState.unscheduled = [];
+          appState.unscheduled.push(item);
+          persistState();
+          closeSheet();
+          settle(item.id);
+          showUndoToast('המשימה נוספה למאגר', () => undoAdd(item.id));
+          return;
+        }
+        arr = weekData[day][section];
+      }
       else {
         const v = evRead ? evRead() : {};
         if(v.repeat){
@@ -6804,21 +6923,22 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       arr.push(item);
       saveWeek(weekStart, weekData);
       closeSheet();
-      mSelectedDay = day;
-      renderBoard(); renderSummary(); paintMobileChrome();
-      if(mobileTab === 'week') scrollDayIntoView(day, true);
-      revealItem(item.id, null);
+      settle(item.id);
       const dayName = DAY_DEFS.find(d => d.key === day).name;
-      showUndoToast((k === 'task' ? 'המשימה נוספה ל' : 'האירוע נוסף ל') + dayName, () => {
-        const i = arr.findIndex(x => x.id === item.id);
-        if(i > -1) arr.splice(i, 1);
-        saveWeek(weekStart, weekData);
-        renderBoard(); renderSummary(); paintMobileChrome();
-      });
+      showUndoToast((k === 'task' ? 'המשימה נוספה ל' : 'האירוע נוסף ל') + dayName, () => undoAdd(item.id));
     }
     primary.onclick = submit;
     paint();
-    openSheet('הוספה', body, {cls: 'sheet--add', focus: input});
+    const panel = openSheet('הוספה', body, {cls: 'sheet--add', focus: input});
+    lockAddSheetHeight(panel, body, () => { const cur = k; const out = []; (allowPool ? ['task'] : ['task', 'event']).forEach(m => { k = m; paint(); out.push(body.offsetHeight); }); k = cur; paint(); return out; });
+  }
+  // The task and event modes have different heights. Switching between them
+  // while the keyboard is up made the sheet jump and hid the chips behind the
+  // keyboard, so the sheet keeps the taller mode's height and its button
+  // stays put (CSS: .sheet--add .sheet-primary margin-top:auto).
+  function lockAddSheetHeight(panel, body, measure){
+    const heights = measure();
+    body.style.minHeight = Math.max.apply(null, heights) + 'px';
   }
   function openFabMenu(){
     if(currentRole !== 'editor') return;
