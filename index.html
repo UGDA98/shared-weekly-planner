@@ -6,7 +6,7 @@
 <!-- App build version, compared against version.txt to detect a new deploy in
      installed standalone PWA windows (which have no reload affordance). MUST be
      bumped together with version.txt on every deploy — see NOTES.md deploy step. -->
-<meta name="app-version" content="20261002-0742">
+<meta name="app-version" content="20261002-0757">
 <title>יומן ומשימות</title>
 <!-- PWA manifest + icons — no service worker on purpose: this is a live-data
      app on a 20s poll, a SW would only risk serving a stale index.html for
@@ -1519,6 +1519,19 @@ html,body{
 .sheet-primary:disabled{ opacity:.45; cursor:default; }
 /* add sheet: same height in both modes (see lockAddSheetHeight), button pinned to the bottom of it */
 .add-sheet [hidden]{ display:none !important; }
+.task-sheet .sheet-list{ margin-top:6px; }
+.task-sheet-quick{ display:flex; gap:6px; flex-wrap:wrap; }
+/* desktop menus anchored to the control that opened them */
+@media (min-width:768px){
+  .sheet-overlay.sheet-overlay--anchored{ display:block; padding:0; background:transparent !important; }
+  .sheet-overlay--anchored .sheet{ position:fixed; width:300px; max-width:calc(100vw - 16px); max-height:min(76vh, 600px); border:1px solid var(--hl); border-radius:12px; padding:6px 8px 8px; box-shadow:0 2px 6px rgba(40,24,32,.08), 0 14px 32px -12px rgba(40,24,32,.26); transform:translateY(-4px); }
+  .sheet-overlay--anchored.open .sheet{ transform:none; opacity:1; }
+  .sheet-overlay--anchored .sheet.sheet--move{ width:340px; }
+  .sheet-overlay--anchored .sheet-title{ text-align:start; padding:4px 8px 8px; }
+  .sheet-overlay--anchored .sheet-list{ background:none; border-radius:0; }
+  .sheet-overlay--anchored .sheet-item{ min-height:36px; border-top:0; border-radius:6px; text-align:start; padding:0 10px; font-size:14px; }
+  .sheet-overlay--anchored .sheet-cancel{ display:none; }
+}
 .sheet--add .sheet-primary{ margin-top:auto; position:sticky; bottom:0; box-shadow:0 12px 0 var(--s1); }
 @media (min-width:768px){
   .sheet-overlay{ align-items:center; padding:24px; }
@@ -1652,6 +1665,7 @@ body.has-select-mode .fab, body.has-select-mode .m-tabbar{ visibility:hidden; }
 @media (max-width:767px){
   .sel-bar{ bottom:0; width:100%; max-width:none; border-radius:14px 14px 0 0; padding:8px 12px calc(8px + env(safe-area-inset-bottom, 0px)); justify-content:space-between; }
   .sel-btn{ min-height:44px; }
+  .sel-btn--assign{ display:none; }   /* phones: per-task sheet assigns; the bar keeps its four actions */
   #selectModeBtn{ display:none; }
 }
 .planner-root ~ .undo-toast{ z-index:330; }
@@ -1672,6 +1686,36 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   .board .task-row:hover .task-text{ padding-inline-end:44px; }
   .board .event-row:hover .event-text{ padding-inline-end:68px; }
 }
+
+/* ---------- concept A (2026-10-02): task composer + row tools ---------- */
+.composer{ margin:4px 0 2px; background:var(--s1); border:1px solid var(--ink3); border-radius:var(--r8); padding:6px 6px 5px; display:flex; flex-direction:column; gap:5px; }
+.composer:focus-within{ border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-tint); }
+.composer-input{ width:100%; border:0; outline:none; background:none; font:inherit; font-size:var(--t-body); line-height:var(--lh-body); color:var(--ink); padding:2px 2px; }
+.composer-input::placeholder{ color:var(--ink3-text); }
+.composer-assign{ display:flex; flex-wrap:wrap; gap:4px; }
+.composer-slot{ display:inline-flex; align-items:center; gap:4px; min-height:26px; max-width:100%; padding:0 8px; border:1px dashed var(--hl2); border-radius:999px; background:none; font:inherit; font-size:var(--t-label); color:var(--ink2); cursor:pointer; }
+.composer-slot span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.composer-slot svg{ width:13px; height:13px; flex:none; }
+.composer-slot:hover{ border-color:var(--ink3); color:var(--ink); background:var(--s2); }
+.composer-slot.is-set{ border-style:solid; border-color:var(--accent-deco); background:var(--accent-tint); color:var(--accent-soft-ink); font-weight:600; }
+.composer-slot:focus-visible, .composer-add:focus-visible, .row-tool:focus-visible{ outline:2px solid var(--accent); outline-offset:1px; }
+.composer-foot{ display:flex; align-items:center; justify-content:space-between; gap:6px; }
+.composer-hint{ font-size:11px; line-height:14px; color:var(--ink3-text); }
+.composer-hint kbd{ font-family:inherit; font-size:10.5px; border:1px solid var(--hl2); border-bottom-width:2px; border-radius:4px; padding:0 3px; color:var(--ink2); }
+.composer-add{ flex:none; min-height:24px; padding:0 10px; border:0; border-radius:6px; background:var(--ink); color:#fff; font:inherit; font-size:12px; font-weight:600; cursor:pointer; }
+.composer-add:disabled{ opacity:.35; cursor:default; }
+.composer-ac{ z-index:340; }
+.row-tools{ display:none; }
+@media (pointer:fine) and (min-width:768px){
+  .task-row .row-tools{ display:flex; gap:1px; position:absolute; top:3px; inset-inline-end:48px; z-index:2; background:var(--s2); border-radius:6px; box-shadow:10px 0 8px -4px var(--s2); opacity:0; pointer-events:none; transition:opacity .12s ease; }
+  .task-row:hover .row-tools, .task-row .row-tools:focus-within{ opacity:1; pointer-events:auto; }
+  .task-row:has(.task-text:focus) .row-tools{ opacity:0; pointer-events:none; }
+  .row-tool{ width:22px; height:22px; border:0; background:none; color:var(--ink2); display:grid; place-items:center; border-radius:6px; cursor:pointer; padding:0; }
+  .row-tool svg{ width:14px; height:14px; }
+  .row-tool:hover{ background:var(--s3); color:var(--ink); }
+  .planner-root.view-only .row-tools, .select-mode .row-tools{ display:none !important; }
+}
+@media print{ .row-tools, .composer{ display:none !important; } }
 
 /* move picker */
 .move-sheet{ display:flex; flex-direction:column; gap:10px; }
@@ -2228,6 +2272,8 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     // between keystrokes, not just mid-focus) would reset scroll position
     // and any unsaved structural edit (indent/move) not yet in the debounce
     if(typeof isNotesPageOpen === 'function' && isNotesPageOpen()) return true;
+    // a half-written task in the composer (focus may be on its person/מופע picker)
+    if(document.querySelector('.composer')) return true;
     return !!(ae && (ae.isContentEditable || ae.tagName === 'INPUT'));
   }
 
@@ -3734,6 +3780,125 @@ body.has-select-mode .undo-toast{ bottom:84px; }
 
   function weekKey(ws){ return STORAGE_PREFIX + isoKey(ws); }
   function emptyTask(){ return {id:uid(), text:'', done:false, personIds:[], topicId:null}; }
+  // ---- desktop task composer (concept A, 2026-10-02) ----
+  // "+ הוספת משימה" opens a writing line in place instead of an empty row:
+  // the text field plus two always-visible buttons, אחראי/ת and מופע, so
+  // assigning is part of writing the task. "@name" / "#מופע" in the text do
+  // the same from the keyboard. Enter adds and keeps the line open for the
+  // next task (person and מופע stay chosen); Esc or leaving it empty closes.
+  // Nothing is stored until there is text, so no empty rows.
+  function openTaskComposer(cfg){
+    document.querySelectorAll('.composer').forEach(c => c.__close && c.__close());
+    let personIds = getMe() && people.some(p => p.id === getMe()) ? [getMe()] : [];
+    let topicId = null;
+    const c = document.createElement('div');
+    c.className = 'composer';
+    c.innerHTML =
+      '<input class="composer-input" type="text" autocomplete="off" enterkeyhint="done" placeholder="מה צריך לעשות?" aria-label="משימה חדשה">' +
+      '<div class="composer-assign"><button type="button" class="composer-slot" data-k="person"></button><button type="button" class="composer-slot" data-k="topic"></button></div>' +
+      '<div class="composer-foot"><span class="composer-hint"><kbd>@</kbd> אחראי/ת · <kbd>#</kbd> מופע · <kbd>Enter</kbd> הוספה</span><button type="button" class="composer-add" disabled>הוספה</button></div>';
+    const input = c.querySelector('.composer-input');
+    const pSlot = c.querySelector('[data-k="person"]'), tSlot = c.querySelector('[data-k="topic"]');
+    const addBtn = c.querySelector('.composer-add');
+    function paintSlots(){
+      pSlot.innerHTML = ICON_PERSON + '<span></span>';
+      pSlot.querySelector('span').textContent = personIds.length ? personIdsLabel(personIds, '') : 'אחראי/ת';
+      pSlot.classList.toggle('is-set', !!personIds.length);
+      pSlot.setAttribute('aria-label', personIds.length ? 'אחראי/ת: ' + personIds.map(id => nameById(people, id)).join(', ') + ' (שינוי)' : 'בחירת אחראי/ת');
+      tSlot.innerHTML = ICON_TAG + '<span></span>';
+      tSlot.querySelector('span').textContent = topicId ? (nameById(topics, topicId) || 'מופע') : 'מופע';
+      tSlot.classList.toggle('is-set', !!topicId);
+      tSlot.setAttribute('aria-label', topicId ? 'מופע: ' + nameById(topics, topicId) + ' (שינוי)' : 'בחירת מופע');
+    }
+    pSlot.onclick = () => { closeAc(); openPicker('person', pSlot, personIds, (ids) => { personIds = ids.filter(id => people.some(p => p.id === id)); paintSlots(); }, {multi:true}); };
+    tSlot.onclick = () => { closeAc(); openPicker('topic', tSlot, topicId, (id) => { topicId = id; paintSlots(); input.focus(); }); };
+
+    // inline completion for "@name" and "#מופע"
+    let ac = null, acItems = [], acIdx = 0, acTrig = null;
+    function closeAc(){ if(ac){ ac.remove(); ac = null; input.setAttribute('aria-expanded', 'false'); } }
+    function paintAc(){ if(ac) ac.querySelectorAll('.picker-item').forEach((o, i) => o.classList.toggle('selected', i === acIdx)); }
+    function updateAc(){
+      const caret = input.selectionStart == null ? input.value.length : input.selectionStart;
+      const m = /(^|\s)([@#])([^\s@#]*)$/.exec(input.value.slice(0, caret));
+      if(!m){ closeAc(); return; }
+      const kind = m[2] === '@' ? 'person' : 'topic';
+      acItems = (kind === 'person' ? people : topics).filter(x => x.name.includes(m[3])).slice(0, 8);
+      acTrig = {start: caret - m[3].length - 1, end: caret, kind};
+      if(!acItems.length){ closeAc(); return; }
+      acIdx = 0;
+      if(!ac){ ac = document.createElement('div'); ac.className = 'picker composer-ac'; ac.setAttribute('role', 'listbox'); document.body.appendChild(ac); input.setAttribute('aria-expanded', 'true'); }
+      ac.innerHTML = '<div class="picker-title">' + (kind === 'person' ? 'שיוך לאחראי/ת' : 'שיוך למופע') + '</div>';
+      acItems.forEach((it, i) => {
+        const o = document.createElement('div');
+        o.className = 'picker-item'; o.setAttribute('role', 'option'); o.textContent = it.name;
+        o.onmousedown = (e) => { e.preventDefault(); acIdx = i; pickAc(); };
+        ac.appendChild(o);
+      });
+      paintAc();
+      const r = input.getBoundingClientRect();
+      ac.style.position = 'fixed'; ac.style.top = Math.round(r.bottom + 4) + 'px';
+      ac.style.left = Math.round(Math.max(8, Math.min(r.right - ac.offsetWidth, window.innerWidth - ac.offsetWidth - 8))) + 'px';
+    }
+    function pickAc(){
+      const it = acItems[acIdx];
+      if(!it || !acTrig) return;
+      if(acTrig.kind === 'person'){ if(!personIds.includes(it.id)) personIds = personIds.concat(it.id); }
+      else topicId = it.id;
+      const v = input.value;
+      input.value = (v.slice(0, acTrig.start) + v.slice(acTrig.end)).replace(/\s{2,}/g, ' ');
+      input.setSelectionRange(acTrig.start, acTrig.start);
+      closeAc(); paintSlots();
+      addBtn.disabled = !input.value.trim();
+    }
+    input.setAttribute('aria-expanded', 'false');
+    input.addEventListener('input', () => { addBtn.disabled = !input.value.trim(); updateAc(); });
+    input.addEventListener('keydown', (e) => {
+      if(ac){
+        if(e.key === 'ArrowDown' || e.key === 'ArrowUp'){ e.preventDefault(); acIdx = (acIdx + (e.key === 'ArrowDown' ? 1 : -1) + acItems.length) % acItems.length; paintAc(); return; }
+        if(e.key === 'Enter' || e.key === 'Tab'){ e.preventDefault(); pickAc(); return; }
+        if(e.key === 'Escape'){ e.preventDefault(); e.stopPropagation(); closeAc(); return; }
+      }
+      if(e.key === 'Enter' && !e.isComposing){ e.preventDefault(); submit(); }
+      else if(e.key === 'Escape'){ e.preventDefault(); e.stopPropagation(); close(); }
+    });
+    input.addEventListener('blur', () => setTimeout(closeAc, 120));
+    function submit(){
+      const text = input.value.replace(/(^|\s)[@#]\S*$/, '').trim();
+      if(!text) return;
+      const item = Object.assign(emptyTask(), {text, personIds: personIds.slice(), topicId});
+      cfg.data[cfg.sectionKey].push(item);
+      saveWeek(cfg.ws, cfg.weekObj);
+      setWeekContext(cfg.ws);
+      const row = renderTaskRow(cfg.dayKey, cfg.sectionKey, item);
+      cfg.list.appendChild(row);
+      row.classList.add('flash'); setTimeout(() => row.classList.remove('flash'), 1800);
+      if(cfg.after) cfg.after();
+      renderSummary(); applyFilterVisuals();
+      input.value = ''; addBtn.disabled = true; closeAc();
+      input.focus();
+    }
+    function close(){
+      closeAc();
+      c.remove();
+      cfg.addEl.style.display = '';
+      if(document.contains(cfg.addEl)) try{ cfg.addEl.focus({preventScroll:true}); }catch(e){}
+    }
+    c.__close = close;
+    // Safari doesn't focus a clicked button, so the input's blur would close an
+    // empty composer before the button's click lands — keep focus in the input
+    c.addEventListener('mousedown', (e) => { if(e.target !== input) e.preventDefault(); });
+    c.addEventListener('focusout', () => setTimeout(() => {
+      if(!document.contains(c)) return;
+      if(c.contains(document.activeElement) || openPickerEl || openSheetEl) return;
+      if(!input.value.trim()) close();
+    }, 0));
+    addBtn.onclick = submit;
+    paintSlots();
+    cfg.addEl.style.display = 'none';
+    cfg.addEl.parentNode.insertBefore(c, cfg.addEl);
+    input.focus();
+  }
+
   // A row made by a "+ הוספת…" line that is left without text is removed
   // again, instead of staying behind as an empty "משימה…" placeholder that
   // syncs to everyone. Not while a picker/sheet opened from the row is up.
@@ -5064,7 +5229,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     const addEv = document.createElement('div');
     addEv.className = 'add-line';
     addEv.textContent = '+ הוספת אירוע';
-    const cardWs = weekStart;
+    const cardWs = weekStart, cardWeek = weekData;
     addEv.onclick = () => {
       if(isMobileLayout()){ openAddSheet('event', {inPlace:true, ws:cardWs, day:dayDef.key}); return; }
       const item = {id:uid(), text:''};
@@ -5112,16 +5277,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       addT.textContent = '+ הוספת משימה';
       addT.onclick = () => {
         if(isMobileLayout()){ openAddSheet('task', {inPlace:true, ws:cardWs, day:dayDef.key, section:sec.key}); return; }
-        const item = emptyTask();
-        data[sec.key].push(item);
-        saveWeek(weekStart, weekData);
-        renderSummary();
-        const row = renderTaskRow(dayDef.key, sec.key, item);
-        list.appendChild(row);
-        count.textContent = String(data[sec.key].length);
-        const t = row.querySelector('.task-text');
-        dropIfLeftEmpty(row, t, item, () => { count.textContent = data[sec.key].length ? String(data[sec.key].length) : ''; renderSummary(); });
-        t.focus();
+        openTaskComposer({addEl:addT, list, data, weekObj:cardWeek, ws:cardWs, dayKey:dayDef.key, sectionKey:sec.key, after: () => { count.textContent = String(data[sec.key].length); }});
       };
       body.appendChild(addT);
       sSection.appendChild(body);
@@ -5214,7 +5370,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
         equalizeEventZoneHeights();
       });
     };
-    row.appendChild(rowMoreButton(() => openRowActions({kind:'event', row, item, dayKey, text, del, toggle: passedToggle})));
+    row.appendChild(rowMoreButton((b) => openRowActions({kind:'event', row, item, dayKey, text, del, toggle: passedToggle, anchor: b})));
     row.classList.add('has-more');
     row.appendChild(del);
 
@@ -5336,7 +5492,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
         renderSummary();
       });
     };
-    main.appendChild(rowMoreButton(() => openRowActions({kind:'task', row, item, dayKey, sectionKey, cb, text, del})));
+    main.appendChild(rowMoreButton((b) => openRowActions({kind:'task', row, item, dayKey, sectionKey, cb, text, del, anchor: b})));
     row.classList.add('has-more');
     main.appendChild(del);
     row.appendChild(main);
@@ -5346,25 +5502,38 @@ body.has-select-mode .undo-toast{ bottom:84px; }
 
     const topicChip = makeMetaChip(ICON_TAG, !!item.topicId);
     topicChip.querySelector('.chip-label').textContent = item.topicId ? (nameById(topics,item.topicId) || '⋯') : 'מופע';
-    topicChip.onclick = (e)=>{ e.preventDefault(); e.stopPropagation();
-      openPicker('topic', topicChip, item.topicId, (id)=>{
-        item.topicId = id; topicChip.querySelector('.chip-label').textContent = id ? (nameById(topics,id)||'⋯') : 'מופע';
-        topicChip.classList.toggle('filled', !!id); updateFlag(); saveWeek(weekStart, weekData); applyFilterVisuals(); renderSummary();
-      });
-    };
+    const pickTopic = (anchor) => openPicker('topic', anchor, item.topicId, (id)=>{
+      item.topicId = id; topicChip.querySelector('.chip-label').textContent = id ? (nameById(topics,id)||'⋯') : 'מופע';
+      topicChip.classList.toggle('filled', !!id); updateFlag(); saveWeek(weekStart, weekData); applyFilterVisuals(); renderSummary();
+    });
+    topicChip.onclick = (e)=>{ e.preventDefault(); e.stopPropagation(); pickTopic(topicChip); };
     meta.appendChild(topicChip);
 
     const personChip = makeMetaChip(ICON_PERSON, !!(item.personIds||[]).length);
     personChip.querySelector('.chip-label').textContent = personIdsLabel(item.personIds, 'איש צוות');
-    personChip.onclick = (e)=>{ e.preventDefault(); e.stopPropagation();
-      openPicker('person', personChip, item.personIds, (ids)=>{
-        item.personIds = ids;
-        personChip.querySelector('.chip-label').textContent = personIdsLabel(ids, 'איש צוות');
-        personChip.classList.toggle('filled', !!ids.length); updateFlag(); saveWeek(weekStart, weekData); applyFilterVisuals(); renderSummary();
-      }, {multi:true});
-    };
+    const pickPerson = (anchor) => openPicker('person', anchor, item.personIds, (ids)=>{
+      item.personIds = ids;
+      personChip.querySelector('.chip-label').textContent = personIdsLabel(ids, 'איש צוות');
+      personChip.classList.toggle('filled', !!ids.length); updateFlag(); saveWeek(weekStart, weekData); applyFilterVisuals(); renderSummary();
+    }, {multi:true});
+    personChip.onclick = (e)=>{ e.preventDefault(); e.stopPropagation(); pickPerson(personChip); };
     meta.appendChild(personChip);
     row.appendChild(meta);
+
+    // desktop (mouse): the common actions sit on the row itself, shown on
+    // hover — assign a person, a מופע, move to another day. ⋯ keeps the rest.
+    if(currentRole === 'editor'){
+      const tools = document.createElement('div');
+      tools.className = 'row-tools';
+      [[ICON_PERSON, 'שיוך לאחראי/ת', pickPerson], [ICON_TAG, 'שיוך למופע', pickTopic], [ICON_CALENDAR, 'העברה ליום אחר', (b) => openMovePicker([item.id], b, {anchor: b})]].forEach(([icon, label, fn]) => {
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'row-tool'; b.innerHTML = icon;
+        b.setAttribute('aria-label', label); b.title = label;
+        b.onclick = (e) => { e.preventDefault(); e.stopPropagation(); fn(b); };
+        tools.appendChild(b);
+      });
+      main.appendChild(tools);
+    }
 
     updateFlag();
 
@@ -5778,7 +5947,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     const addEv = document.createElement('div');
     addEv.className = 'add-line';
     addEv.textContent = '+ הוספת אירוע';
-    const detailWs = weekStart;
+    const detailWs = weekStart, detailWeek = weekData;
     addEv.onclick = () => {
       if(isMobileLayout()){ openAddSheet('event', {inPlace:true, ws:detailWs, day:dayDef.key}); return; }
       const item = {id:uid(), text:''};
@@ -5814,15 +5983,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       add.textContent = '+ הוספת משימה';
       add.onclick = () => {
         if(isMobileLayout()){ openAddSheet('task', {inPlace:true, ws:detailWs, day:dayDef.key, section:sec.key}); return; }
-        const item = emptyTask();
-        data[sec.key].push(item);
-        saveWeek(weekStart, weekData);
-        renderSummary();
-        const row = renderTaskRow(dayDef.key, sec.key, item);
-        list.appendChild(row);
-        const t = row.querySelector('.task-text');
-        dropIfLeftEmpty(row, t, item, () => renderSummary());
-        t.focus();
+        openTaskComposer({addEl:add, list, data, weekObj:detailWeek, ws:detailWs, dayKey:dayDef.key, sectionKey:sec.key});
       };
       wrap.appendChild(add);
       body.appendChild(wrap);
@@ -6693,8 +6854,11 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     }, true);
     overlay.addEventListener('click', (e) => { if(e.target === overlay) closeSheet(); });
     overlay.__returnFocus = document.activeElement;
+    const anchored = !!(opts.anchor && document.contains(opts.anchor) && !isMobileLayout());
+    if(anchored) overlay.classList.add('sheet-overlay--anchored');
     document.body.appendChild(overlay);
-    overlay.__untrack = fitOverlayToVisualViewport(overlay);
+    if(anchored) placeAnchoredPanel(panel, opts.anchor);
+    overlay.__untrack = anchored ? null : fitOverlayToVisualViewport(overlay);
     openSheetEl = overlay;
     document.addEventListener('keydown', sheetKeydown, true);
     requestAnimationFrame(() => overlay.classList.add('open'));
@@ -6708,6 +6872,21 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   // layout viewport, so a bottom sheet pinned to the layout bottom ends up
   // behind the keyboard. Pin the overlay to the visual viewport instead: the
   // sheet then sits right above the keyboard and scrolls inside if it must.
+  // desktop: a menu opened from a control on a row appears next to that
+  // control (like any desktop context menu), not as a dialog in mid-screen
+  function placeAnchoredPanel(panel, anchor){
+    const r = anchor.getBoundingClientRect();
+    const pw = panel.offsetWidth, ph = panel.offsetHeight;
+    let left = r.right - pw;                                  // RTL: align the panel's right edge with the control
+    left = Math.min(Math.max(8, left), window.innerWidth - pw - 8);
+    let top = r.bottom + 6;
+    if(top + ph > window.innerHeight - 8){
+      const above = r.top - ph - 6;
+      top = above >= 8 ? above : Math.max(8, window.innerHeight - ph - 8);
+    }
+    panel.style.left = Math.round(left) + 'px';
+    panel.style.top = Math.round(top) + 'px';
+  }
   function fitOverlayToVisualViewport(overlay){
     const vv = window.visualViewport;
     if(!vv) return null;
@@ -6765,25 +6944,93 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       renderBoard(); renderSummary();
       revealItem(copy.id, null);
     };
-    const items = ctx.kind === 'task' ? [
-      {label: it.done ? 'ביטול "בוצע"' : 'סימון כבוצע', run: () => ctx.cb.click()},
-      {label: 'עריכת הטקסט', run: edit},
-      {label: 'שיוך לאיש צוות…', run: () => { ctx.row.classList.add('chips-open'); const chips = ctx.row.querySelectorAll('.task-meta .mini-chip'); if(chips[1]) chips[1].click(); }},
-      {label: 'שיוך למופע / נושא…', run: () => { ctx.row.classList.add('chips-open'); const chips = ctx.row.querySelectorAll('.task-meta .mini-chip'); if(chips[0]) chips[0].click(); }},
-      {label: 'העברה ל…', run: () => openMovePicker([it.id])},
-      {label: 'שכפול', run: duplicate},
-      {label: 'בחירת כמה פריטים…', run: () => { enterSelectMode(); toggleSelected(ctx.row, {}); }},
-      {label: 'מחיקה', danger: true, run: () => ctx.del.click()}
-    ] : [
+    const pointerDesk = !isMobileLayout() && window.matchMedia('(pointer:fine)').matches;
+    // desktop: assigning and moving live on the row itself (row tools), so the
+    // menu keeps only what is left, anchored to the ⋯ instead of a centred dialog
+    if(ctx.kind === 'task' && pointerDesk){
+      openSheet(label, sheetList([
+        {label: 'עריכת הטקסט', run: edit},
+        {label: 'שכפול', run: duplicate},
+        {label: 'מחיקה', danger: true, run: () => ctx.del.click()}
+      ]), {anchor: ctx.anchor});
+      return;
+    }
+    if(ctx.kind === 'task'){ openTaskSheet(ctx, label, edit, duplicate); return; }
+    const items = [
       {label: it.passed ? 'ביטול "התקיים"' : 'סימון שהאירוע התקיים', run: () => ctx.toggle.click()},
       {label: 'שעה, יום שלם וחזרה…', run: () => openEventSheet({item: it, dayKey: ctx.dayKey})},
       {label: 'עריכת הטקסט', run: edit},
-      {label: 'העברה ל…', run: () => openMovePicker([it.id])},
-      {label: 'שכפול', run: duplicate},
-      {label: 'בחירת כמה פריטים…', run: () => { enterSelectMode(); toggleSelected(ctx.row, {}); }},
-      {label: 'מחיקה', danger: true, run: () => ctx.del.click()}
+      {label: 'העברה ל…', run: () => openMovePicker([it.id], null, {anchor: ctx.anchor})},
+      {label: 'שכפול', run: duplicate}
     ];
-    openSheet(label, sheetList(items));
+    if(!pointerDesk) items.push({label: 'בחירת כמה פריטים…', run: () => { enterSelectMode(); toggleSelected(ctx.row, {}); }});
+    items.push({label: 'מחיקה', danger: true, run: () => ctx.del.click()});
+    openSheet(label, sheetList(items), {anchor: ctx.anchor});
+  }
+  // phones: editing text in place needs a programmatic focus on a
+  // contentEditable, which iOS answers without a keyboard — edit in a field
+  function openTextEditSheet(item, onSaved){
+    const body = document.createElement('div');
+    body.className = 'add-sheet';
+    body.innerHTML = '<input class="add-input" type="text" enterkeyhint="done" autocomplete="off" aria-label="טקסט"><button type="button" class="sheet-primary">שמירה</button>';
+    const input = body.querySelector('input');
+    input.value = item.text || '';
+    const commit = () => { const v = input.value.trim(); if(!v) return; item.text = v; closeSheet(); onSaved(); };
+    input.addEventListener('keydown', (e) => { if(e.key === 'Enter' && !e.isComposing){ e.preventDefault(); commit(); } });
+    body.querySelector('.sheet-primary').onclick = commit;
+    openSheet('עריכת הטקסט', body, {focus: input});
+  }
+  // phones: one sheet where assigning a person / מופע and the common moves are
+  // a single tap each — no menu inside a menu
+  function openTaskSheet(ctx, label, edit, duplicate){
+    const it = ctx.item;
+    const body = document.createElement('div');
+    body.className = 'add-sheet task-sheet';
+    const save = () => { persistState(); renderBoard(); renderSummary(); applyFilterVisuals(); };
+    const chipBtn = (text, on, fn) => { const c = document.createElement('button'); c.type = 'button'; c.className = 'chip-opt' + (on ? ' is-on' : ''); c.textContent = text; c.setAttribute('aria-pressed', String(!!on)); c.onclick = fn; return c; };
+    function paint(){
+      const keepScroll = Array.from(body.querySelectorAll('.chip-row')).map(r => r.scrollLeft);
+      requestAnimationFrame(() => body.querySelectorAll('.chip-row').forEach((r, i) => { if(keepScroll[i]) r.scrollLeft = keepScroll[i]; }));
+      body.innerHTML = '';
+      if(people.length){
+        const l = document.createElement('div'); l.className = 'add-label'; l.textContent = 'אחראי/ת'; body.appendChild(l);
+        const r = document.createElement('div'); r.className = 'chip-row';
+        people.forEach(p => { const ids = it.personIds || []; r.appendChild(chipBtn(p.name, ids.includes(p.id), () => { it.personIds = ids.includes(p.id) ? ids.filter(x => x !== p.id) : ids.concat(p.id); save(); paint(); })); });
+        body.appendChild(r);
+      }
+      if(topics.length){
+        const l = document.createElement('div'); l.className = 'add-label'; l.textContent = 'מופע'; body.appendChild(l);
+        const r = document.createElement('div'); r.className = 'chip-row';
+        topics.forEach(t => r.appendChild(chipBtn(t.name, it.topicId === t.id, () => { it.topicId = it.topicId === t.id ? null : t.id; save(); paint(); })));
+        body.appendChild(r);
+      }
+      const ml = document.createElement('div'); ml.className = 'add-label'; ml.textContent = 'העברה ל…'; body.appendChild(ml);
+      const q = document.createElement('div'); q.className = 'task-sheet-quick';
+      const today = new Date(); today.setHours(0,0,0,0);
+      const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
+      const go = (t) => { closeSheet(); setTimeout(() => moveItems([it.id], t), 0); };
+      [['היום', {date: today}], ['מחר', {date: tomorrow}], ['שבוע הבא', {shiftWeeks: 1}], ['תאריך אחר…', null]].forEach(([t, target]) => {
+        const b = document.createElement('button'); b.type = 'button'; b.className = 'chip-opt'; b.textContent = t;
+        b.onclick = target ? () => go(target) : () => { closeSheet(); setTimeout(() => openMovePicker([it.id]), 0); };
+        q.appendChild(b);
+      });
+      body.appendChild(q);
+      // the chips above re-render the board, so act by id, never through ctx.row/cb/del
+      const liveRow = () => document.querySelector('#board [data-id="' + it.id + '"], .mv-daylist [data-id="' + it.id + '"], .peek-panel [data-id="' + it.id + '"]');
+      body.appendChild(sheetList([
+        {label: it.done ? 'ביטול "בוצע"' : 'סימון כבוצע', run: () => { it.done = !it.done; save(); }},
+        {label: 'עריכת הטקסט', run: () => openTextEditSheet(it, save)},
+        {label: 'שכפול', run: duplicate},
+        {label: 'בחירת כמה משימות…', run: () => { const r = liveRow(); enterSelectMode(); if(r) toggleSelected(r, {}); }},
+        {label: 'מחיקה', danger: true, run: () => {
+          const loc = locateItem(it.id); if(!loc) return;
+          loc.arr.splice(loc.index, 1); save();
+          showUndoToast('המשימה נמחקה', () => { loc.arr.splice(Math.min(loc.index, loc.arr.length), 0, it); save(); });
+        }}
+      ]));
+    }
+    paint();
+    openSheet(label, body, {cls: 'sheet--task'});
   }
   function rowMoreButton(onOpen){
     const b = document.createElement('button');
@@ -6792,7 +7039,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     b.setAttribute('aria-label', 'פעולות');
     b.title = 'פעולות';
     b.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>';
-    b.onclick = (e) => { e.preventDefault(); e.stopPropagation(); onOpen(); };
+    b.onclick = (e) => { e.preventDefault(); e.stopPropagation(); onOpen(b); };
     return b;
   }
 
@@ -6820,28 +7067,32 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     let day = 'day' in opts ? opts.day : targetDayForAdd();       // null = pool
     let section = opts.section || 'general';
     let personIds = opts.personIds ? opts.personIds.slice() : (getMe() ? [getMe()] : []);
-    const topicId = opts.topicId || null;
+    let topicId = opts.topicId || null;
     let evRead = null;
     const body = document.createElement('div');
     body.className = 'add-sheet';
     body.innerHTML =
       '<div class="seg" role="radiogroup" aria-label="סוג"><button type="button" data-k="task" role="radio">משימה</button><button type="button" data-k="event" role="radio">אירוע</button></div>' +
       '<input class="add-input" type="text" enterkeyhint="done" autocomplete="off">' +
+      '<div class="add-task-only">' +
+        (people.length ? '<div class="add-label">אחראי/ת</div><div class="chip-row add-people"></div>' : '') +
+        (topics.length ? '<div class="add-label">מופע</div><div class="chip-row add-topics"></div>' : '') + '</div>' +
       '<div class="add-label">יום</div><div class="chip-row add-days"></div>' +
       '<details class="add-more add-event-only"><summary>שעה, יום שלם וחזרה</summary><div class="add-more-body"></div></details>' +
-      '<div class="add-task-only"><div class="add-label add-sec-label">מקטע</div><div class="chip-row add-sections"></div>' +
-      (people.length ? '<div class="add-label">אחראי/ת</div><div class="chip-row add-people"></div>' : '') + '</div>' +
+      '<div class="add-task-only"><div class="add-label add-sec-label">מקטע</div><div class="chip-row add-sections"></div></div>' +
       '<button type="button" class="sheet-primary" disabled>הוספה</button>';
     if(allowPool) body.querySelector('.seg').hidden = true;   // the pool holds tasks only
     const input = body.querySelector('.add-input');
     const primary = body.querySelector('.sheet-primary');
     const chip = (label, on, fn) => { const c = document.createElement('button'); c.type = 'button'; c.className = 'chip-opt' + (on ? ' is-on' : ''); c.textContent = label; c.setAttribute('aria-pressed', String(!!on)); c.onclick = fn; return c; };
     function paint(){
+      const keepScroll = Array.from(body.querySelectorAll('.chip-row')).map(r => r.scrollLeft);
+      requestAnimationFrame(() => body.querySelectorAll('.chip-row').forEach((r, i) => { if(keepScroll[i]) r.scrollLeft = keepScroll[i]; }));
       if(k === 'event' && !day) day = targetDayForAdd();
       body.querySelectorAll('.seg [data-k]').forEach(b => { const on = b.dataset.k === k; b.classList.toggle('is-on', on); b.setAttribute('aria-checked', String(on)); });
       input.placeholder = k === 'task' ? 'מה צריך לעשות?' : 'שעה + תיאור, למשל 10:00 ישיבת צוות';
       input.setAttribute('aria-label', k === 'task' ? 'טקסט המשימה' : 'טקסט האירוע');
-      body.querySelector('.add-task-only').hidden = k !== 'task';
+      body.querySelectorAll('.add-task-only').forEach(el => { el.hidden = k !== 'task'; });
       body.querySelector('.add-event-only').hidden = k !== 'event';
       // the repeat labels name the chosen day, so rebuild the fields when it changes (values kept)
       const more = body.querySelector('.add-more-body');
@@ -6856,6 +7107,8 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       TASK_SECTIONS.forEach(s => secs.appendChild(chip(s.label, s.key === section, () => { section = s.key; paint(); })));
       const ppl = body.querySelector('.add-people');
       if(ppl){ ppl.innerHTML = ''; people.forEach(p => ppl.appendChild(chip(p.name, personIds.includes(p.id), () => { personIds = personIds.includes(p.id) ? personIds.filter(x => x !== p.id) : personIds.concat(p.id); paint(); }))); }
+      const tps = body.querySelector('.add-topics');
+      if(tps){ tps.innerHTML = ''; topics.forEach(t => tps.appendChild(chip(t.name, topicId === t.id, () => { topicId = topicId === t.id ? null : t.id; paint(); }))); }
       primary.textContent = k === 'task' ? 'הוספת משימה' : 'הוספת אירוע';
       primary.disabled = !input.value.trim();
     }
@@ -7085,11 +7338,26 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     bar.innerHTML =
       '<span class="sel-count" role="status" aria-live="polite"></span>' +
       '<button type="button" class="sel-btn sel-btn--primary" data-act="move">העברה ל…</button>' +
+      '<button type="button" class="sel-btn sel-btn--assign" data-act="person">אחראי/ת</button>' +
+      '<button type="button" class="sel-btn sel-btn--assign" data-act="topic">מופע</button>' +
       '<button type="button" class="sel-btn" data-act="done">סימון כבוצע</button>' +
       '<button type="button" class="sel-btn" data-act="cancel">ביטול</button>';
     bar.querySelector('[data-act="move"]').onclick = (e) => { if(selection.size) openMovePicker(Array.from(selection.keys()), e.currentTarget); };
     bar.querySelector('[data-act="done"]').onclick = markSelectionDone;
     bar.querySelector('[data-act="cancel"]').onclick = exitSelectMode;
+    // assign every selected task at once (events have no person/מופע)
+    const selectedTasks = () => Array.from(selection.entries()).filter(([, k]) => k === 'task').map(([id]) => locateItem(id)).filter(Boolean).map(l => l.item);
+    const commitAssign = () => { persistState(); renderBoard(); renderSummary(); applyFilterVisuals(); };
+    bar.querySelector('[data-act="person"]').onclick = (e) => {
+      const tasks = selectedTasks(); if(!tasks.length) return;
+      const common = (tasks[0].personIds || []).filter(id => tasks.every(t => (t.personIds || []).includes(id)));
+      openPicker('person', e.currentTarget, common, (ids) => { tasks.forEach(t => { t.personIds = ids.slice(); }); commitAssign(); }, {multi:true});
+    };
+    bar.querySelector('[data-act="topic"]').onclick = (e) => {
+      const tasks = selectedTasks(); if(!tasks.length) return;
+      const common = tasks.every(t => t.topicId === tasks[0].topicId) ? tasks[0].topicId : null;
+      openPicker('topic', e.currentTarget, common, (id) => { tasks.forEach(t => { t.topicId = id; }); commitAssign(); });
+    };
     document.body.appendChild(bar);
     updateSelBar();
     return bar;
@@ -7103,6 +7371,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     const tasks = Array.from(selection.values()).filter(k => k === 'task').length;
     const done = bar.querySelector('[data-act="done"]');
     done.hidden = !tasks;
+    bar.querySelectorAll('.sel-btn--assign').forEach(b => { b.hidden = !tasks; });
     const btn = document.getElementById('selectModeBtn');
     if(btn) btn.setAttribute('aria-pressed', String(selectMode));
   }
@@ -7350,7 +7619,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     seg.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { mode = b.dataset.m; paint(); });
     paint();
     const n = located.length;
-    const panel = openSheet(popts.title || (n === 1 ? 'העברה של "' + ((located[0].item.text || '').trim().slice(0, 40) || 'פריט') + '"' : 'העברה של ' + n + ' פריטים'), body, {cls: 'sheet--move', focus: body.querySelector('.dp-cell[tabindex="0"]')});
+    const panel = openSheet(popts.title || (n === 1 ? 'העברה של "' + ((located[0].item.text || '').trim().slice(0, 40) || 'פריט') + '"' : 'העברה של ' + n + ' פריטים'), body, {cls: 'sheet--move', focus: body.querySelector('.dp-cell[tabindex="0"]'), anchor: popts.anchor});
     if(returnFocusEl) panel.parentElement.__returnFocus = returnFocusEl;
   }
 
