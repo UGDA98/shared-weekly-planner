@@ -6,7 +6,7 @@
 <!-- App build version, compared against version.txt to detect a new deploy in
      installed standalone PWA windows (which have no reload affordance). MUST be
      bumped together with version.txt on every deploy — see NOTES.md deploy step. -->
-<meta name="app-version" content="20261002-1415">
+<meta name="app-version" content="20261002-1150">
 <title>יומן ומשימות</title>
 <!-- PWA manifest + icons — no service worker on purpose: this is a live-data
      app on a 20s poll, a SW would only risk serving a stale index.html for
@@ -639,42 +639,113 @@ html,body{
 .picker-add input:focus{ border-color:var(--accent); }
 .picker-add button{ border:none; background:var(--accent); color:var(--accent-ink); border-radius:7px; padding:5px 10px; font-size:12.5px; cursor:pointer; }
 
-/* email gate (first-run identity) */
+/* ---------- sign-in splash (2026-10-02) ----------
+   A native-style launch + sign-in screen: the app icon assembles itself from its
+   own parts (tile → page → rings → lines → the horn written like a check mark),
+   the name arrives letter by letter, and Google's button rises once Google has
+   drawn it. Signing in fills the page's lines like a progress bar; success opens
+   the icon's white page as a window onto the board (see revealBoard()).
+   Signed-in users never see any of it. The intro plays only with .is-intro. */
 .email-gate{
-  position:fixed; inset:0; z-index:200; background:rgba(31,27,30,.45);
-  display:none; align-items:center; justify-content:center; padding:20px;
-  backdrop-filter: blur(2px);
+  --sp-out:cubic-bezier(0.23, 1, 0.32, 1); --sp-inout:cubic-bezier(0.77, 0, 0.175, 1);
+  position:fixed; inset:0; z-index:200; overflow:hidden; background:var(--canvas);
+  display:none; flex-direction:column; align-items:center; justify-content:center;
+  padding:env(safe-area-inset-top, 0px) 24px 0;
+  direction:rtl; font-family:'Assistant UI', system-ui, -apple-system, "Segoe UI", sans-serif; color:var(--ink);
+  -webkit-tap-highlight-color:transparent;
 }
-.email-gate-card{
-  background:var(--surface); border-radius:18px; box-shadow:var(--shadow);
-  padding:28px 26px; width:100%; max-width:340px; text-align:center;
+.sp-atmo{ position:absolute; inset:-20%; pointer-events:none; }
+.sp-atmo i{ position:absolute; border-radius:50%; opacity:.9; }
+.sp-atmo i:nth-child(1){ width:56vmax; height:56vmax; inset-inline-start:8%; top:6%; background:radial-gradient(closest-side, rgba(246,207,221,.95), rgba(246,207,221,.45) 45%, rgba(246,207,221,0)); }
+.sp-atmo i:nth-child(2){ width:48vmax; height:48vmax; inset-inline-end:2%; bottom:0; background:radial-gradient(closest-side, rgba(249,224,232,.95), rgba(249,224,232,.45) 45%, rgba(249,224,232,0)); }
+.sp-lockup{ position:relative; display:flex; flex-direction:column; align-items:center; text-align:center; }
+.sp-icon{ position:relative; width:112px; height:112px; }
+.sp-icon svg{ position:relative; display:block; width:100%; height:100%; overflow:visible; }
+.sp-halo{ position:absolute; inset:14% 10% -8%; border-radius:30%; background:var(--accent); filter:blur(22px); opacity:.38; }
+.sp-p{ transform-box:fill-box; }
+.sp-name{ margin:26px 0 0; font-size:34px; line-height:40px; font-weight:800; letter-spacing:-.3px; white-space:nowrap; }
+.sp-name span{ display:inline-block; }
+.sp-name .sp-gap{ width:.26em; }
+.sp-tag{ margin:6px 0 0; font-size:16px; line-height:22px; color:var(--ink2); }
+.sp-cta{ position:relative; width:300px; max-width:100%; margin-top:44px; }
+.email-gate-migrate-note{ margin:0 0 12px; background:var(--accent-tint); color:var(--accent-soft-ink); border-radius:var(--r8); padding:8px 12px; font-size:14px; line-height:20px; text-align:center; }
+/* the button's place is reserved from the first frame, so nothing moves when it arrives */
+.sp-slot{ position:relative; height:44px; }
+#gsiButton, .sp-busy, .email-gate-retry{ position:absolute; inset:0; }
+#gsiButton{ display:flex; align-items:center; justify-content:center; opacity:0; transform:translateY(14px); transition:opacity .3s var(--sp-out), transform .4s var(--sp-out); }
+.email-gate.is-ready #gsiButton, .email-gate.is-ready .email-gate-retry{ opacity:1; transform:none; }
+.sp-busy{ display:flex; align-items:center; justify-content:center; gap:10px; border:1px solid var(--hl2); border-radius:999px; background:var(--s1); color:var(--ink2); font-size:16px; opacity:0; pointer-events:none; transition:opacity .16s ease; }
+.sp-spin{ width:18px; height:18px; border-radius:50%; border:2px solid var(--hl2); border-top-color:var(--ink2); animation:spSpin .7s linear infinite; }
+@keyframes spSpin{ to{ transform:rotate(360deg); } }
+.email-gate-retry{ display:none; opacity:0; transition:opacity .3s var(--sp-out); align-items:center; justify-content:center; border:1px solid var(--hl2); border-radius:999px; background:var(--s1); color:var(--ink); font:inherit; font-size:16px; font-weight:600; cursor:pointer; }
+.email-gate-retry:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+@media (hover:hover) and (pointer:fine){ .email-gate-retry:hover{ background:var(--s2); } }
+/* one line under the button: red only for a real failure, grey for a notice ("החיבור פג") */
+.email-gate-error{ min-height:40px; margin:10px 0 0; text-align:center; font-size:14px; line-height:20px; font-weight:600; color:var(--danger); }
+.email-gate-error.is-neutral{ color:var(--ink2); font-weight:400; }
+/* connecting: Google's button hands over to "מתחברים…"; the page's lines tick like a progress bar */
+.email-gate.is-connecting #gsiButton{ opacity:0; pointer-events:none; transition-duration:.12s; }
+.email-gate.is-connecting .sp-busy{ opacity:1; }
+.sp-prog{ transform-origin:left center; transform:scaleX(0); }
+.email-gate.is-connecting .sp-prog{ animation:spProg 1.2s var(--sp-inout) infinite; }
+.email-gate.is-connecting .sp-prog:nth-of-type(2){ animation-delay:.15s; }
+.email-gate.is-connecting .sp-prog:nth-of-type(3){ animation-delay:.3s; }
+@keyframes spProg{ 0%{ transform:scaleX(0); opacity:1; } 55%{ transform:none; opacity:1; } 85%,100%{ transform:none; opacity:0; } }
+/* leaving: everything but the icon fades while the window opens */
+.email-gate.is-leaving .sp-atmo, .email-gate.is-leaving .sp-name, .email-gate.is-leaving .sp-tag, .email-gate.is-leaving .sp-cta, .email-gate.is-leaving .sp-halo{ opacity:0; transition:opacity .16s ease; }
+@media (max-width:767px){
+  /* phone: the icon at the optical centre, the button in the thumb zone */
+  .email-gate{ justify-content:flex-start; }
+  .sp-lockup{ margin-block:auto; padding-bottom:8vh; }
+  .sp-cta{ width:100%; max-width:400px; margin-top:0; padding-bottom:max(16px, env(safe-area-inset-bottom, 0px)); }
 }
-.email-gate-card h2{ font-size:21px; font-weight:700; margin:0 0 8px; }
-.email-gate-card p{ font-size:13px; color:var(--muted); line-height:1.5; margin:0 0 16px; }
-.email-gate-card input{
-  width:100%; border:1px solid var(--border-strong); border-radius:var(--radius-lg); padding:11px 14px;
-  font-size:14px; background:var(--bg); color:var(--ink); outline:none; margin-bottom:10px;
-  direction:ltr; text-align:center;
+
+/* the intro (first show only) */
+.email-gate.is-intro .sp-atmo i{ opacity:0; animation:spGlow 1.6s var(--sp-out) .1s forwards, spDrift 18s ease-in-out 1.7s infinite alternate; }
+.email-gate.is-intro .sp-atmo i:nth-child(2){ animation-delay:.25s, 1.9s; animation-direction:normal, alternate-reverse; }
+@keyframes spGlow{ to{ opacity:.9; } }
+@keyframes spDrift{ from{ transform:translate3d(0,0,0) scale(1); } to{ transform:translate3d(-4%,3%,0) scale(1.08); } }
+.email-gate.is-intro .sp-halo{ opacity:0; animation:spHalo 1s var(--sp-out) .05s forwards; }
+@keyframes spHalo{ to{ opacity:.38; } }
+.email-gate.is-intro .sp-tile{ transform-origin:center; opacity:0; transform:scale(.82); animation:spIn .48s var(--sp-out) forwards; }
+.email-gate.is-intro .sp-page{ opacity:0; transform:translateY(70px); animation:spIn .5s var(--sp-out) .14s forwards; }
+.email-gate.is-intro .sp-ring{ opacity:0; transform:translateY(-34px); animation:spIn .36s var(--sp-out) .44s forwards; }
+.email-gate.is-intro .sp-ring + .sp-ring{ animation-delay:.5s; }
+@keyframes spIn{ to{ opacity:1; transform:none; } }
+.email-gate.is-intro .sp-line{ transform-origin:left center; transform:scaleX(0); animation:spGrow .3s var(--sp-out) .54s forwards; }
+.email-gate.is-intro .sp-line:nth-of-type(2){ animation-delay:.6s; }
+.email-gate.is-intro .sp-line:nth-of-type(3){ animation-delay:.66s; }
+@keyframes spGrow{ to{ transform:none; } }
+/* the horn is written like a check mark: a thick stroke along its spine reveals it */
+.sp-pen{ fill:none; stroke:#fff; stroke-width:28; stroke-linecap:round; stroke-linejoin:round; stroke-dasharray:1; stroke-dashoffset:0; }
+.email-gate.is-intro .sp-pen{ stroke-dashoffset:1; animation:spPen .52s var(--sp-inout) .7s forwards; }
+.email-gate.is-intro .sp-pen-fill{ opacity:0; animation:spFade .14s linear 1.16s forwards; }
+@keyframes spPen{ to{ stroke-dashoffset:0; } }
+.email-gate.is-intro .sp-horn{ transform-origin:30% 90%; animation:spSettle .42s var(--sp-out) 1.12s; }
+@keyframes spSettle{ 40%{ transform:rotate(-3deg) translateY(-3px); } }
+.email-gate.is-intro .sp-name span{ opacity:0; transform:translateY(.4em); filter:blur(6px); animation:spLetter .56s var(--sp-out) forwards; }
+@keyframes spLetter{ to{ opacity:1; transform:none; filter:none; } }
+.email-gate.is-intro .sp-tag{ opacity:0; animation:spFade .5s var(--sp-out) 1.18s forwards; }
+@keyframes spFade{ to{ opacity:1; } }
+
+@media (prefers-reduced-motion: reduce){
+  .email-gate.is-intro :is(.sp-atmo i, .sp-halo, .sp-p, .sp-pen, .sp-pen-fill, .sp-name span, .sp-tag), .email-gate.is-connecting .sp-prog{ animation:none !important; }
+  .email-gate.is-intro .sp-p, .email-gate.is-intro .sp-name span, .email-gate.is-intro .sp-tag, .email-gate.is-intro .sp-pen-fill{ opacity:1; transform:none; filter:none; }
+  .email-gate.is-intro .sp-pen{ stroke-dashoffset:0; }
+  .email-gate.is-intro .sp-halo{ opacity:.38; } .email-gate.is-intro .sp-atmo i{ opacity:.9; }
+  #gsiButton{ transform:none; transition:opacity .2s ease; }
 }
-.email-gate-card input:focus{ border-color:var(--accent); box-shadow:0 0 0 2px var(--accent-soft); }
-.email-gate-card button{
-  width:100%; border:none; background:var(--accent); color:var(--accent-ink); border-radius:var(--radius-lg);
-  padding:11px 14px; font-size:14px; font-weight:600; cursor:pointer;
+
+/* first sign-in on a device (no board cache yet): quiet grey bars stand in for
+   the rows until the board arrives, so the user never sees an "empty" board fill up */
+.planner-root.is-first-load .add-line, .planner-root.is-first-load #summarySection{ visibility:hidden; }
+.planner-root.is-first-load .events:empty::before, .planner-root.is-first-load .tasks:empty::before{
+  content:''; display:block; height:52px; margin:4px 0;
+  background:linear-gradient(var(--s3), var(--s3)) right 8px top 8px / 62% 12px no-repeat, linear-gradient(var(--s3), var(--s3)) right 8px top 32px / 40% 12px no-repeat;
+  animation:spPulse 1.2s ease-in-out infinite alternate;
 }
-.email-gate-card button:hover{ opacity:.92; }
-.email-gate-error{ color:#c0392b; font-size:12px; margin-top:8px; min-height:14px; }
-.email-gate-note{ font-size:11.5px !important; color:var(--muted); margin-top:14px !important; margin-bottom:0 !important; }
-.email-gate-migrate-note{
-  background:var(--accent-soft); color:var(--accent-soft-ink); border-radius:var(--radius-md);
-  padding:8px 10px; font-size:12.5px !important; margin-bottom:14px !important;
-}
-#gsiButton{ display:flex; justify-content:center; min-height:44px; margin-bottom:4px; }
-.email-gate-retry{
-  width:100%; border:1px solid var(--border-strong); background:var(--surface); color:var(--ink);
-  border-radius:var(--radius-lg); padding:10px 14px; font-size:13.5px; font-weight:600; cursor:pointer;
-  margin-top:4px;
-}
-.email-gate-retry:hover{ background:var(--surface-2); }
+@keyframes spPulse{ from{ opacity:1; } to{ opacity:.55; } }
+@media (prefers-reduced-motion: reduce){ .planner-root.is-first-load .events:empty::before, .planner-root.is-first-load .tasks:empty::before{ animation:none; } }
 
 /* role badge + sync status */
 .role-badge{
@@ -1519,6 +1590,44 @@ html,body{
 .sheet-primary:disabled{ opacity:.45; cursor:default; }
 /* add sheet: same height in both modes (see lockAddSheetHeight), button pinned to the bottom of it */
 .add-sheet [hidden]{ display:none !important; }
+.add-sheet{ gap:12px; }
+.add-daycap{ display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:20px; margin-bottom:-6px; font-size:13px; line-height:18px; color:var(--ink2); }
+.add-daycap .chip-opt{ min-height:30px; font-size:13px; }
+.add-strip{ display:flex; align-items:stretch; gap:4px; }
+.add-days{ flex:1; min-width:0; display:grid; grid-template-columns:repeat(7, 1fr); gap:2px; }
+.add-day{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; min-height:54px; padding:0; border:0; border-radius:12px; background:none; font:inherit; font-size:12px; line-height:16px; color:var(--ink2); cursor:pointer; }
+.add-day b{ font-size:16px; line-height:22px; font-weight:600; color:var(--ink); font-variant-numeric:tabular-nums; }
+.add-day.is-past, .add-day.is-past b{ color:var(--ink3-text); }
+.add-day.is-today b{ color:var(--accent); }
+.add-day.is-on{ background:var(--accent); color:#fff; }
+.add-day.is-on b{ color:#fff; }
+.add-date{ position:relative; flex:none; width:44px; display:grid; place-items:center; border-inline-start:1px solid var(--hl); color:var(--ink2); cursor:pointer; }
+.add-date input{ position:absolute; inset:0; width:100%; height:100%; margin:0; padding:0; border:0; opacity:0; cursor:pointer; -webkit-appearance:none; appearance:none; }
+.add-date:focus-within, .add-day:focus-visible, .add-row:focus-visible{ outline:2px solid var(--accent); outline-offset:-2px; border-radius:10px; }
+.add-ico{ flex:none; width:20px; height:20px; color:var(--ink2); }
+.add-date .add-ico{ width:22px; height:22px; }
+.add-group{ border:1px solid var(--hl); border-radius:12px; overflow:hidden; }
+.add-group.add-task-only{ display:block; }
+.add-group > * + *:not(.add-sub){ border-top:1px solid var(--hl); }
+.add-row{ display:flex; align-items:center; gap:10px; width:100%; min-height:48px; padding:0 12px; border:0; background:none; font:inherit; font-size:16px; color:var(--ink); text-align:start; }
+button.add-row{ cursor:pointer; }
+.add-row[aria-expanded="true"]{ background:var(--s2); }
+.add-row-val{ flex:1; min-width:0; text-align:end; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.add-row-val.is-none{ color:var(--ink3-text); }
+.add-chev{ flex:none; width:16px; height:16px; color:var(--ink3); transition:transform .15s ease; }
+.add-row[aria-expanded="true"] .add-chev{ transform:rotate(-90deg); }
+/* choices of an open row: soft chips that wrap (no sideways scrolling), a tick on the chosen ones */
+.add-sub{ display:flex; flex-wrap:wrap; gap:8px; padding:4px 12px 14px; background:var(--s2); }
+.add-sub .chip-opt{ display:inline-flex; align-items:center; gap:6px; min-height:38px; padding:0 14px; border-color:var(--hl); max-width:100%; overflow:hidden; text-overflow:ellipsis; }
+.add-sub .chip-opt.is-on{ border-color:var(--accent-deco); }
+.add-sub .chip-opt.is-on::before{ content:""; flex:none; width:14px; height:14px; background:currentColor; -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 8.5l3.2 3.2L13 5' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/contain no-repeat; mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 8.5l3.2 3.2L13 5' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/contain no-repeat; }
+.add-row--seg{ padding:8px 12px; }
+.add-row--seg .seg{ flex:1; }
+.add-row--seg .seg button{ min-height:32px; }
+.add-evfields .switch-row, .add-evfields .select-row{ justify-content:flex-start; gap:10px; min-height:48px; padding:0 12px; }
+.add-evfields .switch-row span, .add-evfields .select-row span{ flex:1; }
+.add-evfields .ev-times{ display:none !important; }   /* the time is typed in the text; start/end live in the edit sheet */
+@media (prefers-reduced-motion: reduce){ .add-chev{ transition:none; } }
 .task-sheet .sheet-list{ margin-top:6px; }
 .task-sheet-quick{ display:flex; gap:6px; flex-wrap:wrap; }
 /* desktop menus anchored to the control that opened them */
@@ -1542,11 +1651,21 @@ html,body{
 @media (max-width:767px){
   .sheet.sheet--page{
     display:flex; flex-direction:column; overflow:hidden; padding:0; max-height:none;
-    height:calc(100% - env(safe-area-inset-top, 0px) - 10px);
-    transform:translateY(40px); opacity:0; transition:transform .24s cubic-bezier(.2,.8,.2,1), opacity .2s ease;
+    height:calc(100% - env(safe-area-inset-top, 0px) - 56px);   /* a drawer: the board header stays visible above it */
+    border-radius:18px 18px 0 0; box-shadow:0 -10px 34px -10px rgba(40,24,32,.3);
+    transform:translateY(100%); transition:transform .34s cubic-bezier(.32,.72,0,1); will-change:transform;
   }
-  .sheet-overlay.open .sheet.sheet--page{ transform:none; opacity:1; }
-  .sheet--page .sheet-head{ flex:none; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:8px; min-height:52px; padding:4px 8px; border-bottom:1px solid var(--hl); }
+  .sheet-overlay.open .sheet.sheet--page{ transform:none; }
+  .sheet-overlay:not(.open) .sheet.sheet--page{ transition:transform .26s cubic-bezier(.4,0,1,1); }   /* leaving: straight down */
+  .sheet.sheet--page.is-dragging{ transition:none; }
+  .sheet--page .sheet-grip{ flex:none; margin:7px auto 0; }
+  .sheet--page .sheet-head{ flex:none; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:8px; min-height:50px; padding:0 8px 2px; border-bottom:1px solid var(--hl); touch-action:none; }
+  .sheet--page .sheet-head .seg{ width:172px; }
+  .sheet--page .sheet-head .seg button{ min-height:32px; }
+  /* takes the tap's focus (iOS raises the keyboard only then) while the drawer
+     is still sliding in; it sits where the real field will be, so iOS has
+     nothing to scroll. The real field takes over when the slide ends. */
+  .sheet-focus-proxy{ position:absolute; top:calc(env(safe-area-inset-top, 0px) + 132px); inset-inline:16px; width:auto; height:48px; margin:0; padding:0; border:0; background:none; opacity:0; pointer-events:none; font-size:17px; }
   .sheet--page .sheet-head .sheet-title{ padding:0; font-size:16px; font-weight:700; color:var(--ink); }
   .sheet--page .sheet-head-cancel, .sheet--page .sheet-head .sheet-primary{
     min-height:44px; min-width:44px; padding:0 8px; margin:0; border:0; border-radius:8px; background:none; box-shadow:none; position:static;
@@ -1558,7 +1677,8 @@ html,body{
   .sheet--page .sheet-scroll{ flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; padding:14px 16px calc(24px + var(--kb, 0px) + env(safe-area-inset-bottom, 0px)); }
 }
 @media (max-width:767px) and (prefers-reduced-motion: reduce){
-  .sheet.sheet--page{ transform:none; transition:opacity .12s ease; }
+  .sheet.sheet--page, .sheet-overlay:not(.open) .sheet.sheet--page{ transform:none; opacity:0; transition:opacity .12s ease; }
+  .sheet-overlay.open .sheet.sheet--page{ opacity:1; }
 }
 @media (min-width:768px){
   .sheet-overlay{ align-items:center; padding:24px; }
@@ -1886,19 +2006,59 @@ body.has-select-mode .undo-toast{ bottom:84px; }
 }
 </style>
 
-<div class="planner-root" id="root">
-  <div class="email-gate" id="emailGate">
-    <div class="email-gate-card" role="dialog" aria-modal="true" aria-labelledby="signinCardTitle">
-      <h2 id="signinCardTitle">יומן ומשימות</h2>
-      <p id="signinIntro">כדי להתחבר, השתמשו בחשבון Google שלכם.</p>
-      <p class="email-gate-migrate-note" id="signinMigrateNote" style="display:none;">מעכשיו נכנסים עם חשבון Google — בפעם הראשונה בלבד.</p>
-      <div id="gsiButton"></div>
-      <div class="email-gate-error" id="signinError"></div>
-      <button class="email-gate-retry" id="signinRetryBtn" type="button" style="display:none;">נסו שוב</button>
-      <p class="email-gate-note">מי שקיבל הרשאת עריכה יוכל לערוך; כל השאר יראו את הלוח בתצוגה בלבד.</p>
+<!-- sign-in splash: outside .planner-root so the board can be revealed through it (revealBoard) -->
+<div class="email-gate" id="emailGate" role="dialog" aria-modal="true" aria-labelledby="signinCardTitle">
+  <div class="sp-atmo" aria-hidden="true"><i></i><i></i></div>
+  <div class="sp-lockup">
+    <div class="sp-icon" aria-hidden="true">
+      <i class="sp-halo"></i>
+      <svg viewBox="0 0 512 512" focusable="false">
+        <defs>
+          <linearGradient id="spG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c45a80"/><stop offset="1" stop-color="#a7405f"/></linearGradient>
+          <filter id="spS" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#5a1430" flood-opacity=".28"/></filter>
+          <clipPath id="spClip"><rect width="512" height="512" rx="114"/></clipPath>
+          <mask id="spHornMask" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
+            <g transform="translate(248 92) scale(2.9)"><path class="sp-pen" pathLength="1" d="M3 31 C3 52 7 68 16 77 C24 84 37 82 46 72 C55 62 60 46 63 28 C64.5 18 65.5 9 65 -2"/></g>
+            <rect class="sp-pen-fill" width="512" height="512" fill="#fff"/>
+          </mask>
+        </defs>
+        <rect class="sp-p sp-tile" width="512" height="512" rx="114" fill="url(#spG)"/>
+        <g clip-path="url(#spClip)">
+          <g class="sp-p sp-page">
+            <g filter="url(#spS)"><rect class="sp-page-rect" x="92" y="150" width="300" height="270" rx="44" fill="#fff"/></g>
+            <path d="M92 194a44 44 0 0 1 44-44h212a44 44 0 0 1 44 44v18H92z" fill="#f6d3df"/>
+            <rect class="sp-p sp-line" x="124" y="250" width="118" height="22" rx="11" fill="#e9dfe3"/>
+            <rect class="sp-p sp-line" x="124" y="306" width="96" height="22" rx="11" fill="#e9dfe3"/>
+            <rect class="sp-p sp-line" x="124" y="362" width="70" height="22" rx="11" fill="#e9dfe3"/>
+            <rect class="sp-p sp-prog" x="124" y="250" width="118" height="22" rx="11" fill="#c45a80"/>
+            <rect class="sp-p sp-prog" x="124" y="306" width="96" height="22" rx="11" fill="#c45a80"/>
+            <rect class="sp-p sp-prog" x="124" y="362" width="70" height="22" rx="11" fill="#c45a80"/>
+          </g>
+        </g>
+        <rect class="sp-p sp-ring" x="148" y="126" width="22" height="50" rx="11" fill="#fff"/>
+        <rect class="sp-p sp-ring" x="214" y="126" width="22" height="50" rx="11" fill="#fff"/>
+        <g class="sp-p sp-horn" mask="url(#spHornMask)"><path transform="translate(248 92) scale(2.9)" d="M63.85 6.37 L64.73 0.00 L65.77 6.47 Q66.82 12.93 67.60 19.63 Q68.39 26.32 68.58 32.10 Q68.78 37.88 68.55 42.19 Q68.32 46.51 67.57 51.57 Q66.82 56.63 65.61 60.78 Q64.40 64.92 62.67 68.52 Q60.94 72.11 58.82 74.92 Q56.69 77.73 54.51 79.69 Q52.32 81.65 49.77 83.18 Q47.22 84.72 44.19 85.89 Q41.15 87.07 36.38 88.11 Q31.61 89.16 29.46 90.33 Q27.30 91.51 26.45 92.75 Q25.60 93.99 25.70 95.26 Q25.80 96.54 26.65 97.52 Q27.50 98.50 28.94 99.25 L30.37 100.00 L27.76 100.00 Q25.15 100.00 23.19 99.38 Q21.23 98.76 20.41 98.07 Q19.60 97.39 19.04 96.41 Q18.48 95.43 18.22 92.46 Q17.96 89.48 17.54 88.44 Q17.11 87.39 16.56 86.90 Q16.00 86.41 14.04 85.53 Q12.08 84.65 10.35 83.08 Q8.62 81.52 7.25 79.59 Q5.88 77.66 4.51 74.79 Q3.14 71.91 2.35 69.40 Q1.57 66.88 0.98 63.75 Q0.39 60.61 0.20 58.10 Q0.00 55.58 0.20 50.78 Q0.39 45.98 1.18 41.35 Q1.96 36.71 2.74 33.70 Q3.53 30.70 3.76 30.50 L3.98 30.31 L4.67 35.86 Q5.36 41.41 6.76 46.67 Q8.16 51.93 9.90 55.68 Q11.63 59.44 13.88 62.31 Q16.13 65.19 17.41 66.20 Q18.68 67.21 20.12 67.96 Q21.55 68.71 24.20 69.27 Q26.85 69.82 28.94 69.69 Q31.03 69.56 32.56 69.17 Q34.10 68.78 37.07 67.21 Q40.04 65.64 42.13 63.78 Q44.22 61.92 46.34 59.21 Q48.47 56.50 50.23 53.43 Q51.99 50.36 53.56 46.77 Q55.13 43.17 56.69 38.54 Q58.26 33.90 59.63 28.51 Q61.01 23.12 61.99 17.93 Q62.97 12.74 63.85 6.37Z" fill="#1f1b1e"/></g>
+      </svg>
     </div>
+    <h1 class="sp-name" id="signinCardTitle" aria-label="יומן ומשימות"><span>יומן ומשימות</span></h1>
+    <p class="sp-tag" id="signinIntro">הלוח השבועי של הצוות</p>
   </div>
+  <div class="sp-cta">
+    <p class="email-gate-migrate-note" id="signinMigrateNote" style="display:none;">מעכשיו נכנסים עם חשבון Google — בפעם הראשונה בלבד.</p>
+    <div class="sp-slot">
+      <div id="gsiButton"></div>
+      <div class="sp-busy" aria-hidden="true"><i class="sp-spin"></i>מתחברים…</div>
+      <button class="email-gate-retry" id="signinRetryBtn" type="button" style="display:none;">נסו שוב</button>
+    </div>
+    <p class="email-gate-error" id="signinError" role="status" aria-live="polite"></p>
+  </div>
+</div>
+<script>
+  // signed out: the splash is up (and its intro running) from the very first paint
+  try{ if(!(localStorage.getItem('planner_session') || '').trim()){ var spG = document.getElementById('emailGate'); spG.style.display = 'flex'; spG.classList.add('is-intro'); window.__spIntroAt = performance.now(); } }catch(e){}
+</script>
 
+<div class="planner-root" id="root">
   <div class="top">
     <div class="top-row">
       <div class="m-head"><h2 class="m-title" id="mTitle"></h2><span class="m-sub" id="mSub"></span></div>
@@ -2370,7 +2530,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     if(typeof google !== 'undefined' && google.accounts && google.accounts.id){
       try{ google.accounts.id.disableAutoSelect(); }catch(e){}
     }
-    showSigninCard({ note: 'החיבור פג — התחברו שוב', retryable:false });
+    initGoogleSignin(false, { note:'החיבור פג. התחברו שוב, והלוח יחזור כמו שהיה.', neutral:true });
     return true;
   }
 
@@ -6865,7 +7025,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     if(el.__untrack) el.__untrack();
     el.classList.remove('open');
     document.removeEventListener('keydown', sheetKeydown, true);
-    setTimeout(() => el.remove(), prefersReducedMotion() ? 0 : 200);
+    setTimeout(() => el.remove(), prefersReducedMotion() ? 0 : (el.querySelector('.sheet--page') ? 280 : 200));
     if(ret && document.contains(ret)){ try{ ret.focus({preventScroll:true}); }catch(e){} }
   }
   function sheetKeydown(e){
@@ -6894,6 +7054,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     const page = !!opts.page && isMobileLayout();
     if(page){
       panel.classList.add('sheet--page');
+      panel.innerHTML = '<div class="sheet-grip" aria-hidden="true"></div>';
       const head = document.createElement('div');
       head.className = 'sheet-head';
       const cancel = document.createElement('button');
@@ -6902,7 +7063,8 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       const h = document.createElement('div');
       h.className = 'sheet-title';
       h.textContent = titleText || '';
-      head.append(cancel, h);
+      // the middle of the header: the title, or a control handed over by the body (משימה/אירוע)
+      head.append(cancel, opts.headCenter || h);
       // the body's own action button moves up into the header, so it stays
       // reachable above the keyboard (a form's submit button keeps submitting
       // its form through the form attribute)
@@ -6915,6 +7077,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       scroll.className = 'sheet-scroll';
       scroll.appendChild(body);
       panel.append(head, scroll);
+      dragToClose(panel, head, opts.keepOnDrag);
     } else {
       panel.innerHTML = '<div class="sheet-grip" aria-hidden="true"></div>';
       if(titleText){
@@ -6947,14 +7110,60 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     if(page && opts.focus){
       // iOS raises the keyboard only for a focus() made while the tap is
       // still being handled — a timer is too late (the sheet then opened
-      // without a keyboard). The field is already in its final place (the
-      // page sheet only fades in from 40px below), so iOS has nothing to scroll.
-      try{ opts.focus.focus({preventScroll:true}); }catch(e){}
+      // without a keyboard). The drawer is still below the screen at that
+      // moment, and iOS scrolls the page towards a focused field it cannot
+      // see, so a stand-in field at the final position takes the focus and
+      // hands it (and anything typed meanwhile) to the real one after the slide.
+      const real = opts.focus;
+      if(prefersReducedMotion()){ try{ real.focus({preventScroll:true}); }catch(e){} }
+      else {
+        const proxy = document.createElement('input');
+        proxy.className = 'sheet-focus-proxy'; proxy.type = real.type || 'text'; proxy.tabIndex = -1;
+        proxy.setAttribute('aria-hidden', 'true'); proxy.autocomplete = 'off';
+        ['enterkeyhint', 'inputmode', 'autocapitalize', 'dir'].forEach(a => { if(real.hasAttribute(a)) proxy.setAttribute(a, real.getAttribute(a)); });
+        overlay.appendChild(proxy);
+        try{ proxy.focus({preventScroll:true}); }catch(e){}
+        let done = false;
+        const hand = () => {
+          if(done) return; done = true;
+          if(overlay === openSheetEl && document.activeElement === proxy){
+            if(proxy.value){ real.value += proxy.value; real.dispatchEvent(new Event('input', {bubbles:true})); }
+            try{ real.focus({preventScroll:true}); }catch(e){}
+          }
+          proxy.remove();
+        };
+        panel.addEventListener('transitionend', (e) => { if(e.target === panel && e.propertyName === 'transform') hand(); });
+        setTimeout(hand, 450);
+      }
     } else setTimeout(() => {
       const target = opts.focus || panel.querySelector('input, button');
       if(target) try{ target.focus({preventScroll:true}); }catch(e){}
     }, opts.focus ? 60 : 0);
     return panel;
+  }
+  // A page sheet is a drawer: pulling its header down closes it. keep() = true
+  // (e.g. text was already typed) makes it spring back instead.
+  function dragToClose(panel, head, keep){
+    let y0 = null, dy = 0, t0 = 0;
+    head.addEventListener('pointerdown', (e) => {
+      if(e.target.closest('button, input, select') || (e.pointerType === 'mouse' && e.button !== 0)) return;
+      y0 = e.clientY; dy = 0; t0 = performance.now();
+      try{ head.setPointerCapture(e.pointerId); }catch(err){}
+    });
+    head.addEventListener('pointermove', (e) => {
+      if(y0 === null) return;
+      dy = Math.max(0, e.clientY - y0);
+      if(dy > 4){ panel.classList.add('is-dragging'); panel.style.transform = 'translateY(' + dy + 'px)'; }
+    });
+    const end = () => {
+      if(y0 === null) return;
+      const fast = dy > 40 && dy / Math.max(1, performance.now() - t0) > 0.6;
+      y0 = null;
+      panel.classList.remove('is-dragging'); panel.style.transform = '';
+      if((dy > 110 || fast) && !(keep && keep())) closeSheet();
+    };
+    head.addEventListener('pointerup', end);
+    head.addEventListener('pointercancel', end);
   }
   // Page sheets never move with the keyboard; they only learn its height
   // (layout viewport minus visual viewport) to pad their scroll area, so
@@ -7145,8 +7354,9 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       if(currentView === 'month'){ mobileTab = 'week'; setView('week'); paintMobileChrome(); }
       if(mobileTab === 'today' && !isCurrentWeek()) goToWeek(startOfWeek(new Date()), false);
     }
-    const ws = opts.ws ? startOfWeek(opts.ws) : weekStart;
-    setWeekContext(ws);
+    const baseWs = opts.ws ? startOfWeek(opts.ws) : weekStart;
+    let ws = baseWs;                                              // the date button can pick another week
+    setWeekContext(baseWs);
     const allowPool = !!opts.pool;
     let k = opts.kind || kind || 'task';
     let day = 'day' in opts ? opts.day : targetDayForAdd();       // null = pool
@@ -7154,67 +7364,150 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     let personIds = opts.personIds ? opts.personIds.slice() : (getMe() ? [getMe()] : []);
     let topicId = opts.topicId || null;
     let evRead = null;
+    let openRow = null;                                           // 'people' | 'topics': one picker row open at a time
+    const isFar = () => weekKey(ws) !== weekKey(baseWs);
+    // dates come from the sheet's own week, not from the board's week context,
+    // so picking a far date and then cancelling leaves the board untouched
+    const dateOf = (key) => { const d = new Date(ws); d.setDate(d.getDate() + Math.max(0, DAY_DEFS.findIndex(x => x.key === key))); return d; };
+    const ico = (d) => '<svg class="add-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>';
+    const ICO_USER = ico('<circle cx="12" cy="8" r="3.6"/><path d="M4.8 20c.9-3.6 3.7-5.4 7.2-5.4s6.3 1.8 7.2 5.4"/>');
+    const ICO_FLAG = ico('<path d="M6 21V4"/><path d="M6 5h11l-2.2 3.5L17 12H6"/>');
+    const ICO_CAL = ico('<rect x="4" y="5.5" width="16" height="14.5" rx="3"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/>');
+    const ICO_SUN = ico('<circle cx="12" cy="12" r="3.8"/><path d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2M6 6l1.4 1.4M16.6 16.6 18 18M18 6l-1.4 1.4M7.4 16.6 6 18"/>');
+    const ICO_REP = ico('<path d="M5 11a7 7 0 0 1 12.2-4.2L19 8.5"/><path d="M19 4.5v4h-4"/><path d="M19 13a7 7 0 0 1-12.2 4.2L5 15.5"/><path d="M5 19.5v-4h4"/>');
+    const CHEV = '<svg class="add-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 6l-6 6 6 6"/></svg>';
+    // a setting = a row that shows its current value; tapping it opens its choices in place
+    const pickRow = (key, icon, label) => '<button type="button" class="add-row" data-row="' + key + '" aria-expanded="false">' + icon + '<span>' + label + '</span><span class="add-row-val"></span>' + CHEV + '</button><div class="add-sub" data-sub="' + key + '" hidden></div>';
     const body = document.createElement('div');
     body.className = 'add-sheet';
     body.innerHTML =
-      '<div class="seg" role="radiogroup" aria-label="סוג"><button type="button" data-k="task" role="radio">משימה</button><button type="button" data-k="event" role="radio">אירוע</button></div>' +
+      '<div class="seg add-kind" role="radiogroup" aria-label="סוג"><button type="button" data-k="task" role="radio">משימה</button><button type="button" data-k="event" role="radio">אירוע</button></div>' +
       '<input class="add-input" type="text" enterkeyhint="done" autocomplete="off">' +
-      '<div class="add-task-only">' +
-        (people.length ? '<div class="add-label">אחראי/ת</div><div class="chip-row add-people"></div>' : '') +
-        (topics.length ? '<div class="add-label">מופע</div><div class="chip-row add-topics"></div>' : '') + '</div>' +
-      '<div class="add-label">יום</div><div class="chip-row add-days"></div>' +
-      '<details class="add-more add-event-only"><summary>שעה, יום שלם וחזרה</summary><div class="add-more-body"></div></details>' +
-      '<div class="add-task-only"><div class="add-label add-sec-label">מקטע</div><div class="chip-row add-sections"></div></div>' +
+      '<div class="add-daycap"><span class="add-daycap-text" aria-live="polite"></span></div>' +
+      '<div class="add-strip"><div class="add-days" role="radiogroup" aria-label="יום"></div>' +
+        '<label class="add-date" title="תאריך אחר">' + ICO_CAL + '<input type="date" aria-label="תאריך אחר"></label></div>' +
+      '<div class="add-group add-task-only">' +
+        (people.length ? pickRow('people', ICO_USER, 'אחראי/ת') : '') +
+        (topics.length ? pickRow('topics', ICO_FLAG, 'שיוך למופע') : '') +
+        '<div class="add-row add-row--seg"><div class="seg add-secseg" role="radiogroup" aria-label="מקטע"></div></div></div>' +
+      '<div class="add-group add-event-only add-evfields"></div>' +
       '<button type="button" class="sheet-primary" disabled>הוספה</button>';
-    if(allowPool) body.querySelector('.seg').hidden = true;   // the pool holds tasks only
+    const kindSeg = body.querySelector('.add-kind');   // on phones it moves into the sheet header
+    if(allowPool) kindSeg.hidden = true;   // the pool holds tasks only
     const input = body.querySelector('.add-input');
     const primary = body.querySelector('.sheet-primary');
+    const dateInput = body.querySelector('.add-date input');
     const chip = (label, on, fn) => { const c = document.createElement('button'); c.type = 'button'; c.className = 'chip-opt' + (on ? ' is-on' : ''); c.textContent = label; c.setAttribute('aria-pressed', String(!!on)); c.onclick = fn; return c; };
     function paint(){
-      const keepScroll = Array.from(body.querySelectorAll('.chip-row')).map(r => r.scrollLeft);
-      requestAnimationFrame(() => body.querySelectorAll('.chip-row').forEach((r, i) => { if(keepScroll[i]) r.scrollLeft = keepScroll[i]; }));
       if(k === 'event' && !day) day = targetDayForAdd();
-      body.querySelectorAll('.seg [data-k]').forEach(b => { const on = b.dataset.k === k; b.classList.toggle('is-on', on); b.setAttribute('aria-checked', String(on)); });
+      kindSeg.querySelectorAll('[data-k]').forEach(b => { const on = b.dataset.k === k; b.classList.toggle('is-on', on); b.setAttribute('aria-checked', String(on)); });
       input.placeholder = k === 'task' ? 'מה צריך לעשות?' : 'שעה + תיאור, למשל 10:00 ישיבת צוות';
       input.setAttribute('aria-label', k === 'task' ? 'טקסט המשימה' : 'טקסט האירוע');
       body.querySelectorAll('.add-task-only').forEach(el => { el.hidden = k !== 'task'; });
       body.querySelector('.add-event-only').hidden = k !== 'event';
-      // the repeat labels name the chosen day, so rebuild the fields when it changes (values kept)
-      const more = body.querySelector('.add-more-body');
+      // the repeat labels name the chosen day, so rebuild the fields when it changes (values kept).
+      // The time is typed in the text, as people are used to; start/end stay in the edit sheet.
+      const ef = body.querySelector('.add-evfields');
       const keep = evRead ? evRead() : {};
-      more.innerHTML = eventFieldsHtml();
-      evRead = wireEventFields(more, keep, dayDateOf(day || targetDayForAdd()));
+      ef.innerHTML = eventFieldsHtml();
+      evRead = wireEventFields(ef, keep, dateOf(day || targetDayForAdd()));
+      ef.querySelector('.switch-row').insertAdjacentHTML('afterbegin', ICO_SUN);
+      ef.querySelector('.select-row:not(.ev-until-row)').insertAdjacentHTML('afterbegin', ICO_REP);
+      ef.querySelector('.ev-until-row').insertAdjacentHTML('afterbegin', ICO_CAL);
+      // the chosen date in words (it also names the month when a far date was picked)
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const cap = body.querySelector('.add-daycap');
+      const capText = cap.querySelector('.add-daycap-text');
+      if(day){
+        const d = dateOf(day), diff = Math.round((d - today) / 86400000);
+        capText.textContent = HEB_DAY_LONG[d.getDay()] + ', ' + longDateLabel(d) + (d.getFullYear() !== today.getFullYear() ? ' ' + d.getFullYear() : '') + (diff === 0 ? ' · היום' : diff === 1 ? ' · מחר' : '');
+      } else capText.textContent = 'בלי יום, למאגר המשימות';
+      cap.querySelectorAll('.chip-opt').forEach(c => c.remove());
+      if(isFar()) cap.appendChild(chip('חזרה לשבוע המוצג', false, () => { ws = baseWs; day = 'day' in opts && opts.day ? opts.day : targetDayForAdd(); paint(); }));
+      if(allowPool) cap.appendChild(chip('ללא יום', !day, () => { day = null; paint(); }));
       const days = body.querySelector('.add-days'); days.innerHTML = '';
-      if(allowPool) days.appendChild(chip('ללא יום', !day, () => { day = null; paint(); }));
-      DAY_DEFS.forEach((d, i) => { const dt = dayDateOf(d.key); days.appendChild(chip(HEB_DAY_LETTER[i] + ' ' + dt.getDate(), d.key === day, () => { day = d.key; paint(); })); });
-      const secs = body.querySelector('.add-sections'); secs.innerHTML = '';
-      secs.hidden = !day; body.querySelector('.add-sec-label').hidden = !day;   // the pool has no sections
-      TASK_SECTIONS.forEach(s => secs.appendChild(chip(s.label, s.key === section, () => { section = s.key; paint(); })));
-      const ppl = body.querySelector('.add-people');
-      if(ppl){ ppl.innerHTML = ''; people.forEach(p => ppl.appendChild(chip(p.name, personIds.includes(p.id), () => { personIds = personIds.includes(p.id) ? personIds.filter(x => x !== p.id) : personIds.concat(p.id); paint(); }))); }
-      const tps = body.querySelector('.add-topics');
-      if(tps){ tps.innerHTML = ''; topics.forEach(t => tps.appendChild(chip(t.name, topicId === t.id, () => { topicId = topicId === t.id ? null : t.id; paint(); }))); }
-      // phones (page sheet): the header carries the title and a short "הוספה"
+      DAY_DEFS.forEach((d, i) => {
+        const dt = dateOf(d.key), on = d.key === day;
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'add-day' + (on ? ' is-on' : '') + (dt < today ? ' is-past' : '') + (+dt === +today ? ' is-today' : '');
+        b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', String(on));
+        b.setAttribute('aria-label', HEB_DAY_LONG[i] + ', ' + longDateLabel(dt));
+        b.innerHTML = '<span>' + HEB_DAY_LETTER[i] + '</span><b>' + dt.getDate() + '</b>';
+        b.onclick = () => { day = d.key; paint(); };
+        days.appendChild(b);
+      });
+      if(document.activeElement !== dateInput) dateInput.value = isoKey(dateOf(day || targetDayForAdd()));
+      const me = getMe();
+      const setRow = (key, text) => {
+        const r = body.querySelector('[data-row="' + key + '"]'); if(!r) return null;
+        const val = r.querySelector('.add-row-val');
+        val.textContent = text || 'ללא'; val.classList.toggle('is-none', !text);
+        r.setAttribute('aria-expanded', String(openRow === key));
+        const sub = body.querySelector('[data-sub="' + key + '"]');
+        sub.hidden = openRow !== key; sub.innerHTML = '';
+        return sub;
+      };
+      const chosen = personIds.map(id => people.find(p => p.id === id)).filter(Boolean);
+      const ppl = setRow('people', chosen.map(p => p.name + (p.id === me && chosen.length === 1 ? ' (אני)' : '')).join(', '));
+      if(ppl) people.slice().sort((a, b) => (b.id === me) - (a.id === me)).forEach(p => ppl.appendChild(chip(p.name + (p.id === me ? ' (אני)' : ''), personIds.includes(p.id), () => { personIds = personIds.includes(p.id) ? personIds.filter(x => x !== p.id) : personIds.concat(p.id); paint(); })));
+      const curTopic = topics.find(t => t.id === topicId);
+      const tps = setRow('topics', curTopic ? curTopic.name : '');
+      if(tps) topics.forEach(t => tps.appendChild(chip(t.name, topicId === t.id, () => { topicId = topicId === t.id ? null : t.id; paint(); })));
+      // the section has two options and needs no title: one switch, hidden for the pool (it has no sections)
+      const secs = body.querySelector('.add-secseg'); secs.innerHTML = '';
+      secs.parentNode.hidden = !day;
+      TASK_SECTIONS.forEach(s => { const b = document.createElement('button'); b.type = 'button'; b.textContent = s.label; b.setAttribute('role', 'radio'); const on = s.key === section; b.classList.toggle('is-on', on); b.setAttribute('aria-checked', String(on)); b.onclick = () => { section = s.key; paint(); }; secs.appendChild(b); });
+      // phones (page sheet): the header carries משימה/אירוע (or the title) and a short "הוספה"
       const pageSheet = body.closest('.sheet--page');
       primary.textContent = pageSheet ? 'הוספה' : (k === 'task' ? 'הוספת משימה' : 'הוספת אירוע');
-      if(pageSheet) pageSheet.querySelector('.sheet-title').textContent = k === 'task' ? 'משימה חדשה' : 'אירוע חדש';
       primary.disabled = !input.value.trim();
     }
-    body.querySelectorAll('.seg [data-k]').forEach(b => b.onclick = () => { k = b.dataset.k; paint(); });
-    // While typing, a tap on a chip or on משימה/אירוע must not drop the
-    // keyboard (iOS blurs the field on any tap): give the focus back inside
-    // the same tap. Taps on the time/repeat fields are left alone.
+    kindSeg.querySelectorAll('[data-k]').forEach(b => b.onclick = () => { k = b.dataset.k; paint(); });
+    body.querySelectorAll('.add-row[data-row]').forEach(r => r.onclick = () => {
+      openRow = openRow === r.dataset.row ? null : r.dataset.row;
+      if(openRow) input.blur();   // choosing, not typing: the keyboard makes room for the choices (the sheet itself never moves)
+      paint();
+    });
+    input.addEventListener('focus', () => { if(openRow){ openRow = null; paint(); } });
+    // a far date: the native date picker, on the rare occasion the week strip is not enough
+    dateInput.onchange = () => {
+      if(!dateInput.value) return;
+      const d = parseIsoKey(dateInput.value);
+      ws = startOfWeek(d); day = DAY_DEFS[d.getDay()].key;
+      paint();
+    };
+    body.querySelector('.add-date').onclick = () => { if(window.matchMedia('(pointer:fine)').matches) try{ dateInput.showPicker(); }catch(e){} };
+    // While typing, a tap on a day, on משימה/אירוע or on a switch must not drop
+    // the keyboard (iOS blurs the field on any tap): give the focus back inside
+    // the same tap. Rows that open choices and the date picker are left alone.
     let typing = false;
-    body.addEventListener('pointerdown', () => { typing = document.activeElement === input; }, true);
-    body.addEventListener('click', (e) => {
-      if(typing && e.target.closest('.chip-opt, .seg button')) try{ input.focus({preventScroll:true}); }catch(err){}
+    [body, kindSeg].forEach(el => {
+      el.addEventListener('pointerdown', () => { typing = document.activeElement === input; }, true);
+      el.addEventListener('click', (e) => {
+        if(typing && e.target.closest('.add-day, .seg button, .switch-row, .add-daycap .chip-opt')) try{ input.focus({preventScroll:true}); }catch(err){}
+      });
     });
     input.addEventListener('input', () => { primary.disabled = !input.value.trim(); });
     input.addEventListener('keydown', (e) => { if(e.key === 'Enter' && !e.isComposing){ e.preventDefault(); submit(); } });
     // after an in-place add: re-render without leaving the tab/view, then flash the new row
     function settle(id){
+      if(isFar()){
+        // the item went to another week: on the week view go there, anywhere else stay put
+        if(!inPlace && currentView === 'week' && (!isMobileLayout() || mobileTab === 'week')){
+          mSelectedDay = day;
+          updateWeekRange(); renderFilters(); renderBoard(); renderSummary(); paintMobileChrome();
+          scrollDayIntoView(day, true);
+          if(id) revealItem(id, null);
+        } else {
+          setWeekContext(baseWs);
+          renderBoard(); renderSummary(); paintMobileChrome();
+        }
+        return;
+      }
       mSelectedDay = day || mSelectedDay;
       renderBoard(); renderSummary(); paintMobileChrome();
+      if(!id) return;
       if(inPlace && (currentView === 'month' || !day)){
         requestAnimationFrame(() => {
           const row = document.querySelector('[data-id="' + id + '"]');
@@ -7236,7 +7529,9 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     function submit(){
       const text = input.value.trim();
       if(!text) return;
+      if(k === 'task' && !day) ws = baseWs;   // the pool belongs to no week
       setWeekContext(ws);
+      const where = () => DAY_DEFS.find(d => d.key === day).name + (isFar() ? ', ' + longDateLabel(dateOf(day)) : '');
       let item, arr;
       if(k === 'task'){
         item = Object.assign(emptyTask(), {text, personIds: personIds.slice()});
@@ -7255,15 +7550,18 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       else {
         const v = evRead ? evRead() : {};
         if(v.repeat){
-          const sr = {id: 's' + uid().slice(1), text, repeat: v.repeat, from: isoKey(dayDateOf(day)), exceptions: {}};
+          const sr = {id: 's' + uid().slice(1), text, repeat: v.repeat, from: isoKey(dateOf(day)), exceptions: {}};
           if(v.until) sr.until = v.until;
           applyTimeFields(sr, v);
           ensureSeries().push(sr);
           persistState();
           closeSheet();
-          mSelectedDay = day;
-          renderBoard(); renderSummary(); paintMobileChrome();
-          if(mobileTab === 'week') scrollDayIntoView(day, true);
+          if(isFar()) settle(null);
+          else {
+            mSelectedDay = day;
+            renderBoard(); renderSummary(); paintMobileChrome();
+            if(mobileTab === 'week') scrollDayIntoView(day, true);
+          }
           showUndoToast('האירוע יחזור ' + REPEAT_LABEL[v.repeat], () => { appState.series = seriesList().filter(x => x.id !== sr.id); persistState(); renderBoard(); renderSummary(); });
           return;
         }
@@ -7271,14 +7569,14 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       }
       arr.push(item);
       saveWeek(weekStart, weekData);
+      const msg = (k === 'task' ? 'המשימה נוספה ל' : 'האירוע נוסף ל') + where();
       closeSheet();
       settle(item.id);
-      const dayName = DAY_DEFS.find(d => d.key === day).name;
-      showUndoToast((k === 'task' ? 'המשימה נוספה ל' : 'האירוע נוסף ל') + dayName, () => undoAdd(item.id));
+      showUndoToast(msg, () => undoAdd(item.id));
     }
     primary.onclick = submit;
     paint();
-    const panel = openSheet('הוספה', body, {cls: 'sheet--add', focus: input, page: true});
+    const panel = openSheet(allowPool ? 'משימה חדשה' : 'הוספה', body, {cls: 'sheet--add', focus: input, page: true, headCenter: allowPool ? null : kindSeg, keepOnDrag: () => !!input.value.trim()});
     if(panel.classList.contains('sheet--page')){ paint(); return; }   // a page sheet has a fixed height already
     lockAddSheetHeight(panel, body, () => { const cur = k; const out = []; (allowPool ? ['task'] : ['task', 'event']).forEach(m => { k = m; paint(); out.push(body.offsetHeight); }); k = cur; paint(); return out; });
   }
@@ -9206,16 +9504,98 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   // (see backend NOTES.md "Google sign-in"). EMAIL_KEY is only ever *read*
   // below, to detect a pre-upgrade browser and show a one-time migration
   // note — it's never written again.
-  function showEmailGate(){ document.getElementById('emailGate').style.display = 'flex'; }
-  function hideEmailGate(){ document.getElementById('emailGate').style.display = 'none'; }
+  const gateEl = document.getElementById('emailGate');
+  const spReduce = window.matchMedia('(prefers-reduced-motion: reduce)');
+  // the name arrives letter by letter (Hebrew letters don't join, so splitting
+  // per letter is safe); the h1 keeps its full name in aria-label
+  (function splitSplashName(){
+    const h = document.getElementById('signinCardTitle');
+    h.textContent = '';
+    [...'יומן ומשימות'].forEach((ch, i) => {
+      const sp = document.createElement('span');
+      sp.setAttribute('aria-hidden', 'true');
+      if(ch === ' ') sp.className = 'sp-gap'; else sp.textContent = ch;
+      sp.style.animationDelay = (0.78 + i * 0.03).toFixed(2) + 's';
+      h.appendChild(sp);
+    });
+  })();
+  function isGateShown(){ return gateEl.style.display === 'flex'; }
+  function showEmailGate(){
+    if(!isGateShown()){
+      // a fresh show plays the intro once (an error re-show keeps the screen as it is)
+      gateEl.classList.remove('is-intro', 'is-ready', 'is-connecting', 'is-leaving');
+      gateEl.style.display = 'flex';
+      void gateEl.offsetWidth;
+      gateEl.classList.add('is-intro');
+      window.__spIntroAt = performance.now();
+    }
+  }
+  function hideEmailGate(){
+    gateEl.style.display = 'none';
+    gateEl.classList.remove('is-intro', 'is-ready', 'is-connecting', 'is-leaving');
+  }
+  // The button rises once Google has drawn it — but not before the icon has
+  // assembled enough to read (~0.9s into the intro), whichever comes later.
+  let spReadyTimer = 0;
+  function markGateReady(){
+    clearTimeout(spReadyTimer);
+    const since = performance.now() - (window.__spIntroAt || 0);
+    const wait = spReduce.matches ? 0 : Math.max(0, 900 - since);
+    spReadyTimer = setTimeout(() => gateEl.classList.add('is-ready'), wait);
+  }
+  function setConnecting(on){ gateEl.classList.toggle('is-connecting', !!on); }
 
   function showSigninCard(opts){
     opts = opts || {};
     document.getElementById('signinMigrateNote').style.display = opts.migrate ? 'block' : 'none';
-    document.getElementById('signinError').textContent = opts.note || '';
-    document.getElementById('signinRetryBtn').style.display = opts.retryable ? 'block' : 'none';
-    document.getElementById('gsiButton').style.display = opts.hideButton ? 'none' : 'flex';
+    const msg = document.getElementById('signinError');
+    msg.textContent = opts.note || '';
+    msg.classList.toggle('is-neutral', !!opts.neutral);
+    document.getElementById('signinRetryBtn').style.display = opts.retryable && opts.hideButton ? 'flex' : 'none';
+    document.getElementById('gsiButton').style.visibility = opts.hideButton ? 'hidden' : '';
+    setConnecting(false);
     showEmailGate();
+    // the retry button / message have nothing to wait for; Google's button
+    // calls markGateReady() itself once it has rendered
+    if(opts.hideButton) markGateReady();
+  }
+  // Waits until Google's iframe is in #gsiButton (plus a beat for it to paint).
+  function whenGsiDrawn(host){
+    return new Promise(resolve => {
+      const started = Date.now();
+      (function check(){
+        if(host.querySelector('iframe, div[role="button"]') || Date.now() - started > 2500){ setTimeout(resolve, 120); return; }
+        setTimeout(check, 60);
+      })();
+    });
+  }
+  // After sign-in: the icon's white page becomes a window onto the board and
+  // opens to the whole screen (a 140ms breath in, then 620ms on the iOS drawer
+  // curve). The board is already rendered underneath (initialLoad's sync part).
+  function revealBoard(){
+    const root = document.getElementById('root');
+    const page = gateEl.querySelector('.sp-page-rect');
+    if(!isGateShown()) return;
+    if(spReduce.matches || !page || !root.animate){
+      // reduced motion: a plain 200ms fade, nothing moves
+      if(gateEl.animate) gateEl.animate([{opacity:1}, {opacity:0}], {duration:200, easing:'ease-out'}).finished.then(hideEmailGate, hideEmailGate);
+      else hideEmailGate();
+      return;
+    }
+    const r = page.getBoundingClientRect(), b = root.getBoundingClientRect();
+    const box = (dx, dy, rad) => 'inset(' + (r.top - b.top + dy) + 'px ' + (b.right - r.right + dx) + 'px ' + (b.bottom - r.bottom + dy) + 'px ' + (r.left - b.left + dx) + 'px round ' + rad + 'px)';
+    const from = box(0, 0, 13), dip = box(r.width * .05, r.height * .05, 12), full = 'inset(0px 0px 0px 0px round 0px)';
+    const out = 'cubic-bezier(0.23, 1, 0.32, 1)', drawer = 'cubic-bezier(0.32, 0.72, 0, 1)';
+    root.style.zIndex = '201';
+    gateEl.classList.remove('is-connecting');
+    gateEl.classList.add('is-leaving');
+    const icon = gateEl.querySelector('.sp-icon');
+    const done = () => { root.style.zIndex = ''; root.getAnimations().forEach(a => a.cancel()); icon.getAnimations().forEach(a => a.cancel()); hideEmailGate(); };
+    icon.animate([{transform:'none'}, {transform:'scale(.95)'}], {duration:140, easing:out, fill:'forwards'});
+    root.animate([{clipPath: from}, {clipPath: dip}], {duration:140, easing:out, fill:'forwards'}).finished.then(() => {
+      icon.animate([{transform:'scale(.95)', opacity:1}, {transform:'scale(2.4)', opacity:0}], {duration:360, easing:out, fill:'forwards'});
+      return root.animate([{clipPath: dip}, {clipPath: full}], {duration:620, easing:drawer, fill:'forwards'}).finished;
+    }).then(done, done);
   }
 
   // The GIS script tag has `defer`, so it may not have run yet when boot()
@@ -9234,17 +9614,20 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     });
   }
 
-  async function initGoogleSignin(migrate){
+  async function initGoogleSignin(migrate, opts){
+    opts = opts || {};
     if(!GOOGLE_CLIENT_ID){
       showSigninCard({ note:'ההתחברות עם Google עדיין לא הוגדרה — פנו למנהל/ת המערכת', retryable:false, hideButton:true, migrate });
       return;
     }
+    // the splash goes up right away (its intro covers Google's loading time);
+    // the button's place stays reserved until Google has drawn it
+    showSigninCard({ migrate, note: opts.note, neutral: opts.neutral });
     const ready = await waitForGsi(6000);
     if(!ready){
       showSigninCard({ note:'לא ניתן לטעון את ההתחברות של Google — בדקו את החיבור ונסו שוב', retryable:true, hideButton:true, migrate });
       return;
     }
-    showSigninCard({ migrate, hideButton:false });
     try{
       google.accounts.id.initialize({
         client_id: GOOGLE_CLIENT_ID,
@@ -9256,21 +9639,28 @@ body.has-select-mode .undo-toast{ bottom:84px; }
         // the legacy popup + window.postMessage flow, which current Chrome
         // blocks by default ("Cross-Origin-Opener-Policy policy would block
         // the window.postMessage call") — the credential callback then never
-        // fires and the sign-in card is stuck on "מתחבר…" with no error and
+        // fires and the sign-in screen is stuck on "מתחברים…" with no error and
         // no server-side trace. FedCM button mode avoids that path entirely.
         use_fedcm_for_button: true
       });
       const btnHost = document.getElementById('gsiButton');
       btnHost.innerHTML = '';
-      google.accounts.id.renderButton(btnHost, { theme:'outline', size:'large', shape:'pill', text:'signin_with', locale:'he', width:280 });
+      btnHost.style.visibility = '';
+      // phones: as wide as the column (Google caps it at 400); desktop: 300
+      const w = Math.round(Math.min(400, Math.max(220, btnHost.getBoundingClientRect().width || 300)));
+      google.accounts.id.renderButton(btnHost, { theme:'outline', size:'large', shape:'pill', text:'signin_with', locale:'he', width:w });
+      await whenGsiDrawn(btnHost);
+      markGateReady();
     }catch(e){
       showSigninCard({ note:'לא ניתן לטעון את ההתחברות של Google — בדקו את החיבור ונסו שוב', retryable:true, hideButton:true, migrate });
     }
   }
 
   async function onGoogleCredential(response){
-    document.getElementById('signinError').textContent = 'מתחבר…';
+    const msg = document.getElementById('signinError');
+    msg.textContent = ''; msg.classList.remove('is-neutral');
     document.getElementById('signinRetryBtn').style.display = 'none';
+    setConnecting(true);
     try{
       const res = await fetch(API_URL, {
         method:'POST',
@@ -9282,18 +9672,19 @@ body.has-select-mode .undo-toast{ bottom:84px; }
         const err = json && json.error;
         const text = err === 'not_configured'
           ? 'ההתחברות עם Google עדיין לא הוגדרה — פנו למנהל/ת המערכת'
-          : 'ההתחברות נכשלה — נסו שוב';
-        showSigninCard({ note:text, retryable:true });
+          : 'הכניסה לא הצליחה. נסו שוב.';
+        showSigninCard({ note:text });
         return;
       }
       currentSession = json.session;
       currentEmail = json.email;
       localStorage.setItem(SESSION_KEY, currentSession);
       localStorage.removeItem(EMAIL_KEY); // migration from the old email-gate is complete
-      hideEmailGate();
+      // render the board underneath first (initialLoad's synchronous part), then open the window onto it
       initialLoad();
+      revealBoard();
     }catch(e){
-      showSigninCard({ note:'אין חיבור — נסו שוב', retryable:true });
+      showSigninCard({ note:'אין חיבור. נסו שוב.' });
     }
   }
   document.getElementById('signinRetryBtn').onclick = () => {
@@ -9337,6 +9728,8 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     if(lockedEntry) clearBoardCache(currentBoardId);
     hideLockScreen();
     const cachedRaw = lockedEntry ? null : localStorage.getItem(cacheKeyFor(currentBoardId));
+    const root = document.getElementById('root');
+    root.classList.toggle('is-first-load', !cachedRaw && !lockedEntry);
     appState = null;
     if(cachedRaw){ try{ appState = pruneBlankItems(JSON.parse(cachedRaw)); }catch(e){} }
     if(!isValidStateFor(currentBoardType, appState)) appState = defaultStateFor(currentBoardType);
@@ -9361,7 +9754,8 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     // fetched alongside the board itself, not after it — it only feeds the
     // header/picker and used to arrive several seconds late on a cold start
     const boardsListP = refreshBoardsList();
-    await refreshFromServer(true);
+    try{ await refreshFromServer(true); }
+    finally{ root.classList.remove('is-first-load'); }
     if(!isLockScreenShown()) startPolling();
 
     await boardsListP;
