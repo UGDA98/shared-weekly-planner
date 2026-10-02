@@ -6,7 +6,7 @@
 <!-- App build version, compared against version.txt to detect a new deploy in
      installed standalone PWA windows (which have no reload affordance). MUST be
      bumped together with version.txt on every deploy — see NOTES.md deploy step. -->
-<meta name="app-version" content="20261002-1551">
+<meta name="app-version" content="20261002-1604">
 <title>יומן ומשימות</title>
 <!-- PWA manifest + icons — no service worker on purpose: this is a live-data
      app on a 20s poll, a SW would only risk serving a stale index.html for
@@ -648,21 +648,26 @@ html,body{
    Signed-in users never see any of it. The intro plays only with .is-intro. */
 .email-gate{
   --sp-out:cubic-bezier(0.23, 1, 0.32, 1); --sp-inout:cubic-bezier(0.77, 0, 0.175, 1);
-  position:fixed; inset:0; z-index:200; overflow:hidden; background:var(--canvas);
+  position:fixed; inset:0; z-index:200; overflow:hidden;
+  /* option 1 (owner, 2026-10-02): the screen IS the icon's tile — a deeper, quieter step of
+     --accent for a large area, lit softly around the logo; white type (≥4.7:1 everywhere) */
+  background:radial-gradient(120% 70% at 50% 30%, #CF3A66 0%, #C02C5A 55%, #AE2250 100%);
   display:none; flex-direction:column; align-items:center; justify-content:center;
   padding:env(safe-area-inset-top, 0px) 24px 0;
-  direction:rtl; font-family:'Assistant UI', system-ui, -apple-system, "Segoe UI", sans-serif; color:var(--ink);
+  direction:rtl; font-family:'Assistant UI', system-ui, -apple-system, "Segoe UI", sans-serif; color:#fff;
   -webkit-tap-highlight-color:transparent;
 }
 .sp-lockup{ position:relative; display:flex; flex-direction:column; align-items:center; text-align:center; }
-.sp-icon{ position:relative; width:112px; height:112px; }
+.sp-icon{ position:relative; width:136px; height:136px; }
+/* pink on pink would vanish: the tile (and its halo) step aside, the white page + horn remain */
+.email-gate .sp-tile, .email-gate .sp-halo{ display:none; }
 .sp-icon svg{ position:relative; display:block; width:100%; height:100%; overflow:visible; }
 .sp-halo{ position:absolute; inset:14% 10% -8%; border-radius:30%; background:var(--accent); filter:blur(22px); opacity:.38; }
 .sp-p{ transform-box:fill-box; }
 .sp-name{ margin:26px 0 0; font-size:34px; line-height:40px; font-weight:800; letter-spacing:-.3px; white-space:nowrap; }
 .sp-name span{ display:inline-block; }
 .sp-name .sp-gap{ width:.26em; }
-.sp-tag{ margin:6px 0 0; font-size:16px; line-height:22px; color:var(--ink2); }
+.sp-tag{ margin:6px 0 0; font-size:16px; line-height:22px; color:rgba(255,255,255,.86); }
 .sp-cta{ position:relative; width:300px; max-width:100%; margin-top:44px; }
 .email-gate-migrate-note{ margin:0 0 12px; background:var(--accent-tint); color:var(--accent-soft-ink); border-radius:var(--r8); padding:8px 12px; font-size:14px; line-height:20px; text-align:center; }
 /* the button's place is reserved from the first frame, so nothing moves when it arrives */
@@ -674,11 +679,11 @@ html,body{
 .sp-spin{ width:18px; height:18px; border-radius:50%; border:2px solid var(--hl2); border-top-color:var(--ink2); animation:spSpin .7s linear infinite; }
 @keyframes spSpin{ to{ transform:rotate(360deg); } }
 .email-gate-retry{ display:none; opacity:0; transition:opacity .3s var(--sp-out); align-items:center; justify-content:center; border:1px solid var(--hl2); border-radius:999px; background:var(--s1); color:var(--ink); font:inherit; font-size:16px; font-weight:600; cursor:pointer; }
-.email-gate-retry:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+.email-gate-retry:focus-visible{ outline:2px solid #fff; outline-offset:3px; }
 @media (hover:hover) and (pointer:fine){ .email-gate-retry:hover{ background:var(--s2); } }
-/* one line under the button: red only for a real failure, grey for a notice ("החיבור פג") */
-.email-gate-error{ min-height:40px; margin:10px 0 0; text-align:center; font-size:14px; line-height:20px; font-weight:600; color:var(--danger); }
-.email-gate-error.is-neutral{ color:var(--ink2); font-weight:400; }
+/* one line under the button: bold for a real failure, regular for a notice ("החיבור פג") */
+.email-gate-error{ min-height:40px; margin:10px 0 0; text-align:center; font-size:14px; line-height:20px; font-weight:700; color:#fff; } /* red on pink is unreadable: a failure is white bold, a notice white regular */
+.email-gate-error.is-neutral{ color:rgba(255,255,255,.9); font-weight:400; }
 /* connecting: Google's button hands over to "מתחברים…"; the page's lines tick like a progress bar */
 .email-gate.is-connecting #gsiButton{ opacity:0; pointer-events:none; transition-duration:.12s; }
 .email-gate.is-connecting .sp-busy{ opacity:1; }
