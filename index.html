@@ -6,7 +6,7 @@
 <!-- App build version, compared against version.txt to detect a new deploy in
      installed standalone PWA windows (which have no reload affordance). MUST be
      bumped together with version.txt on every deploy — see NOTES.md deploy step. -->
-<meta name="app-version" content="20261002-1609">
+<meta name="app-version" content="20261002-1853">
 <title>יומן ומשימות</title>
 <!-- PWA manifest + icons — no service worker on purpose: this is a live-data
      app on a 20s poll, a SW would only risk serving a stale index.html for
@@ -49,8 +49,8 @@
   --surface-2:#f9f7f8;
   --accent:#D5205C;
   --accent-ink:#ffffff;
-  --accent-soft:#f9eaf0;
-  --accent-soft-ink:#7e2f4c;
+  --accent-soft:#FAEAEC;
+  --accent-soft-ink:#95003A;
   --ink:#1f1b1e;
   --muted:#5e585c;
   --border:#eae5e8;
@@ -81,7 +81,7 @@
   --canvas:var(--bg); --s1:#ffffff; --s2:#f9f7f8; --s3:#f1eef0;
   --hl:var(--border); --hl2:var(--border-strong);
   --ink2:var(--muted); --ink3:#8c868a;
-  --accent-tint:#fbeef3; --accent-deco:#f3c6d7; --danger:#c0392b;
+  --accent-tint:#FCEEF0; --accent-deco:#F6C6CC; --danger:#c0392b;
   --ink3-text:#706a6f; /* receding TEXT (done, other-month days): ≥4.5:1 on white, canvas, tint */
   /* type ladder v2 — desktop ≥1366 (compact and mobile steps below) */
   --t-title:17px; --lh-title:24px;
@@ -221,7 +221,7 @@ html,body{
 .event-text:empty:before{ content: attr(data-ph); color:var(--muted); }
 .row-del{ display:flex; opacity:0; width:20px; height:20px; border:none; background:none; color:var(--muted); cursor:pointer; font-size:14px; line-height:1; flex-shrink:0; align-items:center; justify-content:center; border-radius:var(--radius-sm); transition:opacity .12s ease; }
 .event-row:hover .row-del, .task-row:hover .row-del, .summary-row:hover .row-del{ opacity:1; }
-.row-del:hover{ color:#c0392b; background:rgba(192,57,43,.08); }
+.row-del:hover{ color:var(--danger); background:rgba(192,57,43,.08); }
 
 /* "already happened today" toggle on a event row — deliberately NOT a
    checkbox and NOT a strikethrough (that's the task-done language). Hidden
@@ -439,7 +439,7 @@ html,body{
 .drawer-board-item-actions .pedit,
 .drawer-board-item-actions .pdel{ background:none; border:none; color:var(--muted); cursor:pointer; font-size:13px; padding:5px; border-radius:var(--radius-sm); }
 .drawer-board-item-actions .pedit:hover{ color:var(--accent); background:var(--surface); }
-.drawer-board-item-actions .pdel:hover{ color:#d1453b; background:var(--surface); }
+.drawer-board-item-actions .pdel:hover{ color:var(--danger); background:var(--surface); }
 .drawer-board-item-actions .pedit svg{ width:13px; height:13px; display:block; }
 .drawer-board-empty{ padding:14px 10px; font-size:12.5px; color:var(--muted); text-align:center; }
 .drawer-new-board{
@@ -485,7 +485,7 @@ html,body{
   border:none; background:none; color:var(--muted); font-size:16px; line-height:1; cursor:pointer;
   padding:4px 6px; border-radius:var(--radius-sm); flex-shrink:0;
 }
-.drawer-access-item .adel:hover{ background:var(--surface-2); color:#c0392b; }
+.drawer-access-item .adel:hover{ background:var(--surface-2); color:var(--danger); }
 .drawer-access-add{ display:flex; gap:6px; margin-top:6px; }
 .drawer-access-add input{
   flex:1; min-width:0; border:1px solid var(--border-strong); border-radius:var(--radius-md);
@@ -508,7 +508,7 @@ html,body{
   border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--surface);
   color:var(--ink); font-size:12px; padding:4px 6px;
 }
-.drawer-access-error{ color:#c0392b; font-size:11.5px; margin-top:6px; min-height:14px; }
+.drawer-access-error{ color:var(--danger); font-size:11.5px; margin-top:6px; min-height:14px; }
 .drawer-access-error.ok{ color:var(--done-text); }
 .drawer-activity-list{ display:flex; flex-direction:column; gap:2px; max-height:220px; overflow-y:auto; }
 .drawer-activity-item{
@@ -545,7 +545,7 @@ html,body{
   padding:11px 14px; font-size:14px; background:var(--bg); color:var(--ink); outline:none; min-height:44px;
 }
 .modal-input:focus{ border-color:var(--accent); box-shadow:0 0 0 2px var(--accent-soft); }
-.modal-error{ color:#c0392b; font-size:12px; margin-top:8px; min-height:14px; }
+.modal-error{ color:var(--danger); font-size:12px; margin-top:8px; min-height:14px; }
 .modal-actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:16px; }
 .modal-type-choice{ display:flex; flex-direction:column; gap:8px; margin-bottom:16px; }
 .modal-type-card{
@@ -667,7 +667,7 @@ html,body{
 .sp-name{ margin:26px 0 0; font-size:34px; line-height:40px; font-weight:800; letter-spacing:-.3px; white-space:nowrap; }
 .sp-name span{ display:inline-block; }
 .sp-name .sp-gap{ width:.26em; }
-.sp-tag{ margin:6px 0 0; font-size:16px; line-height:22px; color:rgba(255,255,255,.86); }
+.sp-tag{ margin:6px 0 0; font-size:16px; line-height:22px; color:#fff; }
 .sp-cta{ position:relative; width:300px; max-width:100%; margin-top:44px; }
 .email-gate-migrate-note{ margin:0 0 12px; background:var(--accent-tint); color:var(--accent-soft-ink); border-radius:var(--r8); padding:8px 12px; font-size:14px; line-height:20px; text-align:center; }
 /* the button's place is reserved from the first frame, so nothing moves when it arrives */
@@ -889,7 +889,7 @@ html,body{
 .notes-card:hover .notes-card-menu,
 .notes-card-menu:focus{ opacity:1; }
 .notes-card-menu:hover{ background:var(--surface-2); color:var(--ink); }
-.picker-item.is-danger{ color:#c0392b; }
+.picker-item.is-danger{ color:var(--danger); }
 .picker-item.is-danger:hover{ background:rgba(192,57,43,.08); }
 .notes-gallery-empty{
   grid-column:1/-1; text-align:center; color:var(--muted); font-size:13px; padding:40px 20px;
@@ -977,7 +977,7 @@ html,body{
   cursor:pointer; opacity:0; align-self:flex-start; margin-top:1px;
 }
 .ob-row-main:hover .ob-row-del{ opacity:.6; }
-.ob-row-del:hover{ opacity:1 !important; color:#c0392b; }
+.ob-row-del:hover{ opacity:1 !important; color:var(--danger); }
 .ob-children{ padding-inline-start:24px; }
 .ob-row.is-collapsed > .ob-children{ display:none; }
 .planner-root.view-only .ob-row-del,
@@ -1531,7 +1531,7 @@ html,body{
   .m-layout .fab{
     display:flex; position:fixed; inset-inline-end:16px; bottom:calc(50px + env(safe-area-inset-bottom, 0px) + 16px); z-index:41;
     width:56px; height:56px; border-radius:16px; border:0; background:var(--accent); color:#fff; align-items:center; justify-content:center;
-    box-shadow:0 8px 20px -8px rgba(120,30,60,.5), 0 2px 6px rgba(0,0,0,.12); cursor:pointer;
+    box-shadow:0 8px 20px -8px rgba(149,0,58,.42), 0 2px 6px rgba(0,0,0,.12); cursor:pointer;
     -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; touch-action:manipulation; transition:transform .12s ease;
   }
   .m-layout .fab:active{ transform:scale(.94); }
@@ -1937,7 +1937,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   font-size:var(--t-cap); line-height:var(--lh-cap); color:var(--ink2); font-variant-numeric:tabular-nums;
   direction:ltr; unicode-bidi:isolate; white-space:nowrap; border-radius:4px;
 }
-.event-time:hover{ color:var(--accent); background:var(--accent-tint); }
+.event-time:hover{ color:var(--accent-soft-ink); background:var(--accent-tint); }
 .planner-root.view-only .event-time{ pointer-events:none; }
 .occ-row{ display:flex; align-items:flex-start; gap:5px; position:relative; border-radius:var(--radius-md); padding:5px 4px; min-height:var(--row-min); font-size:var(--t-body); line-height:var(--lh-body); color:var(--ink); }
 .occ-row:hover{ background:var(--s2); }
