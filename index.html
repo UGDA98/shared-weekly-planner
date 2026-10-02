@@ -6,14 +6,14 @@
 <!-- App build version, compared against version.txt to detect a new deploy in
      installed standalone PWA windows (which have no reload affordance). MUST be
      bumped together with version.txt on every deploy — see NOTES.md deploy step. -->
-<meta name="app-version" content="20261002-1604">
+<meta name="app-version" content="20261002-1609">
 <title>יומן ומשימות</title>
 <!-- PWA manifest + icons — no service worker on purpose: this is a live-data
      app on a 20s poll, a SW would only risk serving a stale index.html for
      no offline benefit worth having (see NOTES.md Decisions). -->
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="icons/horn-favicon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" sizes="180x180" href="icons/horn-apple-touch-180.png">
+<link rel="icon" href="icons/horn-pink-favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/horn-pink-apple-touch-180.png">
 <meta name="theme-color" content="#D5205C">
 <meta name="apple-mobile-web-app-title" content="יומן ומשימות">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2013,7 +2013,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       <i class="sp-halo"></i>
       <svg viewBox="0 0 512 512" focusable="false">
         <defs>
-          <linearGradient id="spG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c45a80"/><stop offset="1" stop-color="#a7405f"/></linearGradient>
+          <linearGradient id="spG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#DE3D6E"/><stop offset="1" stop-color="#BC1D52"/></linearGradient>
           <filter id="spS" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#5a1430" flood-opacity=".28"/></filter>
           <clipPath id="spClip"><rect width="512" height="512" rx="114"/></clipPath>
           <mask id="spHornMask" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
@@ -2029,9 +2029,9 @@ body.has-select-mode .undo-toast{ bottom:84px; }
             <rect class="sp-p sp-line" x="124" y="250" width="118" height="22" rx="11" fill="#e9dfe3"/>
             <rect class="sp-p sp-line" x="124" y="306" width="96" height="22" rx="11" fill="#e9dfe3"/>
             <rect class="sp-p sp-line" x="124" y="362" width="70" height="22" rx="11" fill="#e9dfe3"/>
-            <rect class="sp-p sp-prog" x="124" y="250" width="118" height="22" rx="11" fill="#c45a80"/>
-            <rect class="sp-p sp-prog" x="124" y="306" width="96" height="22" rx="11" fill="#c45a80"/>
-            <rect class="sp-p sp-prog" x="124" y="362" width="70" height="22" rx="11" fill="#c45a80"/>
+            <rect class="sp-p sp-prog" x="124" y="250" width="118" height="22" rx="11" fill="#D5205C"/>
+            <rect class="sp-p sp-prog" x="124" y="306" width="96" height="22" rx="11" fill="#D5205C"/>
+            <rect class="sp-p sp-prog" x="124" y="362" width="70" height="22" rx="11" fill="#D5205C"/>
           </g>
         </g>
         <rect class="sp-p sp-ring" x="148" y="126" width="22" height="50" rx="11" fill="#fff"/>
