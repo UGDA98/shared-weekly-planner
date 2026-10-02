@@ -6,7 +6,7 @@
 <!-- App build version, compared against version.txt to detect a new deploy in
      installed standalone PWA windows (which have no reload affordance). MUST be
      bumped together with version.txt on every deploy — see NOTES.md deploy step. -->
-<meta name="app-version" content="20261002-1515">
+<meta name="app-version" content="20261002-1650">
 <title>יומן ומשימות</title>
 <!-- PWA manifest + icons — no service worker on purpose: this is a live-data
      app on a 20s poll, a SW would only risk serving a stale index.html for
@@ -1624,8 +1624,11 @@ button.add-row{ cursor:pointer; }
 .add-row--seg{ padding:8px 12px; }
 .add-row--seg .seg{ flex:1; }
 .add-row--seg .seg button{ min-height:32px; }
-.add-evfields .switch-row, .add-evfields .select-row{ justify-content:flex-start; gap:10px; min-height:48px; padding:0 12px; }
-.add-evfields .switch-row span, .add-evfields .select-row span{ flex:1; }
+.add-group .switch-row, .add-group .select-row{ justify-content:flex-start; gap:10px; min-height:48px; padding:0 12px; }
+.add-group .switch-row span, .add-group .select-row span{ flex:1; }
+.ev-group .ev-times{ align-items:center; gap:8px; padding:8px 12px; }
+.ev-group .ev-times .add-ico{ margin-inline-end:2px; }
+.ev-group .time-field{ min-height:40px; background:var(--s1); }
 .add-evfields .ev-times{ display:none !important; }   /* the time is typed in the text; start/end live in the edit sheet */
 @media (prefers-reduced-motion: reduce){ .add-chev{ transition:none; } }
 .task-sheet .sheet-list{ margin-top:6px; }
@@ -7132,6 +7135,8 @@ body.has-select-mode .undo-toast{ bottom:84px; }
           }
           proxy.remove();
         };
+        // Enter typed before the slide ended belongs to the real field
+        proxy.addEventListener('keydown', (e) => { if(e.key === 'Enter' && !e.isComposing){ e.preventDefault(); hand(); real.dispatchEvent(new KeyboardEvent('keydown', {key:'Enter', bubbles:true, cancelable:true})); } });
         panel.addEventListener('transitionend', (e) => { if(e.target === panel && e.propertyName === 'transform') hand(); });
         setTimeout(hand, 450);
       }
@@ -7263,16 +7268,70 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   }
   // phones: editing text in place needs a programmatic focus on a
   // contentEditable, which iOS answers without a keyboard — edit in a field
+  // ---- form rows shared by the add and edit sheets ----
+  const formIco = (d) => '<svg class="add-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>';
+  const ICO_USER = formIco('<circle cx="12" cy="8" r="3.6"/><path d="M4.8 20c.9-3.6 3.7-5.4 7.2-5.4s6.3 1.8 7.2 5.4"/>');
+  const ICO_FLAG = formIco('<path d="M6 21V4"/><path d="M6 5h11l-2.2 3.5L17 12H6"/>');
+  const ICO_CAL = formIco('<rect x="4" y="5.5" width="16" height="14.5" rx="3"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/>');
+  const ICO_SUN = formIco('<circle cx="12" cy="12" r="3.8"/><path d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2M6 6l1.4 1.4M16.6 16.6 18 18M18 6l-1.4 1.4M7.4 16.6 6 18"/>');
+  const ICO_REP = formIco('<path d="M5 11a7 7 0 0 1 12.2-4.2L19 8.5"/><path d="M19 4.5v4h-4"/><path d="M19 13a7 7 0 0 1-12.2 4.2L5 15.5"/><path d="M5 19.5v-4h4"/>');
+  const ICO_CLOCK = formIco('<circle cx="12" cy="12" r="8.2"/><path d="M12 7.5V12l3 2"/>');
+  const ICO_CHEV = '<svg class="add-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 6l-6 6 6 6"/></svg>';
+  // a setting = a row that shows its current value; tapping it opens its choices in place
+  function pickRowHtml(key, icon, label){ return '<button type="button" class="add-row" data-row="' + key + '" aria-expanded="false">' + icon + '<span>' + label + '</span><span class="add-row-val"></span>' + ICO_CHEV + '</button><div class="add-sub" data-sub="' + key + '" hidden></div>'; }
+  function assignRowsHtml(){ return (people.length ? pickRowHtml('people', ICO_USER, 'אחראי/ת') : '') + (topics.length ? pickRowHtml('topics', ICO_FLAG, 'שיוך למופע') : ''); }
+  function formChip(label, on, fn){ const c = document.createElement('button'); c.type = 'button'; c.className = 'chip-opt' + (on ? ' is-on' : ''); c.textContent = label; c.setAttribute('aria-pressed', String(!!on)); c.onclick = fn; return c; }
+  // st = {personIds, topicId, openRow}; repaint() redraws the whole form after a choice
+  function paintAssignRows(body, st, repaint){
+    const me = getMe();
+    const setRow = (key, text) => {
+      const r = body.querySelector('[data-row="' + key + '"]'); if(!r) return null;
+      const val = r.querySelector('.add-row-val');
+      val.textContent = text || 'ללא'; val.classList.toggle('is-none', !text);
+      r.setAttribute('aria-expanded', String(st.openRow === key));
+      const sub = body.querySelector('[data-sub="' + key + '"]');
+      sub.hidden = st.openRow !== key; sub.innerHTML = '';
+      return sub;
+    };
+    const chosen = st.personIds.map(id => people.find(p => p.id === id)).filter(Boolean);
+    const ppl = setRow('people', chosen.map(p => p.name + (p.id === me && chosen.length === 1 ? ' (אני)' : '')).join(', '));
+    if(ppl) people.slice().sort((a, b) => (b.id === me) - (a.id === me)).forEach(p => ppl.appendChild(formChip(p.name + (p.id === me ? ' (אני)' : ''), st.personIds.includes(p.id), () => { st.personIds = st.personIds.includes(p.id) ? st.personIds.filter(x => x !== p.id) : st.personIds.concat(p.id); repaint(); })));
+    const curTopic = topics.find(t => t.id === st.topicId);
+    const tps = setRow('topics', curTopic ? curTopic.name : '');
+    if(tps) topics.forEach(t => tps.appendChild(formChip(t.name, st.topicId === t.id, () => { st.topicId = st.topicId === t.id ? null : t.id; repaint(); })));
+  }
+  function wireAssignRows(body, input, st, repaint){
+    body.querySelectorAll('.add-row[data-row]').forEach(r => r.onclick = () => {
+      st.openRow = st.openRow === r.dataset.row ? null : r.dataset.row;
+      if(st.openRow) input.blur();   // choosing, not typing: the keyboard makes room for the choices (the sheet itself never moves)
+      repaint();
+    });
+    input.addEventListener('focus', () => { if(st.openRow){ st.openRow = null; repaint(); } });
+  }
+  // task ⋯ → עריכה: the text plus who and which מופע, saved together
   function openTextEditSheet(item, onSaved){
+    const st = {personIds: (item.personIds || []).slice(), topicId: item.topicId || null, openRow: null};
     const body = document.createElement('div');
     body.className = 'add-sheet';
-    body.innerHTML = '<input class="add-input" type="text" enterkeyhint="done" autocomplete="off" aria-label="טקסט"><button type="button" class="sheet-primary">שמירה</button>';
+    body.innerHTML = '<input class="add-input" type="text" enterkeyhint="done" autocomplete="off" aria-label="טקסט המשימה" placeholder="מה צריך לעשות?">' +
+      (people.length || topics.length ? '<div class="add-group">' + assignRowsHtml() + '</div>' : '') +
+      '<button type="button" class="sheet-primary">שמירה</button>';
     const input = body.querySelector('input');
+    const primary = body.querySelector('.sheet-primary');
     input.value = item.text || '';
-    const commit = () => { const v = input.value.trim(); if(!v) return; item.text = v; closeSheet(); onSaved(); };
+    const paint = () => { paintAssignRows(body, st, paint); primary.disabled = !input.value.trim(); };
+    wireAssignRows(body, input, st, paint);
+    const commit = () => {
+      const v = input.value.trim(); if(!v) return;   // never empty a task
+      item.text = v; item.personIds = st.personIds.slice();
+      if(st.topicId) item.topicId = st.topicId; else delete item.topicId;
+      closeSheet(); onSaved();
+    };
+    input.addEventListener('input', () => { primary.disabled = !input.value.trim(); });
     input.addEventListener('keydown', (e) => { if(e.key === 'Enter' && !e.isComposing){ e.preventDefault(); commit(); } });
-    body.querySelector('.sheet-primary').onclick = commit;
-    openSheet('עריכת הטקסט', body, {focus: input, page: true});
+    primary.onclick = commit;
+    paint();
+    openSheet('עריכת משימה', body, {focus: input, page: true, keepOnDrag: () => input.value.trim() !== (item.text || '') || st.personIds.join() !== (item.personIds || []).join() || (st.topicId || null) !== (item.topicId || null)});
   }
   // phones: one sheet where assigning a person / מופע and the common moves are
   // a single tap each — no menu inside a menu
@@ -7313,7 +7372,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       const liveRow = () => document.querySelector('#board [data-id="' + it.id + '"], .mv-daylist [data-id="' + it.id + '"], .peek-panel [data-id="' + it.id + '"]');
       body.appendChild(sheetList([
         {label: it.done ? 'ביטול "בוצע"' : 'סימון כבוצע', run: () => { it.done = !it.done; save(); }},
-        {label: 'עריכת הטקסט', sync: true, run: () => openTextEditSheet(it, save)},
+        {label: 'עריכה', sync: true, run: () => openTextEditSheet(it, save)},
         {label: 'שכפול', run: duplicate},
         {label: 'בחירת כמה משימות…', run: () => { const r = liveRow(); enterSelectMode(); if(r) toggleSelected(r, {}); }},
         {label: 'מחיקה', danger: true, run: () => {
@@ -7361,23 +7420,13 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     let k = opts.kind || kind || 'task';
     let day = 'day' in opts ? opts.day : targetDayForAdd();       // null = pool
     let section = opts.section || 'general';
-    let personIds = opts.personIds ? opts.personIds.slice() : (getMe() ? [getMe()] : []);
-    let topicId = opts.topicId || null;
+    // who / which מופע / which row is open ('people' | 'topics', one at a time)
+    const st = {personIds: opts.personIds ? opts.personIds.slice() : (getMe() ? [getMe()] : []), topicId: opts.topicId || null, openRow: null};
     let evRead = null;
-    let openRow = null;                                           // 'people' | 'topics': one picker row open at a time
     const isFar = () => weekKey(ws) !== weekKey(baseWs);
     // dates come from the sheet's own week, not from the board's week context,
     // so picking a far date and then cancelling leaves the board untouched
     const dateOf = (key) => { const d = new Date(ws); d.setDate(d.getDate() + Math.max(0, DAY_DEFS.findIndex(x => x.key === key))); return d; };
-    const ico = (d) => '<svg class="add-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>';
-    const ICO_USER = ico('<circle cx="12" cy="8" r="3.6"/><path d="M4.8 20c.9-3.6 3.7-5.4 7.2-5.4s6.3 1.8 7.2 5.4"/>');
-    const ICO_FLAG = ico('<path d="M6 21V4"/><path d="M6 5h11l-2.2 3.5L17 12H6"/>');
-    const ICO_CAL = ico('<rect x="4" y="5.5" width="16" height="14.5" rx="3"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/>');
-    const ICO_SUN = ico('<circle cx="12" cy="12" r="3.8"/><path d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2M6 6l1.4 1.4M16.6 16.6 18 18M18 6l-1.4 1.4M7.4 16.6 6 18"/>');
-    const ICO_REP = ico('<path d="M5 11a7 7 0 0 1 12.2-4.2L19 8.5"/><path d="M19 4.5v4h-4"/><path d="M19 13a7 7 0 0 1-12.2 4.2L5 15.5"/><path d="M5 19.5v-4h4"/>');
-    const CHEV = '<svg class="add-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 6l-6 6 6 6"/></svg>';
-    // a setting = a row that shows its current value; tapping it opens its choices in place
-    const pickRow = (key, icon, label) => '<button type="button" class="add-row" data-row="' + key + '" aria-expanded="false">' + icon + '<span>' + label + '</span><span class="add-row-val"></span>' + CHEV + '</button><div class="add-sub" data-sub="' + key + '" hidden></div>';
     const body = document.createElement('div');
     body.className = 'add-sheet';
     body.innerHTML =
@@ -7387,8 +7436,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       '<div class="add-strip"><div class="add-days" role="radiogroup" aria-label="יום"></div>' +
         '<label class="add-date" title="תאריך אחר">' + ICO_CAL + '<input type="date" aria-label="תאריך אחר"></label></div>' +
       '<div class="add-group add-task-only">' +
-        (people.length ? pickRow('people', ICO_USER, 'אחראי/ת') : '') +
-        (topics.length ? pickRow('topics', ICO_FLAG, 'שיוך למופע') : '') +
+        assignRowsHtml() +
         '<div class="add-row add-row--seg"><div class="seg add-secseg" role="radiogroup" aria-label="מקטע"></div></div></div>' +
       '<div class="add-group add-event-only add-evfields"></div>' +
       '<button type="button" class="sheet-primary" disabled>הוספה</button>';
@@ -7397,7 +7445,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     const input = body.querySelector('.add-input');
     const primary = body.querySelector('.sheet-primary');
     const dateInput = body.querySelector('.add-date input');
-    const chip = (label, on, fn) => { const c = document.createElement('button'); c.type = 'button'; c.className = 'chip-opt' + (on ? ' is-on' : ''); c.textContent = label; c.setAttribute('aria-pressed', String(!!on)); c.onclick = fn; return c; };
+    const chip = formChip;
     function paint(){
       if(k === 'event' && !day) day = targetDayForAdd();
       kindSeg.querySelectorAll('[data-k]').forEach(b => { const on = b.dataset.k === k; b.classList.toggle('is-on', on); b.setAttribute('aria-checked', String(on)); });
@@ -7438,22 +7486,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
         days.appendChild(b);
       });
       if(document.activeElement !== dateInput) dateInput.value = isoKey(dateOf(day || targetDayForAdd()));
-      const me = getMe();
-      const setRow = (key, text) => {
-        const r = body.querySelector('[data-row="' + key + '"]'); if(!r) return null;
-        const val = r.querySelector('.add-row-val');
-        val.textContent = text || 'ללא'; val.classList.toggle('is-none', !text);
-        r.setAttribute('aria-expanded', String(openRow === key));
-        const sub = body.querySelector('[data-sub="' + key + '"]');
-        sub.hidden = openRow !== key; sub.innerHTML = '';
-        return sub;
-      };
-      const chosen = personIds.map(id => people.find(p => p.id === id)).filter(Boolean);
-      const ppl = setRow('people', chosen.map(p => p.name + (p.id === me && chosen.length === 1 ? ' (אני)' : '')).join(', '));
-      if(ppl) people.slice().sort((a, b) => (b.id === me) - (a.id === me)).forEach(p => ppl.appendChild(chip(p.name + (p.id === me ? ' (אני)' : ''), personIds.includes(p.id), () => { personIds = personIds.includes(p.id) ? personIds.filter(x => x !== p.id) : personIds.concat(p.id); paint(); })));
-      const curTopic = topics.find(t => t.id === topicId);
-      const tps = setRow('topics', curTopic ? curTopic.name : '');
-      if(tps) topics.forEach(t => tps.appendChild(chip(t.name, topicId === t.id, () => { topicId = topicId === t.id ? null : t.id; paint(); })));
+      paintAssignRows(body, st, paint);
       // the section has two options and needs no title: one switch, hidden for the pool (it has no sections)
       const secs = body.querySelector('.add-secseg'); secs.innerHTML = '';
       secs.parentNode.hidden = !day;
@@ -7464,12 +7497,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       primary.disabled = !input.value.trim();
     }
     kindSeg.querySelectorAll('[data-k]').forEach(b => b.onclick = () => { k = b.dataset.k; paint(); });
-    body.querySelectorAll('.add-row[data-row]').forEach(r => r.onclick = () => {
-      openRow = openRow === r.dataset.row ? null : r.dataset.row;
-      if(openRow) input.blur();   // choosing, not typing: the keyboard makes room for the choices (the sheet itself never moves)
-      paint();
-    });
-    input.addEventListener('focus', () => { if(openRow){ openRow = null; paint(); } });
+    wireAssignRows(body, input, st, paint);
     // a far date: the native date picker, on the rare occasion the week strip is not enough
     dateInput.onchange = () => {
       if(!dateInput.value) return;
@@ -7534,8 +7562,8 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       const where = () => DAY_DEFS.find(d => d.key === day).name + (isFar() ? ', ' + longDateLabel(dateOf(day)) : '');
       let item, arr;
       if(k === 'task'){
-        item = Object.assign(emptyTask(), {text, personIds: personIds.slice()});
-        if(topicId) item.topicId = topicId;
+        item = Object.assign(emptyTask(), {text, personIds: st.personIds.slice()});
+        if(st.topicId) item.topicId = st.topicId;
         if(!day){
           if(!appState.unscheduled) appState.unscheduled = [];
           appState.unscheduled.push(item);
@@ -8471,9 +8499,17 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     const src = isOcc ? ctx.occ : ctx.item;
     const body = document.createElement('form');
     body.className = 'add-sheet ev-sheet';
-    body.innerHTML = '<input class="add-input ev-text" type="text" aria-label="תיאור האירוע" placeholder="תיאור">' + eventFieldsHtml() +
+    body.innerHTML = '<input class="add-input ev-text" type="text" enterkeyhint="done" autocomplete="off" aria-label="תיאור האירוע" placeholder="תיאור">' +
+      '<div class="add-daycap"><span class="add-daycap-text"></span></div>' +
+      '<div class="add-group ev-group">' + eventFieldsHtml() + '</div>' +
       '<button type="submit" class="sheet-primary">שמירה</button>';
     body.querySelector('.ev-text').value = src.text || '';
+    body.querySelector('.add-daycap-text').textContent = HEB_DAY_LONG[date.getDay()] + ', ' + longDateLabel(date) + (isOcc ? ' · אירוע חוזר' : '');
+    const grp = body.querySelector('.ev-group');
+    grp.querySelector('.switch-row').insertAdjacentHTML('afterbegin', ICO_SUN);
+    grp.querySelector('.ev-times').insertAdjacentHTML('afterbegin', ICO_CLOCK);
+    grp.querySelector('.select-row:not(.ev-until-row)').insertAdjacentHTML('afterbegin', ICO_REP);
+    grp.querySelector('.ev-until-row').insertAdjacentHTML('afterbegin', ICO_CAL);
     const read = wireEventFields(body, {allDay: src.allDay, start: src.start, end: src.end, repeat: s ? s.repeat : '', until: s ? s.until : ''}, isOcc ? parseIsoKey(s.from) : date);
     body.addEventListener('submit', (e) => {
       e.preventDefault();
@@ -8481,7 +8517,8 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       closeSheet();
       setTimeout(() => isOcc ? saveOccurrenceEdit(ctx.occ, s, text, v) : saveEventEdit(ctx, text, v), 0);
     });
-    openSheet(isOcc ? 'אירוע חוזר · ' + date.getDate() + ' ב' + HEB_MONTHS[date.getMonth()] : 'אירוע · ' + DAY_DEFS[date.getDay()].name + ' ' + fmtDate(date), body, {cls: 'sheet--event', page: true});
+    const ti = body.querySelector('.ev-text');
+    openSheet('עריכת אירוע', body, {cls: 'sheet--event', page: true, keepOnDrag: () => ti.value.trim() !== (src.text || '')});
   }
   function saveEventEdit(ctx, text, v){
     const item = ctx.item, arr = weekData[ctx.dayKey].events;
