@@ -9,8 +9,8 @@
   "background_color": "#f6f4f5",
   "theme_color": "#b24a6e",
   "icons": [
-    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    { "src": "icons/shield-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/shield-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/shield-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }
