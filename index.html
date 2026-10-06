@@ -4072,6 +4072,19 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     document.querySelectorAll('.editor-only').forEach(el => { el.style.display = isEditor ? '' : 'none'; });
   }
 
+  // Last-editor names on a notes board come from the team directory: fetch it
+  // once per board (not on every render — renderAll runs on every poll) and
+  // re-render the index when it brings something new. Waits for a session so
+  // a cached pre-sign-in render doesn't burn the one attempt.
+  let notesTeamBoardId = '';
+  function fetchNotesTeamOnce(){
+    if(!currentSession || notesTeamBoardId === currentBoardId) return;
+    notesTeamBoardId = currentBoardId;
+    const before = teamCache, boardId = currentBoardId;
+    fetchTeam().then(list => {
+      if(list && list !== before && currentBoardId === boardId && currentBoardType === 'notes' && !currentNotesPageId) renderNotes();
+    });
+  }
   function renderAll(){
     document.querySelectorAll('.planner-only').forEach(el => { el.style.display = currentBoardType === 'notes' ? 'none' : ''; });
     const weekNav = document.querySelector('.week-nav');
@@ -4082,6 +4095,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       document.getElementById('summarySection').style.display = 'none';
       if(notesSection) notesSection.style.display = '';
       renderNotes();
+      fetchNotesTeamOnce();
       paintMobileChrome();
       return;
     }
@@ -9010,7 +9024,8 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   // ---------- notes boards: gallery + nested outline editor ----------
   // Data shape (per board, when currentBoardType === 'notes'):
   //   appState = { kind:'notes', pages:[ Page ], settings:{} }
-  //   Page  = { id, title, createdAt, updatedAt, blocks:[ Block ] }
+  //   Page  = { id, title, icon, createdAt, updatedAt, updatedBy, pinned, blocks:[ Block ] }
+  //   (updatedBy/pinned are additive — absent on old pages, backfilled on load)
   //   Block = { id, html, style:'p'|'h1'|'h2', collapsed, children:[ Block ] }
   // `html` only ever contains the sanitizeInline() subset (b/i/u/s/br, no
   // attributes) — enforced on every load AND on every commit, since a board's
@@ -9071,6 +9086,8 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     if(!Array.isArray(state.pages)) state.pages = [];
     state.pages.forEach(page => {
       page.icon = sanitizeNotesIcon(page.icon);
+      page.pinned = !!page.pinned;
+      page.updatedBy = typeof page.updatedBy === 'string' ? page.updatedBy : '';
       if(!Array.isArray(page.blocks)) page.blocks = [];
       (function walk(blocks){
         blocks.forEach(b => {
@@ -9090,6 +9107,141 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     return appState.pages.find(p => p.id === currentNotesPageId) || null;
   }
   function isNotesPageOpen(){ return currentBoardType === 'notes' && !!currentNotesPageId; }
+
+  // ---- notes index model helpers (pure-ish; the index renderers read these) ----
+  // Every content edit stamps who and when — `updatedBy` is additive (old
+  // clients ignore it, sanitizeNotesState backfills '' on load).
+  function touchNotesPage(page){
+    page.updatedAt = new Date().toISOString();
+    page.updatedBy = currentEmail;
+  }
+  // Plain text of a block, untruncated (html is the sanitizeInline subset).
+  function blockPlainText(block){ return stripHtmlPreview(block && block.html, Infinity); }
+  // Depth-first first block with visible text — the row/card excerpt.
+  function pageFirstLine(page){
+    let line = '';
+    (function walk(blocks){
+      for(const b of blocks || []){
+        if(line) return;
+        const t = stripHtmlPreview(b.html, 140);
+        if(t){ line = t; return; }
+        walk(b.children);
+      }
+    })(page && page.blocks);
+    return line;
+  }
+  function pageOpenTodos(page){
+    let n = 0;
+    (function walk(blocks){
+      (blocks || []).forEach(b => { if(b.style === 'todo' && !b.checked) n++; walk(b.children); });
+    })(page && page.blocks);
+    return n;
+  }
+  // Search hit for one page: a title match wins; else the first block (depth-
+  // first) whose text contains q. start/len index into `text` (case-folded
+  // search, original-case text) so the renderer can wrap the match in <mark>.
+  function pageMatch(page, q){
+    q = String(q || '').trim().toLowerCase();
+    if(!q || !page) return null;
+    const title = page.title || '';
+    const ti = title.toLowerCase().indexOf(q);
+    if(ti > -1) return { text: title, start: ti, len: q.length };
+    let hit = null;
+    (function walk(blocks){
+      for(const b of blocks || []){
+        if(hit) return;
+        const text = blockPlainText(b);
+        const i = text.toLowerCase().indexOf(q);
+        if(i > -1){ hit = { text, start: i, len: q.length }; return; }
+        walk(b.children);
+      }
+    })(page.blocks);
+    return hit;
+  }
+  // Date bucket for the index's group headers, in local time. A future stamp
+  // (another device's clock ahead of ours) counts as today.
+  function notesDateBucket(iso, now){
+    now = now || new Date();
+    const d = new Date(iso);
+    if(isNaN(d.getTime())) return { key:'undated', label:'ללא תאריך' };
+    const DAY = 864e5;
+    const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const startYesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1).getTime();
+    const t = d.getTime(), age = now.getTime() - t;
+    if(t >= startToday) return { key:'today', label:'היום' };
+    if(t >= startYesterday) return { key:'yesterday', label:'אתמול' };
+    if(age <= 7 * DAY) return { key:'week', label:'7 הימים האחרונים' };
+    if(age <= 30 * DAY) return { key:'month', label:'30 הימים האחרונים' };
+    const y = d.getFullYear(), m = d.getMonth();
+    return { key:'m-' + y + '-' + String(m + 1).padStart(2, '0'), label: HEB_MONTHS[m] + (y !== now.getFullYear() ? ' ' + y : '') };
+  }
+  // Index model: [{key, label, pages}]. Date sorts ('updated' | 'created'):
+  // pinned pages first in their own group (only when any are pinned, and then
+  // not repeated below), the rest in date buckets newest first. 'title': one
+  // flat group, Hebrew collation, untitled pages last.
+  function notesIndexGroups(pages, sort){
+    pages = (pages || []).slice();
+    const byNewest = field => (a, b) => notesTime(b[field]) - notesTime(a[field]);
+    if(sort === 'title'){
+      const titled = pages.filter(p => (p.title || '').trim());
+      const untitled = pages.filter(p => !(p.title || '').trim()).sort(byNewest('updatedAt'));
+      titled.sort((a, b) => a.title.trim().localeCompare(b.title.trim(), 'he'));
+      return [{ key:'all', label:'', pages: titled.concat(untitled) }];
+    }
+    const field = sort === 'created' ? 'createdAt' : 'updatedAt';
+    pages.sort(byNewest(field));
+    const groups = [];
+    const pinned = pages.filter(p => p.pinned);
+    if(pinned.length) groups.push({ key:'pinned', label:'מוצמדות', pages: pinned });
+    const now = new Date();
+    const byKey = new Map();
+    pages.filter(p => !p.pinned).forEach(p => {
+      const b = notesDateBucket(p[field], now);
+      if(!byKey.has(b.key)){ const g = { key: b.key, label: b.label, pages: [] }; byKey.set(b.key, g); groups.push(g); }
+      byKey.get(b.key).pages.push(p);
+    });
+    return groups;
+  }
+  function notesTime(iso){ const t = Date.parse(iso); return isNaN(t) ? -Infinity : t; }
+  // Per-device, per-board index prefs (view, sort, seen map) — never in the
+  // shared blob. Storage can throw (private mode / blocked site data).
+  function notesPref(name){
+    try{ return localStorage.getItem('notes_' + name + ':' + currentBoardId); }catch(e){ return null; }
+  }
+  function setNotesPref(name, value){
+    try{ localStorage.setItem('notes_' + name + ':' + currentBoardId, String(value)); }catch(e){}
+  }
+  // Seen map {pageId: updatedAt last seen on this device}. Missing (first
+  // visit to this board on this device) → seed it with every page's current
+  // updatedAt, so nothing shows as "new" until someone else edits after now.
+  function notesSeenMap(){
+    let map = null;
+    try{ map = JSON.parse(notesPref('seen') || 'null'); }catch(e){ map = null; }
+    if(map && typeof map === 'object' && !Array.isArray(map)) return map;
+    map = {};
+    ((appState && appState.pages) || []).forEach(p => { map[p.id] = p.updatedAt || ''; });
+    setNotesPref('seen', JSON.stringify(map));
+    return map;
+  }
+  function markNotesPageSeen(page){
+    if(!page) return;
+    const map = notesSeenMap();
+    map[page.id] = page.updatedAt || '';
+    setNotesPref('seen', JSON.stringify(map));
+  }
+  function isNotesPageNew(page){
+    if(!page || !page.updatedBy || page.updatedBy === currentEmail) return false;
+    const seen = notesSeenMap()[page.id];
+    return notesTime(page.updatedAt) > (seen ? notesTime(seen) : -Infinity);
+  }
+  // Display name for a last-editor email: the team directory's name (cached by
+  // fetchTeam — editors only), else the email's local part.
+  function editorLabel(email){
+    if(!email) return '';
+    const e = String(email).toLowerCase();
+    const row = (teamCache || []).find(m => m && String(m.email || '').toLowerCase() === e);
+    return (row && row.name) ? row.name : String(email).split('@')[0];
+  }
 
   // Depth-first search for a block by id — returns its containing array, its
   // index in that array, and its parent block (null for a top-level block),
@@ -9158,7 +9310,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   function commitNotesChange(){
     const page = currentNotesPage();
     if(!page) return;
-    page.updatedAt = new Date().toISOString();
+    touchNotesPage(page);
     persistState();
     renderNotesOutline(page);
   }
@@ -9334,7 +9486,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       if(row) row.classList.toggle('is-checked', style === 'todo' && !!block.checked);
     }
     const page = currentNotesPage();
-    if(page){ page.updatedAt = new Date().toISOString(); persistState(); }
+    if(page){ touchNotesPage(page); persistState(); }
   }
 
   // Used by keyboard shortcuts and the toolbar's block-type dropdown — a
@@ -9562,7 +9714,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
         }
       }
       block.html = sanitizeInline(el.innerHTML);
-      page.updatedAt = new Date().toISOString();
+      touchNotesPage(page);
       persistState();
     });
     el.addEventListener('keydown', (e) => {
@@ -9675,7 +9827,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     titleEl.contentEditable = currentRole === 'editor' ? 'true' : 'false';
     titleEl.oninput = () => {
       page.title = titleEl.textContent.trim();
-      page.updatedAt = new Date().toISOString();
+      touchNotesPage(page);
       breadcrumbCurrent.textContent = page.title || 'ללא כותרת';
       persistState();
     };
@@ -9700,7 +9852,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       // this field ever holds — never append, just take the latest content.
       page.icon = sanitizeNotesIcon(iconEl.textContent);
       if(iconEl.textContent !== page.icon) iconEl.textContent = page.icon;
-      page.updatedAt = new Date().toISOString();
+      touchNotesPage(page);
       persistState();
     };
     iconEl.onkeydown = (e) => {
@@ -9744,6 +9896,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       icon: page.icon || '',
       createdAt: now,
       updatedAt: now,
+      updatedBy: currentEmail,
       blocks: (page.blocks || []).map(cloneBlockWithNewIds)
     };
     appState.pages.push(copy);
