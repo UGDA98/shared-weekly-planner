@@ -936,7 +936,7 @@ html,body{
   background:var(--s1); color:var(--ink2); font:inherit; font-size:14px; text-align:center;
 }
 button.notes-empty{ cursor:pointer; }
-button.notes-empty:hover{ color:var(--accent); }
+button.notes-empty:hover{ color:var(--ink); }
 button.notes-empty:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
 .notes-body.notes-gallery{ padding:0; margin-top:14px; }
 .notes-toolbar{ display:none; }
@@ -2277,7 +2277,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
         <button class="notes-more" id="notesMoreBtn" type="button" aria-label="תצוגה ומיון" aria-haspopup="true">···</button>
         <button class="notes-compose" id="notesNewPageBtn" type="button" aria-label="רשומה חדשה" title="רשומה חדשה (N)"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/><path d="M17.6 3.4a1.9 1.9 0 0 1 2.7 2.7L12 14.4l-3.6.9.9-3.6z"/></svg></button>
       </div>
-      <div class="notes-body" id="notesBody" aria-live="polite"></div>
+      <div class="notes-body" id="notesBody"></div>
       <div class="notes-count" id="notesCount"></div>
     </div>
     <div class="notes-toolbar" id="notesToolbar"><span class="notes-toolbar-count" id="notesToolbarCount"></span><button class="notes-compose" id="notesNewPageBtnM" type="button" aria-label="רשומה חדשה"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/><path d="M17.6 3.4a1.9 1.9 0 0 1 2.7 2.7L12 14.4l-3.6.9.9-3.6z"/></svg></button></div>
@@ -7192,7 +7192,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   // notes board: N → new page (mirrors the planner's N), only on the index
   function notesShortcutKeydown(e){
     if(e.metaKey || e.ctrlKey || e.altKey || e.repeat || isTypingTarget(e.target)) return;
-    if(openPickerEl || isDrawerOpen() || isLockScreenShown() || isNotesPageOpen() ||
+    if(openPickerEl || openSheetEl || isDrawerOpen() || isLockScreenShown() || isNotesPageOpen() ||
        document.querySelector('.modal-overlay[style*="flex"]')) return;
     if(e.code === 'KeyN' && currentRole === 'editor'){ e.preventDefault(); createNewNotesPage(); }
   }
@@ -10033,8 +10033,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     if(currentNotesPageId !== page.id) item('פתיחה', () => openNotesPage(page.id));
     if(currentRole === 'editor'){
       item(page.pinned ? 'ביטול הצמדה' : 'הצמדה', () => {
-        page.pinned = !page.pinned;
-        touchNotesPage(page);
+        page.pinned = !page.pinned; // pinning is not an edit: updatedAt/updatedBy stay as they are
         persistState();
         renderNotes();
       });
