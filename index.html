@@ -6,7 +6,7 @@
 <!-- App build version, compared against version.txt to detect a new deploy in
      installed standalone PWA windows (which have no reload affordance). MUST be
      bumped together with version.txt on every deploy — see NOTES.md deploy step. -->
-<meta name="app-version" content="20261006-1412">
+<meta name="app-version" content="20261006-1429">
 <title>יומן ומשימות</title>
 <!-- PWA manifest + icons — no service worker on purpose: this is a live-data
      app on a 20s poll, a SW would only risk serving a stale index.html for
@@ -485,9 +485,13 @@ html,body{
 .person-name{ font-size:13.5px; font-weight:600; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .person-email{ font-size:11.5px; color:var(--ink3-text); direction:ltr; text-align:start; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; unicode-bidi:isolate; }
 .person-email.is-hint{ direction:rtl; }
-.drawer-access-item .adel{ opacity:0; }
-.drawer-access-item:hover .adel, .drawer-access-item:focus-within .adel{ opacity:1; }
-@media (pointer:coarse){ .drawer-access-item .adel{ opacity:1; } }
+.drawer-access-item .adel, .drawer-access-item .arename{ opacity:0; }
+.drawer-access-item:hover .adel, .drawer-access-item:focus-within .adel,
+.drawer-access-item:hover .arename, .drawer-access-item:focus-within .arename{ opacity:1; }
+@media (pointer:coarse){ .drawer-access-item .adel, .drawer-access-item .arename{ opacity:1; } }
+.drawer-access-item .arename{ border:none; background:none; color:var(--muted); font-size:13px; line-height:1; cursor:pointer; padding:4px 5px; border-radius:var(--radius-sm); flex-shrink:0; }
+.drawer-access-item .arename:hover{ background:var(--surface-2); color:var(--ink); }
+.person-rename{ flex:1; min-width:0; border:1px solid var(--accent); border-radius:var(--radius-sm); padding:2px 6px; font:inherit; font-size:13.5px; font-weight:600; color:var(--ink); background:var(--s1); box-shadow:0 0 0 3px var(--accent-tint); outline:none; }
 /* the recognising add field + its suggestion list (combobox) */
 .drawer-access-add{ position:relative; }
 .access-suggest{
@@ -3359,23 +3363,38 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   // post-add render starts — the sequence token drops the older response
   // instead of letting it land on top of the newer one.
   let accessRenderSeq = 0;
-  let accessRows = []; // the board's current access rows (for the suggestions)
+  let accessRows = [], accessRowsOk = false; // the board's current access rows (for the suggestions)
+  // The suggestions must never be computed against an empty/stale list: the
+  // live listAccess takes seconds, and a field focused before it returned
+  // would offer everyone as "missing" (seen live 2026-10-06). Callers await this.
+  let accessRowsReady = Promise.resolve();
   async function renderAccessList(){
+    let done; accessRowsReady = new Promise(r => { done = r; });
+    try{ return await renderAccessListInner(); } finally { done(); }
+  }
+  async function renderAccessListInner(){
     const list = document.getElementById('drawerAccessList');
     const defaultSel = document.getElementById('accessDefaultRole');
     if(!list || currentRole !== 'editor' || !currentBoardId) return false;
     const seq = ++accessRenderSeq;
     setAccessMsg('');
+    accessRows = []; accessRowsOk = false;
     const data = await fetchAccessList();
     if(seq !== accessRenderSeq) return true; // superseded by a newer render
     list.innerHTML = '';
     if(!data){ setAccessMsg('טעינת ההרשאות נכשלה'); return false; }
     defaultSel.value = data.defaultRole || '';
-    accessRows = data.rows.slice();
+    accessRows = data.rows.slice(); accessRowsOk = true;
     data.rows.forEach(row => {
       const item = document.createElement('div');
       item.className = 'drawer-access-item';
       item.appendChild(buildPersonEl(row));
+      // ✎ display name (People tab): names arrive from Google only at a person's
+      // next sign-in (sessions last 90 days), so an editor can type one meanwhile
+      const ren = document.createElement('button');
+      ren.type = 'button'; ren.className = 'arename'; ren.textContent = '✎'; ren.title = 'שם תצוגה'; ren.setAttribute('aria-label', 'שם תצוגה עבור ' + row.email);
+      ren.onclick = () => beginRenamePerson(item, row);
+      item.appendChild(ren);
 
       const roleSel = document.createElement('select');
       roleSel.setAttribute('aria-label', 'הרשאה עבור ' + row.email);
@@ -3428,6 +3447,49 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       list.appendChild(empty);
     }
     return true;
+  }
+
+  async function callSetPersonName(targetEmail, name){
+    try{
+      const res = await fetch(API_URL, {
+        method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body: JSON.stringify(authBody({ action:'setPersonName', targetEmail, name }))
+      });
+      const json = await res.json();
+      if(handleAuthError(json)) return null;
+      return json;
+    }catch(e){ return null; }
+  }
+  // Inline rename on an access row: the main line becomes a text field; Enter
+  // saves, Esc/blur-unchanged cancels. The name is per person (team-wide), not per board.
+  function beginRenamePerson(item, row){
+    const nameEl = item.querySelector('.person-name');
+    if(!nameEl || item.querySelector('.person-rename')) return;
+    const input = document.createElement('input');
+    input.type = 'text'; input.className = 'person-rename'; input.value = row.name || ''; input.maxLength = 40;
+    input.placeholder = 'שם תצוגה'; input.setAttribute('aria-label', 'שם תצוגה עבור ' + row.email);
+    nameEl.replaceWith(input);
+    input.focus(); input.select();
+    let finished = false;
+    const finish = async (save) => {
+      if(finished) return; finished = true;
+      const val = input.value.trim();
+      if(save && val && val !== (row.name || '')){
+        setAccessMsg('');
+        const res = await callSetPersonName(row.email, val);
+        if(!res || !res.ok){ setAccessMsg('שמירת השם נכשלה'); await renderAccessList(); return; }
+        fetchTeam(true);
+        const listed = await renderAccessList();
+        setAccessMsg('✓ ' + ltrIso(row.email) + ' יופיע/תופיע מעכשיו כ־' + val + refreshNote(listed), true);
+      } else {
+        await renderAccessList();
+      }
+    };
+    input.addEventListener('keydown', e => {
+      if(e.key === 'Enter'){ e.preventDefault(); finish(true); }
+      else if(e.key === 'Escape'){ e.preventDefault(); e.stopPropagation(); finish(false); }
+    });
+    input.addEventListener('blur', () => finish(false));
   }
 
   // ---- adding people: a field that recognises the team (2026-10-06, A look + B capability) ----
@@ -3538,7 +3600,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       if(active >= 0 && buttons[active]){ buttons[active].classList.add('is-active'); buttons[active].scrollIntoView({ block:'nearest' }); input.setAttribute('aria-activedescendant', buttons[active].id || (buttons[active].id = 'accessOpt' + active)); }
       else input.removeAttribute('aria-activedescendant');
     };
-    const close = () => { box.hidden = true; input.setAttribute('aria-expanded', 'false'); setActive(-1); };
+    const close = () => { box.hidden = true; box.innerHTML = ''; buttons = []; input.setAttribute('aria-expanded', 'false'); setActive(-1); };
     const pick = async (it, name) => {
       close();
       btn.disabled = true; btn.textContent = 'מוסיף…'; setAccessMsg('');
@@ -3548,8 +3610,9 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     async function refresh(){
       if(isMobileLayout()) return;
       team = await fetchTeam();
+      await accessRowsReady;
       if(document.activeElement !== input && !box.contains(document.activeElement)) return;
-      items = buildSuggestions(input.value, team);
+      items = accessRowsOk ? buildSuggestions(input.value, team) : [{ kind:'hint', text:'טעינת ההרשאות נכשלה — סגרו ופתחו שוב את ההגדרות' }];
       buttons = renderSuggestions(box, items, pick);
       box.hidden = false; input.setAttribute('aria-expanded', 'true');
       // a typed query preselects its first real suggestion so Enter adds it
@@ -3601,7 +3664,8 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     const pick = async (it, name) => { report('מוסיף…', true); if(await performAccessAdd(it, roleSel.value, name, report)){ input.value = ''; refresh(); } };
     async function refresh(){
       team = await fetchTeam();
-      renderSuggestions(box, buildSuggestions(input.value, team), pick);
+      await accessRowsReady;
+      renderSuggestions(box, accessRowsOk ? buildSuggestions(input.value, team) : [{ kind:'hint', text:'טעינת ההרשאות נכשלה — סגרו ופתחו שוב את ההגדרות' }], pick);
     }
     input.addEventListener('input', refresh);
     input.addEventListener('keydown', e => {
