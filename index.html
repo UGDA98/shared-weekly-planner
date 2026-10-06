@@ -896,15 +896,75 @@ html,body{
 .planner-root.view-only .day-banner{ pointer-events:none; }
 
 /* ---------- notes boards: gallery + outline editor ---------- */
-.notes-gallery-head{ display:flex; align-items:center; justify-content:space-between; padding:18px 20px 10px; }
-.notes-gallery-title{ font-size:16px; font-weight:700; margin:0; }
-.notes-new-page-btn{
-  display:flex; align-items:center; gap:5px; border:1px solid var(--border-strong); background:var(--surface); color:var(--accent);
-  border-radius:var(--radius-pill); padding:6px 13px 6px 10px; font-size:12.5px; font-weight:600; cursor:pointer;
-  transition:background-color .12s ease, border-color .12s ease;
+/* index: one toolbar (search · list/gallery · sort · compose), grouped inset list */
+.notes-index{ max-width:1100px; margin:0 auto; padding:12px 20px 24px; }
+.notes-bar{ display:flex; align-items:center; gap:12px; min-height:44px; }
+.notes-bar .notes-search, .notes-bar .notes-search:focus-within{ width:300px; flex:0 1 300px; }
+.notes-search-cancel{ display:none; }
+.notes-sort b{ font-weight:600; color:var(--ink); }
+.notes-more{ display:none; }
+.notes-compose{
+  display:inline-flex; align-items:center; justify-content:center; flex:none; width:36px; height:36px; padding:0;
+  border:0; border-radius:var(--r8); background:none; color:var(--accent); cursor:pointer; transition:background-color .12s ease;
 }
-.notes-new-page-btn svg{ width:14px; height:14px; }
-.notes-new-page-btn:hover{ background:var(--accent-soft); border-color:var(--accent); }
+.notes-bar .notes-compose{ margin-inline-start:auto; }
+.notes-compose svg{ width:22px; height:22px; display:block; }
+.notes-compose:hover{ background:var(--s3); }
+.notes-compose:focus-visible, .notes-more:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+.notes-group{ margin-top:18px; }
+.notes-group-h{ margin:0 0 6px; padding-inline:16px; font-size:12.5px; line-height:16px; font-weight:600; color:var(--ink2); }
+.notes-list{ list-style:none; margin:0; padding:0; background:var(--s1); border-radius:var(--radius-lg); overflow:hidden; }
+.notes-row{ position:relative; display:flex; align-items:center; gap:16px; min-height:60px; padding:10px 16px; cursor:pointer; }
+.notes-row + .notes-row::before{ content:""; position:absolute; top:0; inset-inline:16px 0; border-top:1px solid rgba(60,60,67,.22); }
+.notes-row:hover, .notes-row.is-selected{ background:var(--s2); }
+.notes-row:focus-within{ box-shadow:inset 0 0 0 2px var(--accent); }
+.notes-dot{ display:none; position:absolute; inset-inline-start:5px; top:21px; width:7px; height:7px; border-radius:50%; background:var(--accent); }
+.notes-row.is-new .notes-dot{ display:block; }
+.notes-row-body{ flex:1 1 auto; min-width:0; }
+.notes-row-title{ margin:0; font-size:15.5px; line-height:21px; font-weight:600; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.notes-row-title.is-untitled{ color:var(--ink2); }
+.notes-row-link{ color:inherit; text-decoration:none; outline:none; }
+.notes-row-link::after{ content:""; position:absolute; inset:0; }
+.notes-row-sub{ margin:2px 0 0; font-size:13.5px; line-height:19px; color:var(--ink2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.notes-row-date{ color:var(--ink); }
+.notes-row-ex{ margin-inline-start:8px; }
+.notes-row-meta{ flex:0 1 auto; max-width:40%; font-size:13px; line-height:18px; color:var(--ink3-text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-variant-numeric:tabular-nums; }
+.notes-row-meta:empty{ display:none; }
+.notes-count{ margin-top:16px; text-align:center; font-size:12px; line-height:16px; color:var(--ink2); font-variant-numeric:tabular-nums; }
+.notes-empty{
+  display:block; width:100%; margin:18px 0 0; padding:48px 20px; border:0; border-radius:var(--radius-lg);
+  background:var(--s1); color:var(--ink2); font:inherit; font-size:14px; text-align:center;
+}
+button.notes-empty{ cursor:pointer; }
+button.notes-empty:hover{ color:var(--accent); }
+button.notes-empty:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+.notes-body.notes-gallery{ padding:0; margin-top:14px; }
+.notes-toolbar{ display:none; }
+@media (max-width:767px){
+  .notes-index{ padding:8px 16px calc(50px + env(safe-area-inset-bottom, 0px) + 16px); }
+  .notes-view, .notes-sort, .notes-search .kbd, #notesNewPageBtn, .notes-count{ display:none; }
+  .notes-bar{ gap:8px; }
+  .notes-bar .notes-search, .notes-bar .notes-search:focus-within{ width:auto; flex:1 1 auto; height:36px; }
+  .notes-more{
+    display:inline-flex; align-items:center; justify-content:center; flex:none; width:36px; height:36px; padding:0;
+    border:0; border-radius:50%; background:var(--s3); color:var(--accent); font:inherit; font-size:17px; font-weight:700; letter-spacing:1px; cursor:pointer;
+  }
+  .notes-group-h{ font-size:13px; line-height:18px; }
+  .notes-row{ align-items:flex-start; min-height:64px; padding:11px 16px; }
+  .notes-dot{ top:19px; }
+  .notes-row-title{ font-size:17px; line-height:22px; }
+  .notes-row-sub{ font-size:15px; line-height:20px; }
+  .notes-row-meta{ padding-top:2px; font-size:13px; }
+  .notes-toolbar{
+    display:flex; align-items:center; justify-content:center; position:fixed; inset-inline:0; bottom:0; z-index:40;
+    height:calc(50px + env(safe-area-inset-bottom, 0px)); padding-bottom:env(safe-area-inset-bottom, 0px);
+    background:color-mix(in srgb, var(--s1) 92%, transparent); -webkit-backdrop-filter:saturate(180%) blur(20px); backdrop-filter:saturate(180%) blur(20px);
+    border-top:1px solid rgba(60,60,67,.22);
+  }
+  .notes-toolbar-count{ font-size:12px; line-height:16px; color:var(--ink2); font-variant-numeric:tabular-nums; }
+  .notes-toolbar .notes-compose{ position:absolute; inset-inline-end:8px; top:3px; width:44px; height:44px; }
+  .planner-root.notes-index-on ~ .undo-toast{ bottom:calc(50px + env(safe-area-inset-bottom, 0px) + 16px); max-width:calc(100vw - 32px); }
+}
 .notes-gallery{
   display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:14px;
   padding:0 20px 24px;
@@ -937,11 +997,6 @@ html,body{
 .notes-card-menu:hover{ background:var(--surface-2); color:var(--ink); }
 .picker-item.is-danger{ color:var(--danger); }
 .picker-item.is-danger:hover{ background:rgba(192,57,43,.08); }
-.notes-gallery-empty{
-  grid-column:1/-1; text-align:center; color:var(--muted); font-size:13px; padding:40px 20px;
-  border:1.5px dashed var(--border-strong); border-radius:var(--radius-lg); cursor:pointer;
-}
-.notes-gallery-empty:hover{ border-color:var(--accent); color:var(--accent); }
 
 .notes-page-view{ padding:24px 20px 90px; max-width:760px; margin:0 auto; }
 .notes-page-toolbar{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
@@ -2209,14 +2264,23 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   </div>
 
   <div id="notesSection" style="display:none;">
-    <div class="notes-gallery-head" id="notesGalleryHead">
-      <h2 class="notes-gallery-title" id="notesGalleryTitle">רשומות</h2>
-      <button class="notes-new-page-btn" id="notesNewPageBtn" type="button">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        רשומה חדשה
-      </button>
+    <div class="notes-index" id="notesIndex">
+      <div class="notes-bar" id="notesBar">
+        <label class="search-box notes-search" for="notesSearch">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input id="notesSearch" type="search" placeholder="חיפוש" aria-label="חיפוש ברשומות" autocomplete="off">
+          <span class="kbd" aria-hidden="true">⌘K</span>
+          <button type="button" class="notes-search-cancel" id="notesSearchCancel" hidden>ביטול</button>
+        </label>
+        <div class="view-toggle notes-view" role="group" aria-label="תצוגה"><button class="view-toggle-btn" type="button" data-view="list" aria-pressed="false">רשימה</button><button class="view-toggle-btn" type="button" data-view="gallery" aria-pressed="false">גלריה</button></div>
+        <button class="ctx-link notes-sort" id="notesSortBtn" type="button" aria-haspopup="true">מיון: <b id="notesSortLabel">תאריך עריכה</b></button>
+        <button class="notes-more" id="notesMoreBtn" type="button" aria-label="תצוגה ומיון" aria-haspopup="true">···</button>
+        <button class="notes-compose" id="notesNewPageBtn" type="button" aria-label="רשומה חדשה" title="רשומה חדשה (N)"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/><path d="M17.6 3.4a1.9 1.9 0 0 1 2.7 2.7L12 14.4l-3.6.9.9-3.6z"/></svg></button>
+      </div>
+      <div class="notes-body" id="notesBody" aria-live="polite"></div>
+      <div class="notes-count" id="notesCount"></div>
     </div>
-    <div class="notes-gallery" id="notesGallery"></div>
+    <div class="notes-toolbar" id="notesToolbar"><span class="notes-toolbar-count" id="notesToolbarCount"></span><button class="notes-compose" id="notesNewPageBtnM" type="button" aria-label="רשומה חדשה"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/><path d="M17.6 3.4a1.9 1.9 0 0 1 2.7 2.7L12 14.4l-3.6.9.9-3.6z"/></svg></button></div>
 
     <div class="notes-page-view" id="notesPageView" style="display:none;">
       <div class="notes-page-toolbar">
@@ -5302,6 +5366,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       const hb = document.getElementById('highlightBtn');
       if(hb) hb.setAttribute('aria-expanded', 'false'); // no-op unless this was the trigger
       document.querySelectorAll('[data-pop-anchor][aria-expanded="true"]').forEach(el => el.setAttribute('aria-expanded', 'false'));
+      document.querySelectorAll('.notes-row.is-selected').forEach(el => el.classList.remove('is-selected'));
       if(pickerReturnFocusEl){ try{ pickerReturnFocusEl.focus(); }catch(e){} pickerReturnFocusEl = null; }
     }
   }
@@ -7111,7 +7176,8 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     return !!el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
   }
   document.addEventListener('keydown', (e) => {
-    if(!currentSession || currentBoardType === 'notes') return;
+    if(!currentSession) return;
+    if(currentBoardType === 'notes'){ notesShortcutKeydown(e); return; }
     if((e.metaKey || e.ctrlKey) && !e.altKey && (e.key === 'k' || e.key === 'K' || e.code === 'KeyK')){
       e.preventDefault(); searchInput.focus(); searchInput.select(); return;
     }
@@ -7122,6 +7188,14 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     const kind = {n:'task', e:'event', h:'title'}[e.code === 'KeyN' ? 'n' : e.code === 'KeyE' ? 'e' : e.code === 'KeyH' ? 'h' : ''];
     if(kind && currentRole === 'editor'){ e.preventDefault(); addNew(kind); }
   });
+
+  // notes board: N → new page (mirrors the planner's N), only on the index
+  function notesShortcutKeydown(e){
+    if(e.metaKey || e.ctrlKey || e.altKey || e.repeat || isTypingTarget(e.target)) return;
+    if(openPickerEl || isDrawerOpen() || isLockScreenShown() || isNotesPageOpen() ||
+       document.querySelector('.modal-overlay[style*="flex"]')) return;
+    if(e.code === 'KeyN' && currentRole === 'editor'){ e.preventDefault(); createNewNotesPage(); }
+  }
 
   /* ---------- G2 stage 3: phone layout (tab bar, day pager, FAB, sheets) ---------- */
 
@@ -7235,7 +7309,11 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       setMobileTab(b.dataset.tab);
     };
   });
-  MOBILE_MQ.addEventListener('change', () => { if(appState && currentBoardType !== 'notes'){ renderBoard(); renderSummary(); } paintMobileChrome(); });
+  MOBILE_MQ.addEventListener('change', () => {
+    if(appState && currentBoardType !== 'notes'){ renderBoard(); renderSummary(); }
+    else if(appState && currentBoardType === 'notes' && !isNotesPageOpen()) renderNotesIndex(); // default view follows the layout
+    paintMobileChrome();
+  });
 
   // large title shrinks once the page scrolls, like iOS
   let topCompact = false;
@@ -8435,7 +8513,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     // drop the board's content from memory and the page, not just from view
     appState = defaultStateFor(currentBoardType);
     if(currentBoardType !== 'notes'){ people = []; topics = []; weekData = loadWeek(weekStart); }
-    ['board', 'summaryGrid', 'mStrip', 'notesGallery', 'notesOutline'].forEach(id => { const el = document.getElementById(id); if(el) el.innerHTML = ''; });
+    ['board', 'summaryGrid', 'mStrip', 'notesBody', 'notesCount', 'notesToolbarCount', 'notesOutline'].forEach(id => { const el = document.getElementById(id); if(el) el.innerHTML = ''; });
     const b = boardsList.find(x => x.id === currentBoardId);
     document.getElementById('lockBoardName').textContent = b ? b.name : '';
     document.getElementById('lockError').textContent = '';
@@ -9866,6 +9944,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   }
 
   function openNotesPage(pageId){
+    markNotesPageSeen((appState.pages || []).find(p => p.id === pageId)); // opening from anywhere = seen
     currentNotesPageId = pageId;
     reflectStateInUrl(currentBoardId, currentView, false, pageId);
     renderNotes();
@@ -9885,6 +9964,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     openNotesPage(page.id);
   }
   document.getElementById('notesNewPageBtn').onclick = createNewNotesPage;
+  document.getElementById('notesNewPageBtnM').onclick = createNewNotesPage;
 
   function duplicateNotesPage(pageId){
     const page = (appState.pages || []).find(p => p.id === pageId);
@@ -9921,14 +10001,26 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     });
   }
 
-  // Shared "⋯" dropdown for a notes page — used by both the gallery card and
-  // the in-page menu button, same .picker popover infrastructure as
-  // openHighlightMenu (positionPopover/closePicker/onDocClick).
-  function openNotesPageMenu(page, anchorEl){
+  // Shared page menu — the gallery card's ⋯, the in-page ⋯ button and the
+  // list row's context menu (right-click / menu key; `point` = the pointer),
+  // same .picker popover infrastructure as openHighlightMenu
+  // (positionPopover/closePicker/onDocClick). Viewers only get "פתיחה".
+  const NOTES_MENU_W = 170;
+  function openNotesPageMenu(page, anchorEl, point){
     closePicker();
     const pop = document.createElement('div');
     pop.className = 'picker';
-    const rect = anchorEl.getBoundingClientRect();
+    const isRow = anchorEl.classList.contains('notes-row');
+    const rtl = getComputedStyle(anchorEl).direction === 'rtl';
+    let rect = anchorEl.getBoundingClientRect();
+    if(isRow){
+      // a row is as wide as the list: open at the pointer, or under the title's
+      // start edge for the keyboard, growing toward the row's end (RTL: leftward)
+      const titleRect = (anchorEl.querySelector('.notes-row-link') || anchorEl).getBoundingClientRect();
+      const x = point ? point.x : (rtl ? titleRect.right : titleRect.left);
+      const y = point ? point.y : titleRect.bottom;
+      rect = { left: rtl ? x - NOTES_MENU_W : x, top: y, bottom: y };
+    }
 
     const list = document.createElement('div'); list.className = 'picker-list';
     function item(label, onClick, danger){
@@ -9938,23 +10030,34 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       r.onclick = () => { closePicker(); onClick(); };
       list.appendChild(r);
     }
-    item('שכפול', () => duplicateNotesPage(page.id));
-    item('שינוי שם', () => renameNotesPage(page.id));
-    list.appendChild(Object.assign(document.createElement('div'), { className: 'picker-divider' }));
-    item('מחיקה', () => {
-      showConfirmModal({
-        title: 'מחיקת רשומה',
-        message: 'למחוק את הרשומה "' + (page.title || 'ללא כותרת') + '"? הפעולה ניתנת לביטול לזמן קצר.',
-        confirmLabel: 'מחיקה',
-        onConfirm: () => deletePageWithUndo(page.id)
+    if(currentNotesPageId !== page.id) item('פתיחה', () => openNotesPage(page.id));
+    if(currentRole === 'editor'){
+      item(page.pinned ? 'ביטול הצמדה' : 'הצמדה', () => {
+        page.pinned = !page.pinned;
+        touchNotesPage(page);
+        persistState();
+        renderNotes();
       });
-    }, true);
+      item('שינוי שם', () => renameNotesPage(page.id));
+      item('שכפול', () => duplicateNotesPage(page.id));
+      list.appendChild(Object.assign(document.createElement('div'), { className: 'picker-divider' }));
+      item('מחיקה', () => {
+        showConfirmModal({
+          title: 'מחיקת רשומה',
+          message: 'למחוק את הרשומה "' + (page.title || 'ללא כותרת') + '"? הפעולה ניתנת לביטול לזמן קצר.',
+          confirmLabel: 'מחיקה',
+          onConfirm: () => deletePageWithUndo(page.id)
+        });
+      }, true);
+    }
+    if(!list.children.length) return;
 
     pop.appendChild(list);
     document.body.appendChild(pop);
-    positionPopover(pop, rect, { width: 170 });
+    positionPopover(pop, rect, { width: NOTES_MENU_W });
     openPickerEl = pop;
-    wirePickerKeyboard(pop, anchorEl);
+    if(isRow) anchorEl.classList.add('is-selected'); // cleared by closePicker
+    wirePickerKeyboard(pop, isRow ? (anchorEl.querySelector('.notes-row-link') || anchorEl) : anchorEl);
     setTimeout(() => document.addEventListener('mousedown', onDocClick, true), 0);
   }
 
@@ -10036,40 +10139,177 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     return card;
   }
 
-  function renderNotesGallery(){
-    const grid = document.getElementById('notesGallery');
-    const titleEl = document.getElementById('notesGalleryTitle');
-    const newBtn = document.getElementById('notesNewPageBtn');
-    if(newBtn) newBtn.style.display = currentRole === 'editor' ? '' : 'none';
-    const pages = (appState.pages || []).slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    titleEl.textContent = 'רשומות' + (pages.length ? ' (' + pages.length + ')' : '');
-    grid.innerHTML = '';
+  // ---- notes index (toolbar + list view; gallery = the card grid until Task 4) ----
+  const HEB_MONTHS_SHORT = ['ינו׳','פבר׳','מרץ','אפר׳','מאי','יוני','יולי','אוג׳','ספט׳','אוק׳','נוב׳','דצמ׳'];
+  const NOTES_SORT_LABEL = { updated:'תאריך עריכה', created:'תאריך יצירה', title:'כותרת' };
+  // Row date: "16 בספט׳", with the year only when it isn't this year.
+  function notesShortDate(iso){
+    const d = new Date(iso);
+    if(isNaN(d.getTime())) return '';
+    return d.getDate() + ' ב' + HEB_MONTHS_SHORT[d.getMonth()] + (d.getFullYear() !== new Date().getFullYear() ? ' ' + d.getFullYear() : '');
+  }
+  function notesCountLabel(n){ return n === 1 ? 'רשומה אחת' : n + ' רשומות'; }
+  // Per-board, per-device prefs with their defaults (list on phones, gallery on desktop).
+  function notesView(){ const v = notesPref('view'); return (v === 'list' || v === 'gallery') ? v : (isMobileLayout() ? 'list' : 'gallery'); }
+  function notesSort(){ const v = notesPref('sort'); return (v === 'created' || v === 'title') ? v : 'updated'; }
+
+  function renderNotesIndex(){
+    const body = document.getElementById('notesBody');
+    const pages = appState.pages || [];
+    const isEditor = currentRole === 'editor';
+    ['notesNewPageBtn', 'notesNewPageBtnM'].forEach(id => { const b = document.getElementById(id); if(b) b.style.display = isEditor ? '' : 'none'; });
+    const view = notesView(), sort = notesSort();
+    document.querySelectorAll('#notesBar .notes-view [data-view]').forEach(b => {
+      const on = b.dataset.view === view;
+      b.classList.toggle('is-active', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    document.getElementById('notesSortLabel').textContent = NOTES_SORT_LABEL[sort];
+    const count = pages.length ? notesCountLabel(pages.length) : '';
+    document.getElementById('notesCount').textContent = count;
+    document.getElementById('notesToolbarCount').textContent = count;
+    body.innerHTML = '';
+    body.className = 'notes-body';
     if(!pages.length){
-      const empty = document.createElement('div');
-      empty.className = 'notes-gallery-empty';
-      empty.textContent = currentRole === 'editor' ? 'עדיין אין רשומות — לחצו כדי ליצור את הראשונה' : 'עדיין אין רשומות בלוח הזה';
-      if(currentRole === 'editor') empty.onclick = createNewNotesPage;
-      grid.appendChild(empty);
+      const empty = document.createElement(isEditor ? 'button' : 'p');
+      empty.className = 'notes-empty';
+      if(isEditor){
+        empty.type = 'button';
+        empty.textContent = 'עדיין אין רשומות — לחצו כדי ליצור את הראשונה';
+        empty.onclick = createNewNotesPage;
+      } else empty.textContent = 'עדיין אין רשומות בלוח הזה';
+      body.appendChild(empty);
       return;
     }
-    pages.forEach(page => grid.appendChild(renderNotesCard(page)));
+    if(view === 'gallery'){
+      // the old card grid, unchanged, until the gallery view is rebuilt
+      body.classList.add('notes-gallery');
+      pages.slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).forEach(page => body.appendChild(renderNotesCard(page)));
+      return;
+    }
+    renderNotesListView(notesIndexGroups(pages, sort));
   }
+
+  function renderNotesListView(groups){
+    const body = document.getElementById('notesBody');
+    const dateField = notesSort() === 'created' ? 'createdAt' : 'updatedAt';
+    groups.forEach(g => {
+      const sec = document.createElement('section');
+      sec.className = 'notes-group';
+      if(g.label){
+        const h = document.createElement('h2');
+        h.className = 'notes-group-h';
+        h.textContent = g.label;
+        sec.appendChild(h);
+      }
+      const ul = document.createElement('ul');
+      ul.className = 'notes-list';
+      g.pages.forEach(page => ul.appendChild(renderNotesRow(page, dateField)));
+      sec.appendChild(ul);
+      body.appendChild(sec);
+    });
+  }
+
+  function renderNotesRow(page, dateField){
+    const li = document.createElement('li');
+    li.className = 'notes-row' + (isNotesPageNew(page) ? ' is-new' : '') + (page.pinned ? ' is-pinned' : '');
+    li.dataset.page = page.id;
+    const dot = document.createElement('span');
+    dot.className = 'notes-dot';
+    dot.setAttribute('aria-hidden', 'true');
+    li.appendChild(dot);
+
+    const bodyEl = document.createElement('div');
+    bodyEl.className = 'notes-row-body';
+    const h = document.createElement('h3');
+    h.className = 'notes-row-title' + ((page.title || '').trim() ? '' : ' is-untitled');
+    const a = document.createElement('a');
+    a.className = 'notes-row-link';
+    a.href = '?board=' + encodeURIComponent(currentBoardId) + '&page=' + encodeURIComponent(page.id);
+    a.textContent = (page.title || '').trim() || 'ללא כותרת';
+    h.appendChild(a);
+    bodyEl.appendChild(h);
+    const sub = document.createElement('p');
+    sub.className = 'notes-row-sub';
+    const time = document.createElement('time');
+    time.className = 'notes-row-date';
+    time.dateTime = page[dateField] || '';
+    time.textContent = notesShortDate(page[dateField]);
+    const ex = document.createElement('span');
+    ex.className = 'notes-row-ex';
+    ex.textContent = pageFirstLine(page);
+    sub.appendChild(time); sub.appendChild(ex);
+    bodyEl.appendChild(sub);
+    li.appendChild(bodyEl);
+
+    const todos = pageOpenTodos(page);
+    const meta = document.createElement('span');
+    meta.className = 'notes-row-meta';
+    meta.textContent = [editorLabel(page.updatedBy), todos === 1 ? 'משימה אחת' : todos > 1 ? todos + ' משימות' : ''].filter(Boolean).join(' · ');
+    li.appendChild(meta);
+    return li;
+  }
+
+  // One set of delegated listeners on the list container (rows are rebuilt on
+  // every render): click opens, arrows move between rows, context menu.
+  (function wireNotesBody(){
+    const body = document.getElementById('notesBody');
+    const pageOf = (el) => {
+      const li = el && el.closest && el.closest('.notes-row');
+      return li ? { li, page: (appState.pages || []).find(p => p.id === li.dataset.page) } : null;
+    };
+    body.addEventListener('click', (e) => {
+      const link = e.target.closest && e.target.closest('.notes-row-link');
+      if(!link || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return; // modified click: the real link (new tab)
+      const hit = pageOf(link);
+      if(!hit || !hit.page) return;
+      e.preventDefault();
+      openNotesPage(hit.page.id);
+    });
+    body.addEventListener('keydown', (e) => {
+      if(!e.target.classList || !e.target.classList.contains('notes-row-link')) return;
+      if(e.altKey || e.metaKey || e.ctrlKey || e.shiftKey) return;
+      const links = Array.from(body.querySelectorAll('.notes-row-link'));
+      const i = links.indexOf(e.target);
+      const j = e.key === 'ArrowDown' ? Math.min(i + 1, links.length - 1)
+        : e.key === 'ArrowUp' ? Math.max(i - 1, 0)
+        : e.key === 'Home' ? 0
+        : e.key === 'End' ? links.length - 1 : -1;
+      if(j < 0) return;
+      e.preventDefault();
+      links[j].focus();
+    });
+    body.addEventListener('contextmenu', (e) => {
+      const hit = pageOf(e.target);
+      if(!hit || !hit.page) return;
+      e.preventDefault();
+      // mouse: at the pointer; keyboard (Shift+F10 / menu key): under the row's title
+      const point = (e.clientX || e.clientY) ? { x: e.clientX, y: e.clientY } : null;
+      openNotesPageMenu(hit.page, hit.li, point);
+    });
+    document.querySelectorAll('#notesBar .notes-view [data-view]').forEach(b => {
+      b.onclick = () => { setNotesPref('view', b.dataset.view); renderNotesIndex(); };
+    });
+  })();
 
   function renderNotes(){
     if(!appState || !Array.isArray(appState.pages)) appState = defaultNotesState();
-    const galleryHead = document.getElementById('notesGalleryHead');
-    const gallery = document.getElementById('notesGallery');
+    const index = document.getElementById('notesIndex');
+    const toolbar = document.getElementById('notesToolbar');
     const pageView = document.getElementById('notesPageView');
+    const root = document.getElementById('root');
     const page = currentNotesPage();
     if(page){
-      galleryHead.style.display = 'none'; gallery.style.display = 'none';
+      index.style.display = 'none'; toolbar.style.display = 'none';
+      root.classList.remove('notes-index-on');
       pageView.style.display = '';
       renderNotesPageView(page);
     } else {
-      if(currentNotesPageId){ currentNotesPageId = null; reflectStateInUrl(currentBoardId, currentView, true, null); } // page was deleted remotely — back to gallery, not an error
-      galleryHead.style.display = ''; gallery.style.display = '';
+      if(currentNotesPageId){ currentNotesPageId = null; reflectStateInUrl(currentBoardId, currentView, true, null); } // page was deleted remotely — back to the index, not an error
+      index.style.display = ''; toolbar.style.display = '';
+      root.classList.add('notes-index-on');
       pageView.style.display = 'none';
-      renderNotesGallery();
+      renderNotesIndex();
     }
   }
 
