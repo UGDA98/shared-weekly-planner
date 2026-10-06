@@ -6,7 +6,7 @@
 <!-- App build version, compared against version.txt to detect a new deploy in
      installed standalone PWA windows (which have no reload affordance). MUST be
      bumped together with version.txt on every deploy — see NOTES.md deploy step. -->
-<meta name="app-version" content="20261006-1251">
+<meta name="app-version" content="20261006-1412">
 <title>יומן ומשימות</title>
 <!-- PWA manifest + icons — no service worker on purpose: this is a live-data
      app on a 20s poll, a SW would only risk serving a stale index.html for
@@ -470,13 +470,54 @@ html,body{
   padding:2px 6px; border-radius:var(--radius-sm); line-height:1;
 }
 .drawer-activity-refresh:hover{ background:var(--surface-2); color:var(--ink); }
-.drawer-access-list{ display:flex; flex-direction:column; gap:2px; max-height:160px; overflow-y:auto; }
+.drawer-access-list{ display:flex; flex-direction:column; gap:2px; max-height:252px; overflow-y:auto; } /* 6 two-line rows (v22 names) before it scrolls */
 .drawer-access-item{
-  display:flex; align-items:center; gap:6px; min-height:36px; padding:2px 4px;
+  display:flex; align-items:center; gap:8px; min-height:40px; padding:3px 4px;
   font-size:12.5px; color:var(--ink); border-radius:var(--radius-md);
 }
 .drawer-access-item:hover{ background:var(--surface-2); }
 .drawer-access-item-email{ flex:1; direction:ltr; text-align:start; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+/* People (v22): name over email, a quiet initial as the avatar. Rows without a
+   name (never signed in, no typed name) show the email as the main line. */
+.person-av{ flex:none; width:28px; height:28px; border-radius:50%; background:var(--s3); color:var(--ink2); font-size:12.5px; font-weight:700; display:grid; place-items:center; }
+.person-av.is-new{ background:transparent; border:1px dashed var(--hl2); color:var(--ink3); font-weight:600; }
+.person{ flex:1; min-width:0; display:flex; flex-direction:column; gap:1px; }
+.person-name{ font-size:13.5px; font-weight:600; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.person-email{ font-size:11.5px; color:var(--ink3-text); direction:ltr; text-align:start; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; unicode-bidi:isolate; }
+.person-email.is-hint{ direction:rtl; }
+.drawer-access-item .adel{ opacity:0; }
+.drawer-access-item:hover .adel, .drawer-access-item:focus-within .adel{ opacity:1; }
+@media (pointer:coarse){ .drawer-access-item .adel{ opacity:1; } }
+/* the recognising add field + its suggestion list (combobox) */
+.drawer-access-add{ position:relative; }
+.access-suggest{
+  position:absolute; inset-inline:0; top:calc(100% + 4px); z-index:30; background:var(--s1); border:1px solid var(--hl);
+  border-radius:12px; box-shadow:var(--shadow-lift); padding:6px; max-height:260px; overflow-y:auto; display:flex; flex-direction:column; gap:1px;
+  animation:suggestIn .12s ease-out;
+}
+@keyframes suggestIn{ from{ opacity:0; transform:translateY(-4px);} to{ opacity:1; transform:none;} }
+@media (prefers-reduced-motion:reduce){ .access-suggest{ animation:none; } }
+.access-suggest[hidden]{ display:none; }
+.access-group{ font-size:11px; font-weight:600; color:var(--ink3-text); padding:6px 8px 3px; }
+.access-sugg{
+  display:flex; align-items:center; gap:8px; min-height:40px; padding:4px 6px; border-radius:var(--radius-md); cursor:pointer;
+  border:0; background:none; font:inherit; color:var(--ink); text-align:start; width:100%;
+}
+.access-sugg:hover, .access-sugg.is-active{ background:var(--s3); }
+.access-sugg.is-taken{ opacity:.55; cursor:default; }
+.access-sugg.is-taken:hover{ background:none; }
+.access-sugg .tag{ flex:none; font-size:11.5px; color:var(--ink3-text); }
+.access-sugg mark{ background:none; color:var(--accent-soft-ink); font-weight:700; }
+.access-sugg.is-all .person-name{ color:var(--accent); }
+.access-hint{ font-size:12.5px; color:var(--ink2); padding:8px 8px; }
+.access-newname{ flex:none; width:38%; min-width:0; border:1px solid var(--hl2); border-radius:var(--radius-sm); padding:5px 6px; font:inherit; font-size:12.5px; background:var(--s1); color:var(--ink); }
+/* phone: the add field is a button that opens a page sheet (the keyboard would hide an inline list) */
+.sheet-access .sheet-field{ display:flex; gap:8px; align-items:center; padding:10px 14px 4px; }
+.sheet-access .sheet-field input{ flex:1; min-width:0; min-height:44px; border:1px solid var(--hl2); border-radius:12px; padding:0 12px; font:inherit; font-size:16px; background:var(--s1); color:var(--ink); }
+.sheet-access .sheet-field select{ min-height:44px; border:1px solid var(--hl2); border-radius:12px; padding:0 8px; font:inherit; font-size:15px; background:var(--s1); color:var(--ink); }
+.sheet-access .access-suggest{ position:static; border:0; box-shadow:none; max-height:none; padding:4px 10px 16px; animation:none; }
+.sheet-access .access-sugg{ min-height:48px; }
+.sheet-access .access-status{ font-size:13px; color:var(--done-text); padding:4px 16px 10px; min-height:18px; }
 .drawer-access-item select{
   border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--surface);
   color:var(--ink); font-size:12px; padding:3px 4px;
@@ -489,8 +530,9 @@ html,body{
 .drawer-access-add{ display:flex; gap:6px; margin-top:6px; }
 .drawer-access-add input{
   flex:1; min-width:0; border:1px solid var(--border-strong); border-radius:var(--radius-md);
-  padding:7px 8px; font-size:12.5px; background:var(--bg); color:var(--ink); direction:ltr; text-align:start;
+  padding:7px 8px; font-size:12.5px; background:var(--bg); color:var(--ink); text-align:start;
 }
+.drawer-access-add input:focus{ outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-tint); background:var(--s1); }
 .drawer-access-add select{
   border:1px solid var(--border-strong); border-radius:var(--radius-md); background:var(--bg);
   color:var(--ink); font-size:12.5px; padding:7px 4px;
@@ -2265,12 +2307,13 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       <div class="drawer-section-label">הרשאות ללוח הזה</div>
       <div class="drawer-access-list" id="drawerAccessList"></div>
       <div class="drawer-access-add">
-        <input type="email" id="accessAddEmail" placeholder="דוא״ל" autocomplete="email" />
+        <input type="text" id="accessAddEmail" placeholder="שם או מייל…" autocomplete="off" autocapitalize="off" spellcheck="false" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="accessSuggest" aria-label="הוספת אדם — שם או כתובת מייל" />
         <select id="accessAddRole" aria-label="הרשאה לכתובת החדשה">
+          <option value="editor" selected>עריכה</option>
           <option value="viewer">צפייה</option>
-          <option value="editor">עריכה</option>
         </select>
         <button type="button" id="accessAddBtn">הוספה</button>
+        <div class="access-suggest" id="accessSuggest" role="listbox" hidden></div>
       </div>
       <div class="drawer-access-default">
         <span>כל מי שיש לו קישור:</span>
@@ -3187,11 +3230,11 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     return null;
   }
 
-  async function callSetAccess(targetEmail, role){
+  async function callSetAccess(targetEmail, role, name){
     try{
       const res = await fetch(API_URL, {
         method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
-        body: JSON.stringify(authBody({ action:'setAccess', board: currentBoardId, targetEmail, role }))
+        body: JSON.stringify(authBody(Object.assign({ action:'setAccess', board: currentBoardId, targetEmail, role }, name ? { name } : {})))
       });
       const json = await res.json();
       if(handleAuthError(json)) return null;
@@ -3221,6 +3264,81 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     }catch(e){ return null; }
   }
 
+  async function callSetAccessMany(targetEmails, role){
+    try{
+      const res = await fetch(API_URL, {
+        method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body: JSON.stringify(authBody({ action:'setAccessMany', board: currentBoardId, targetEmails, role }))
+      });
+      const json = await res.json();
+      if(handleAuthError(json)) return null;
+      return json;
+    }catch(e){ return null; }
+  }
+  // The team directory (backend v22): everyone with a role on any board, with
+  // the name Google gave at their first sign-in (or one an editor typed).
+  // Cached for the drawer session; null when the server doesn't have it yet
+  // (older backend) or the caller isn't an editor anywhere — the add field
+  // then falls back to plain email entry.
+  let teamCache = null, teamCacheAt = 0, teamFetch = null;
+  async function fetchTeam(force){
+    if(!force && teamCache && Date.now() - teamCacheAt < 60000) return teamCache;
+    if(teamFetch) return teamFetch;
+    teamFetch = (async () => {
+      try{
+        const res = await fetch(API_URL + '?action=listTeam' + authQuery() + '&t=' + Date.now());
+        const json = await res.json();
+        if(json && json.ok && Array.isArray(json.members)){ teamCache = json.members; teamCacheAt = Date.now(); return teamCache; }
+      }catch(e){}
+      return teamCache; // keep the last good list on a transient failure
+    })();
+    try{ return await teamFetch; } finally { teamFetch = null; }
+  }
+  const personInitial = (name, email) => ((name || '').trim()[0] || (email || '').trim()[0] || '?').toUpperCase();
+  const personLabel = row => (row && row.name) ? row.name : (row ? row.email : '');
+  // Avatar + name/email block shared by the access list and the suggestions.
+  function buildPersonEl(row, opts){
+    opts = opts || {};
+    const frag = document.createDocumentFragment();
+    const av = document.createElement('span');
+    av.className = 'person-av' + (opts.newAddress ? ' is-new' : '');
+    av.textContent = opts.newAddress ? '@' : personInitial(row.name, row.email);
+    av.setAttribute('aria-hidden', 'true');
+    const who = document.createElement('span');
+    who.className = 'person';
+    const main = document.createElement('span'); main.className = 'person-name';
+    const sub = document.createElement('span'); sub.className = 'person-email';
+    if(row.name){
+      main.append(...(opts.mark ? markMatch(row.name, opts.mark) : [row.name]));
+      sub.append(...(opts.mark ? markMatch(row.email, opts.mark) : [row.email]));
+    } else {
+      main.style.direction = 'ltr'; main.style.textAlign = 'start'; main.style.fontWeight = '500';
+      main.append(...(opts.mark ? markMatch(row.email, opts.mark) : [row.email]));
+      sub.textContent = opts.newAddress ? 'כתובת חדשה' : (row.signedIn === false ? 'עוד לא נכנס/ה לאפליקציה' : '');
+      sub.classList.add('is-hint');
+    }
+    who.append(main, sub);
+    frag.append(av, who);
+    return frag;
+  }
+  // Highlights the typed prefix at the start of a word (name) or of the string (email).
+  function markMatch(text, q){
+    const out = [];
+    if(!q) return [text];
+    const lower = text.toLowerCase(), ql = q.toLowerCase();
+    let i = 0, pos = 0;
+    while(pos < lower.length){
+      const atWordStart = pos === 0 || /[\s.@_\-]/.test(lower[pos - 1]);
+      if(atWordStart && lower.startsWith(ql, pos)){
+        if(pos > i) out.push(text.slice(i, pos));
+        const m = document.createElement('mark'); m.textContent = text.slice(pos, pos + ql.length); out.push(m);
+        pos += ql.length; i = pos;
+      } else pos++;
+    }
+    if(i < text.length) out.push(text.slice(i));
+    return out;
+  }
+
   // Wraps an email in a left-to-right isolate so it doesn't reorder the
   // surrounding Hebrew sentence (BiDi).
   const ltrIso = s => '\u2066' + s + '\u2069';
@@ -3241,6 +3359,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   // post-add render starts — the sequence token drops the older response
   // instead of letting it land on top of the newer one.
   let accessRenderSeq = 0;
+  let accessRows = []; // the board's current access rows (for the suggestions)
   async function renderAccessList(){
     const list = document.getElementById('drawerAccessList');
     const defaultSel = document.getElementById('accessDefaultRole');
@@ -3252,14 +3371,11 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     list.innerHTML = '';
     if(!data){ setAccessMsg('טעינת ההרשאות נכשלה'); return false; }
     defaultSel.value = data.defaultRole || '';
+    accessRows = data.rows.slice();
     data.rows.forEach(row => {
       const item = document.createElement('div');
       item.className = 'drawer-access-item';
-
-      const emailSpan = document.createElement('span');
-      emailSpan.className = 'drawer-access-item-email';
-      emailSpan.textContent = row.email;
-      item.appendChild(emailSpan);
+      item.appendChild(buildPersonEl(row));
 
       const roleSel = document.createElement('select');
       roleSel.setAttribute('aria-label', 'הרשאה עבור ' + row.email);
@@ -3278,7 +3394,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
           return;
         }
         const listed = await renderAccessList();
-        setAccessMsg('✓ ההרשאה של ' + ltrIso(row.email) + ' עודכנה ל' + (roleSel.value === 'editor' ? 'עריכה' : 'צפייה') + refreshNote(listed), true);
+        setAccessMsg('✓ ההרשאה של ' + (row.name || ltrIso(row.email)) + ' עודכנה ל' + (roleSel.value === 'editor' ? 'עריכה' : 'צפייה') + refreshNote(listed), true);
       });
       item.appendChild(roleSel);
 
@@ -3287,7 +3403,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       delBtn.onclick = () => {
         showConfirmModal({
           title: 'הסרת הרשאה',
-          message: 'להסיר את הגישה של ' + row.email + ' ללוח הזה?',
+          message: 'להסיר את הגישה של ' + (row.name ? row.name + ' (' + row.email + ')' : row.email) + ' ללוח הזה?',
           confirmLabel: 'הסרה',
           onConfirm: async () => {
             setAccessMsg('');
@@ -3297,7 +3413,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
               return;
             }
             const listed = await renderAccessList();
-            setAccessMsg('✓ הגישה של ' + ltrIso(row.email) + ' הוסרה' + refreshNote(listed), true);
+            setAccessMsg('✓ הגישה של ' + (row.name || ltrIso(row.email)) + ' הוסרה' + refreshNote(listed), true);
           }
         });
       };
@@ -3314,30 +3430,190 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     return true;
   }
 
-  document.getElementById('accessAddBtn').onclick = async () => {
+  // ---- adding people: a field that recognises the team (2026-10-06, A look + B capability) ----
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const normEmail = e => String(e || '').trim().toLowerCase();
+  // Suggestions for the typed text. Empty query → the team members not yet on
+  // this board (+ "add the whole team" when ≥2 are missing). A query matches
+  // the start of a word in the name, or the start of the email. A full email
+  // that isn't anyone known → "add new address". Members already on the board
+  // are listed faded (not selectable) so the owner sees why they're not offered.
+  function buildSuggestions(query, team){
+    const q = String(query || '').trim(), ql = q.toLowerCase();
+    const onBoard = new Set(accessRows.map(r => normEmail(r.email)));
+    const members = (team || []).slice().sort((a, b) => (a.name || a.email).localeCompare(b.name || b.email, 'he'));
+    const items = [];
+    const matches = m => {
+      if(!ql) return true;
+      if(m.email.toLowerCase().startsWith(ql)) return true;
+      return (m.name || '').toLowerCase().split(/[\s\-]+/).some(w => w.startsWith(ql));
+    };
+    const missing = members.filter(m => !onBoard.has(normEmail(m.email)));
+    if(!ql){
+      if(team === null){ items.push({ kind:'hint', text:'הקלידו כתובת מייל להוספה' }); return items; }
+      if(!missing.length){ items.push({ kind:'hint', text: members.length ? 'כל הצוות כבר בלוח הזה — הקלידו מייל כדי להזמין מישהו חדש' : 'הקלידו שם או מייל' }); return items; }
+      items.push({ kind:'group', text:'בצוות, בלי גישה ללוח הזה' });
+      missing.forEach(m => items.push({ kind:'member', row:m }));
+      if(missing.length >= 2) items.push({ kind:'all', emails: missing.map(m => m.email), count: missing.length });
+      return items;
+    }
+    const hit = members.filter(matches);
+    hit.filter(m => !onBoard.has(normEmail(m.email))).forEach(m => items.push({ kind:'member', row:m, mark:q }));
+    hit.filter(m => onBoard.has(normEmail(m.email))).forEach(m => items.push({ kind:'member', row:m, mark:q, taken:true }));
+    const qe = normEmail(q);
+    if(EMAIL_RE.test(qe) && !members.some(m => normEmail(m.email) === qe) && !onBoard.has(qe)){
+      items.push({ kind:'new', email: qe });
+    } else if(!items.length){
+      items.push({ kind:'hint', text: team === null ? 'הקלידו כתובת מייל מלאה' : 'אין בצוות מישהו בשם הזה — הקלידו כתובת מייל מלאה כדי להזמין' });
+    }
+    return items;
+  }
+  // Renders `items` into `box`; `onPick(item, nameValue)` adds. Returns the selectable buttons.
+  function renderSuggestions(box, items, onPick){
+    box.innerHTML = '';
+    const buttons = [];
+    items.forEach(it => {
+      if(it.kind === 'group'){ const g = document.createElement('div'); g.className = 'access-group'; g.textContent = it.text; box.appendChild(g); return; }
+      if(it.kind === 'hint'){ const h = document.createElement('div'); h.className = 'access-hint'; h.textContent = it.text; box.appendChild(h); return; }
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'access-sugg' + (it.taken ? ' is-taken' : '') + (it.kind === 'all' ? ' is-all' : '');
+      b.setAttribute('role', 'option');
+      if(it.kind === 'member'){
+        b.appendChild(buildPersonEl(it.row, { mark: it.mark }));
+        if(it.taken){ const t = document.createElement('span'); t.className = 'tag'; t.textContent = 'כבר בלוח'; b.appendChild(t); b.disabled = true; b.setAttribute('aria-disabled', 'true'); }
+      } else if(it.kind === 'all'){
+        const av = document.createElement('span'); av.className = 'person-av'; av.textContent = '+'; av.style.color = 'var(--accent)';
+        const who = document.createElement('span'); who.className = 'person';
+        const n = document.createElement('span'); n.className = 'person-name'; n.textContent = 'להוסיף את כל הצוות (' + it.count + ')';
+        const sub = document.createElement('span'); sub.className = 'person-email is-hint'; sub.textContent = 'כולם עם ההרשאה שנבחרה';
+        who.append(n, sub); b.append(av, who);
+      } else if(it.kind === 'new'){
+        b.appendChild(buildPersonEl({ email: it.email, name: '' }, { newAddress: true }));
+        b.querySelector('.person-name').textContent = ''; b.querySelector('.person-name').append(...markMatch(it.email, ''));
+        b.querySelector('.person-email').textContent = 'הוספת כתובת חדשה';
+        const nameIn = document.createElement('input');
+        nameIn.type = 'text'; nameIn.className = 'access-newname'; nameIn.placeholder = 'שם (לא חובה)'; nameIn.maxLength = 40;
+        nameIn.setAttribute('aria-label', 'שם לכתובת החדשה (לא חובה)');
+        nameIn.addEventListener('click', e => e.stopPropagation());
+        nameIn.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); onPick(it, nameIn.value.trim()); } e.stopPropagation(); });
+        b.appendChild(nameIn);
+        b.__nameInput = nameIn;
+      }
+      if(!it.taken){ b.onclick = () => onPick(it, b.__nameInput ? b.__nameInput.value.trim() : ''); buttons.push(b); }
+      box.appendChild(b);
+    });
+    return buttons;
+  }
+  // The add itself (one person, a new address with an optional name, or the whole team).
+  async function performAccessAdd(item, role, name, report){
+    if(item.kind === 'all'){
+      const res = await callSetAccessMany(item.emails, role);
+      if(!res || !res.ok){ report('ההוספה נכשלה', false); return false; }
+      const okN = res.results.filter(r => r.ok).length;
+      const listed = await renderAccessList();
+      report('✓ נוספו ' + okN + ' מהצוות עם הרשאת ' + (role === 'editor' ? 'עריכה' : 'צפייה') + (okN < item.emails.length ? ' (' + (item.emails.length - okN) + ' לא נוספו)' : '') + refreshNote(listed), true);
+      fetchTeam(true);
+      return true;
+    }
+    const email = item.kind === 'new' ? item.email : item.row.email;
+    const res = await callSetAccess(email, role, item.kind === 'new' ? name : '');
+    if(!res || !res.ok){ report(res && res.error === 'bad_email' ? 'כתובת מייל לא תקינה' : 'ההוספה נכשלה', false); return false; }
+    const listed = await renderAccessList();
+    const label = item.kind === 'new' ? (name || ltrIso(email)) : (item.row.name || ltrIso(email));
+    report('✓ ' + label + ' נוסף/ה עם הרשאת ' + (role === 'editor' ? 'עריכה' : 'צפייה') + refreshNote(listed), true);
+    fetchTeam(true);
+    return true;
+  }
+
+  // Desktop: the field in the drawer with a list under it (combobox).
+  (function wireAccessCombo(){
     const input = document.getElementById('accessAddEmail');
     const roleSel = document.getElementById('accessAddRole');
     const btn = document.getElementById('accessAddBtn');
-    const email = input.value.trim();
-    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ setAccessMsg('כתובת מייל לא תקינה'); return; }
-    const role = roleSel.value;
-    // The round-trip takes a few seconds; without a busy state the click looked
-    // like it did nothing, and a second click re-sent the same request.
-    btn.disabled = true; btn.textContent = 'מוסיף…';
-    setAccessMsg('');
-    try{
-      const res = await callSetAccess(email, role);
-      if(!res || !res.ok){
-        setAccessMsg(res && res.error === 'bad_email' ? 'כתובת מייל לא תקינה' : 'ההוספה נכשלה');
-        return;
-      }
-      input.value = '';
-      const listed = await renderAccessList();
-      setAccessMsg('✓ ' + ltrIso(email) + ' נוסף/ה עם הרשאת ' + (role === 'editor' ? 'עריכה' : 'צפייה') + refreshNote(listed), true);
-    }finally{
-      btn.disabled = false; btn.textContent = 'הוספה';
+    const box = document.getElementById('accessSuggest');
+    let items = [], buttons = [], active = -1, team;
+    const setActive = i => {
+      buttons.forEach(b => b.classList.remove('is-active'));
+      active = i;
+      if(active >= 0 && buttons[active]){ buttons[active].classList.add('is-active'); buttons[active].scrollIntoView({ block:'nearest' }); input.setAttribute('aria-activedescendant', buttons[active].id || (buttons[active].id = 'accessOpt' + active)); }
+      else input.removeAttribute('aria-activedescendant');
+    };
+    const close = () => { box.hidden = true; input.setAttribute('aria-expanded', 'false'); setActive(-1); };
+    const pick = async (it, name) => {
+      close();
+      btn.disabled = true; btn.textContent = 'מוסיף…'; setAccessMsg('');
+      try{ if(await performAccessAdd(it, roleSel.value, name, setAccessMsg)) input.value = ''; }
+      finally{ btn.disabled = false; btn.textContent = 'הוספה'; }
+    };
+    async function refresh(){
+      if(isMobileLayout()) return;
+      team = await fetchTeam();
+      if(document.activeElement !== input && !box.contains(document.activeElement)) return;
+      items = buildSuggestions(input.value, team);
+      buttons = renderSuggestions(box, items, pick);
+      box.hidden = false; input.setAttribute('aria-expanded', 'true');
+      // a typed query preselects its first real suggestion so Enter adds it
+      setActive(input.value.trim() && buttons.length ? 0 : -1);
     }
-  };
+    input.addEventListener('focus', () => {
+      if(isMobileLayout()){ input.blur(); openAccessSheet(); return; }
+      refresh();
+    });
+    input.addEventListener('input', refresh);
+    input.addEventListener('keydown', e => {
+      if(box.hidden && (e.key === 'ArrowDown' || e.key === 'ArrowUp')){ refresh(); e.preventDefault(); return; }
+      if(e.key === 'ArrowDown'){ e.preventDefault(); if(buttons.length) setActive((active + 1) % buttons.length); }
+      else if(e.key === 'ArrowUp'){ e.preventDefault(); if(buttons.length) setActive((active - 1 + buttons.length) % buttons.length); }
+      else if(e.key === 'Escape'){ if(!box.hidden){ e.preventDefault(); e.stopPropagation(); close(); } }
+      else if(e.key === 'Enter'){ e.preventDefault(); if(active >= 0 && buttons[active]) buttons[active].click(); else btn.click(); }
+    });
+    document.addEventListener('pointerdown', e => { if(!box.hidden && !box.contains(e.target) && e.target !== input) close(); }, true);
+    // the button still works for a typed address (old habit) — it also picks a single exact match
+    btn.onclick = async () => {
+      const q = input.value.trim();
+      if(!q){ input.focus(); return; }
+      const list = buildSuggestions(q, team === undefined ? await fetchTeam() : team).filter(it => (it.kind === 'member' && !it.taken) || it.kind === 'new');
+      if(list.length === 1){ pick(list[0], ''); return; }
+      if(!EMAIL_RE.test(normEmail(q))){ setAccessMsg(list.length ? 'בחרו מהרשימה את מי להוסיף' : 'כתובת מייל לא תקינה'); refresh(); return; }
+      pick({ kind:'new', email: normEmail(q) }, '');
+    };
+    // when the drawer opens for an editor, warm the team list so the first focus is instant
+    window.__warmTeam = () => { if(currentRole === 'editor') fetchTeam(); };
+  })();
+
+  // Phone: a page sheet with the field at the top (the keyboard would hide an inline list).
+  function openAccessSheet(){
+    const body = document.createElement('div');
+    body.className = 'sheet-access';
+    const field = document.createElement('div'); field.className = 'sheet-field';
+    const input = document.createElement('input');
+    input.type = 'text'; input.placeholder = 'שם או מייל…'; input.autocomplete = 'off'; input.setAttribute('autocapitalize', 'off'); input.spellcheck = false;
+    input.setAttribute('enterkeyhint', 'done'); input.setAttribute('aria-label', 'שם או כתובת מייל');
+    const roleSel = document.createElement('select'); roleSel.setAttribute('aria-label', 'הרשאה');
+    [['editor','עריכה'],['viewer','צפייה']].forEach(([v,l]) => { const o = document.createElement('option'); o.value = v; o.textContent = l; roleSel.appendChild(o); });
+    roleSel.value = document.getElementById('accessAddRole').value;
+    field.append(input, roleSel);
+    const box = document.createElement('div'); box.className = 'access-suggest'; box.setAttribute('role', 'listbox');
+    const status = document.createElement('div'); status.className = 'access-status'; status.setAttribute('role', 'status');
+    body.append(field, status, box);
+    let team;
+    const report = (text, ok) => { status.textContent = text; status.style.color = ok ? '' : 'var(--danger)'; };
+    const pick = async (it, name) => { report('מוסיף…', true); if(await performAccessAdd(it, roleSel.value, name, report)){ input.value = ''; refresh(); } };
+    async function refresh(){
+      team = await fetchTeam();
+      renderSuggestions(box, buildSuggestions(input.value, team), pick);
+    }
+    input.addEventListener('input', refresh);
+    input.addEventListener('keydown', e => {
+      if(e.key !== 'Enter') return;
+      e.preventDefault();
+      const first = box.querySelector('.access-sugg:not(.is-taken)');
+      if(first && input.value.trim()) first.click();
+    });
+    openSheet('הוספת אדם ללוח', body, { page:true, focus: input });
+    refresh();
+  }
+
   document.getElementById('accessDefaultRole').addEventListener('change', async (e) => {
     const res = await callSetDefaultRole(e.target.value);
     if(!res || !res.ok){ setAccessMsg('העדכון נכשל'); return; }
@@ -3421,7 +3697,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   function openDrawer(){
     renderSectionSettingsList();
     renderLockRow(); renderMeSelect(); renderDefaultBoardToggle();
-    if(currentRole === 'editor'){ renderAccessList(); renderActivityList(); }
+    if(currentRole === 'editor'){ renderAccessList(); renderActivityList(); if(window.__warmTeam) window.__warmTeam(); }
     const restoreBtn = document.getElementById('drawerRestoreBackupBtn');
     restoreBtn.style.display = localStorage.getItem(backupCacheKeyFor(currentBoardId)) ? '' : 'none';
     const overlay = document.getElementById('drawerOverlay');
