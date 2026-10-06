@@ -930,6 +930,10 @@ html,body{
 .notes-row-ex{ margin-inline-start:8px; }
 .notes-row-meta{ flex:0 1 auto; max-width:40%; font-size:13px; line-height:18px; color:var(--ink3-text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-variant-numeric:tabular-nums; }
 .notes-row-meta:empty{ display:none; }
+.notes-mark{ background:rgba(255,214,10,.55); color:inherit; border-radius:3px; padding:0 1px; }
+:root[data-theme="dark"] .notes-mark{ background:rgba(255,214,10,.35); }
+/* while searching the results header already shows the count: the line below stays for screen readers only */
+.notes-body.is-results + .notes-count{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
 .notes-count{ margin-top:16px; text-align:center; font-size:12px; line-height:16px; color:var(--ink2); font-variant-numeric:tabular-nums; }
 .notes-empty{
   display:block; width:100%; margin:18px 0 0; padding:48px 20px; border:0; border-radius:var(--radius-lg);
@@ -941,7 +945,16 @@ button.notes-empty:focus-visible{ outline:2px solid var(--accent); outline-offse
 .notes-toolbar{ display:none; }
 @media (max-width:767px){
   .notes-index{ padding:8px 16px calc(50px + env(safe-area-inset-bottom, 0px) + 16px); }
-  .notes-view, .notes-sort, .notes-search .kbd, #notesNewPageBtn, .notes-count{ display:none; }
+  .notes-view, .notes-sort, .notes-search .kbd, #notesNewPageBtn{ display:none; }
+  /* the toolbar shows the count; #notesCount stays in the a11y tree as the status line */
+  .notes-count{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+  .notes-bar.is-searching .notes-more{ display:none; }
+  .notes-search-cancel:not([hidden]){
+    display:inline-flex; align-items:center; flex:none; min-height:44px; padding:0 4px; border:0; background:none;
+    color:var(--accent); font:inherit; font-size:17px; cursor:pointer;
+  }
+  .notes-search-cancel:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; border-radius:var(--r8); }
+  .notes-results .notes-row-meta{ display:none; }
   .notes-bar{ gap:8px; }
   .notes-bar .notes-search, .notes-bar .notes-search:focus-within{ width:auto; flex:1 1 auto; height:36px; }
   .notes-more{
@@ -1504,6 +1517,7 @@ button.notes-empty:focus-visible{ outline:2px solid var(--accent); outline-offse
 /* a row found by search / quick add */
 @keyframes rowFlash{ 0%,30%{ background:var(--accent-tint); box-shadow:0 0 0 2px var(--accent-deco); } 100%{ background:transparent; box-shadow:0 0 0 0 transparent; } }
 .flash{ animation:rowFlash 1.6s ease-out; }
+.ob-row-main.flash{ border-radius:6px; animation-duration:.6s; } /* a notes search hit, revealed in its page */
 
 /* week change: cards slide in from the side time moved toward (RTL: next = from the left) */
 @keyframes wkInNext{ from{ opacity:0; transform:translateX(-14px); } }
@@ -1569,7 +1583,7 @@ button.notes-empty:focus-visible{ outline:2px solid var(--accent); outline-offse
 @media (prefers-reduced-motion: reduce){
   @keyframes wkInNext{ from{ opacity:0; } }
   @keyframes wkInPrev{ from{ opacity:0; } }
-  .flash{ animation-duration:.01s; background:var(--accent-tint); }
+  .flash, .ob-row-main.flash{ animation-duration:.01s; background:var(--accent-tint); }
   .search-box{ transition:none; }
 }
 
@@ -2282,15 +2296,15 @@ body.has-select-mode .undo-toast{ bottom:84px; }
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
           <input id="notesSearch" type="search" placeholder="חיפוש" aria-label="חיפוש ברשומות" autocomplete="off">
           <span class="kbd" aria-hidden="true">⌘K</span>
-          <button type="button" class="notes-search-cancel" id="notesSearchCancel" hidden>ביטול</button>
         </label>
+        <button type="button" class="notes-search-cancel" id="notesSearchCancel" hidden>ביטול</button>
         <div class="view-toggle notes-view" role="group" aria-label="תצוגה"><button class="view-toggle-btn" type="button" data-view="list" aria-pressed="false">רשימה</button><button class="view-toggle-btn" type="button" data-view="gallery" aria-pressed="false">גלריה</button></div>
         <button class="ctx-link notes-sort" id="notesSortBtn" type="button" aria-haspopup="true">מיון: <b id="notesSortLabel">תאריך עריכה</b></button>
         <button class="notes-more" id="notesMoreBtn" type="button" aria-label="תצוגה ומיון" aria-haspopup="true">···</button>
         <button class="notes-compose" id="notesNewPageBtn" type="button" aria-label="רשומה חדשה" title="רשומה חדשה (N)"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/><path d="M17.6 3.4a1.9 1.9 0 0 1 2.7 2.7L12 14.4l-3.6.9.9-3.6z"/></svg></button>
       </div>
       <div class="notes-body" id="notesBody"></div>
-      <div class="notes-count" id="notesCount"></div>
+      <div class="notes-count" id="notesCount" role="status"></div>
     </div>
     <div class="notes-toolbar" id="notesToolbar"><span class="notes-toolbar-count" id="notesToolbarCount"></span><button class="notes-compose" id="notesNewPageBtnM" type="button" aria-label="רשומה חדשה"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/><path d="M17.6 3.4a1.9 1.9 0 0 1 2.7 2.7L12 14.4l-3.6.9.9-3.6z"/></svg></button></div>
 
@@ -2510,6 +2524,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   let currentBoardId = '';
   let currentBoardType = 'planner'; // 'planner' | 'notes' — see isValidStateFor/defaultStateFor
   let currentNotesPageId = null; // which notes page (if any) is open — null means the gallery is showing
+  let notesQuery = '';          // notes index search (raw field value; trimmed on use) — per board, cleared on switch
   let boardsList = [];      // [{id, name, role, type}] — boards the current email can access
   let appState = null;      // planner: { people, topics, weeks:{ weekKey: dayData } } — notes: { kind:'notes', pages:[...] }
   let lastSyncedJson = '';  // last state string confirmed round-tripped with the server
@@ -4075,6 +4090,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     currentBoardId = boardId;
     currentBoardType = cachedBoardType(boardId);
     currentNotesPageId = null;
+    resetNotesSearch();
     localStorage.setItem(lastBoardKeyFor(currentEmail), boardId);
     // view is remembered per board, so re-resolve it for the one we're entering
     setView(resolveInitialView(boardId), {silent:true});
@@ -7201,11 +7217,18 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     if(kind && currentRole === 'editor'){ e.preventDefault(); addNew(kind); }
   });
 
-  // notes board: N → new page (mirrors the planner's N), only on the index
+  // notes board, index only (no page open): ⌘K / Ctrl+K (from anywhere) or "/"
+  // → search; N → new page (mirrors the planner's N)
   function notesShortcutKeydown(e){
+    const blocked = () => !!(openPickerEl || openSheetEl || isDrawerOpen() || isLockScreenShown() || isNotesPageOpen() ||
+       document.querySelector('.modal-overlay[style*="flex"]'));
+    if((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && (e.key === 'k' || e.key === 'K' || e.code === 'KeyK')){
+      if(!blocked()){ e.preventDefault(); focusNotesSearch(); }
+      return;
+    }
     if(e.metaKey || e.ctrlKey || e.altKey || e.repeat || isTypingTarget(e.target)) return;
-    if(openPickerEl || openSheetEl || isDrawerOpen() || isLockScreenShown() || isNotesPageOpen() ||
-       document.querySelector('.modal-overlay[style*="flex"]')) return;
+    if(blocked()) return;
+    if(e.key === '/'){ e.preventDefault(); focusNotesSearch(); return; }
     if(e.code === 'KeyN' && currentRole === 'editor'){ e.preventDefault(); createNewNotesPage(); }
   }
 
@@ -9229,7 +9252,8 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   }
   // Search hit for one page: a title match wins; else the first block (depth-
   // first) whose text contains q. start/len index into `text` (case-folded
-  // search, original-case text) so the renderer can wrap the match in <mark>.
+  // search, original-case text) so the renderer can wrap the match in <mark>;
+  // a block hit also carries blockId (opening the result reveals that line).
   function pageMatch(page, q){
     q = String(q || '').trim().toLowerCase();
     if(!q || !page) return null;
@@ -9242,7 +9266,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
         if(hit) return;
         const text = blockPlainText(b);
         const i = text.toLowerCase().indexOf(q);
-        if(i > -1){ hit = { text, start: i, len: q.length }; return; }
+        if(i > -1){ hit = { text, start: i, len: q.length, blockId: b.id }; return; }
         walk(b.children);
       }
     })(page.blocks);
@@ -9955,11 +9979,32 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     pageMenuBtn.onclick = (e) => { e.stopPropagation(); openNotesPageMenu(page, pageMenuBtn); };
   }
 
-  function openNotesPage(pageId){
-    markNotesPageSeen((appState.pages || []).find(p => p.id === pageId)); // opening from anywhere = seen
+  // opts.revealBlockId (a search hit): open that line's collapsed ancestors
+  // (in memory only — not an edit, nothing persisted), then centre and flash it.
+  function openNotesPage(pageId, opts){
+    const page = (appState.pages || []).find(p => p.id === pageId);
+    markNotesPageSeen(page); // opening from anywhere = seen
+    const revealId = opts && opts.revealBlockId;
+    if(page && revealId) expandNotesBlockPath(page.blocks, revealId);
     currentNotesPageId = pageId;
     reflectStateInUrl(currentBoardId, currentView, false, pageId);
     renderNotes();
+    if(page && revealId && isNotesPageOpen()) flashNotesBlock(revealId);
+  }
+  // true when blockId is in `blocks`; un-collapses every ancestor on the way
+  function expandNotesBlockPath(blocks, blockId){
+    for(const b of blocks || []){
+      if(b.id === blockId) return true;
+      if(expandNotesBlockPath(b.children, blockId)){ b.collapsed = false; return true; }
+    }
+    return false;
+  }
+  function flashNotesBlock(blockId){
+    const main = document.querySelector('#notesOutline .ob-row[data-id="' + CSS.escape(blockId) + '"] > .ob-row-main');
+    if(!main) return;
+    main.scrollIntoView({ block:'center' });
+    main.classList.remove('flash'); void main.offsetWidth; main.classList.add('flash');
+    setTimeout(() => main.classList.remove('flash'), 600);
   }
   function closeNotesPage(){
     currentNotesPageId = null;
@@ -10113,11 +10158,12 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       b.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
     document.getElementById('notesSortLabel').textContent = NOTES_SORT_LABEL[sort];
-    const count = pages.length ? notesCountLabel(pages.length) : '';
-    document.getElementById('notesCount').textContent = count;
-    document.getElementById('notesToolbarCount').textContent = count;
+    const q = notesQuery.trim();
+    const searching = !!q && pages.length > 0;
+    if(!searching) setNotesCount(pages.length ? notesCountLabel(pages.length) : '');
     body.innerHTML = '';
-    body.className = 'notes-body' + (view === 'gallery' && pages.length ? ' is-gallery' : '');
+    // a query always lists its results (the stored view pref is untouched)
+    body.className = 'notes-body' + (searching ? ' is-results' : view === 'gallery' && pages.length ? ' is-gallery' : '');
     if(!pages.length){
       const empty = document.createElement(isEditor ? 'button' : 'p');
       empty.className = 'notes-empty';
@@ -10129,9 +10175,75 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       body.appendChild(empty);
       return;
     }
+    if(searching){ renderNotesSearchResults(q, pages); return; }
     const groups = notesIndexGroups(pages, sort);
     if(view === 'gallery') renderNotesGalleryView(groups);
     else renderNotesListView(groups);
+  }
+
+  // #notesCount (role=status; visually hidden on phones) + the phone toolbar.
+  // Only written on a change, so a re-render with the same count stays silent.
+  function setNotesCount(text){
+    ['notesCount', 'notesToolbarCount'].forEach(id => { const el = document.getElementById(id); if(el && el.textContent !== text) el.textContent = text; });
+  }
+  function notesResultsLabel(n){ return n === 0 ? 'אין תוצאות' : n === 1 ? 'תוצאה אחת' : n + ' תוצאות'; }
+
+  // Search results: one section, newest edit first, no date groups; its
+  // header (and the status line) is the result count.
+  function renderNotesSearchResults(q, pages){
+    const body = document.getElementById('notesBody');
+    const hits = [];
+    pages.forEach(page => { const m = pageMatch(page, q); if(m) hits.push({ page, m }); });
+    hits.sort((a, b) => notesTime(b.page.updatedAt) - notesTime(a.page.updatedAt));
+    const label = notesResultsLabel(hits.length);
+    setNotesCount(label);
+    if(!hits.length){
+      const empty = document.createElement('p');
+      empty.className = 'notes-empty';
+      const term = document.createElement('bdi');
+      term.textContent = q;
+      empty.append('אין תוצאות ל"', term, '"');
+      body.appendChild(empty);
+      return;
+    }
+    const sec = document.createElement('section');
+    sec.className = 'notes-group notes-results';
+    const h = document.createElement('h2');
+    h.className = 'notes-group-h';
+    h.textContent = label;
+    sec.appendChild(h);
+    const ul = document.createElement('ul');
+    ul.className = 'notes-list';
+    hits.forEach(hit => ul.appendChild(renderNotesRow(hit.page, 'updatedAt', hit.m)));
+    sec.appendChild(ul);
+    body.appendChild(sec);
+  }
+
+  // text, then <mark>match</mark>, then the rest — text nodes only, never markup
+  function appendMarked(el, text, start, len){
+    if(start > 0) el.appendChild(document.createTextNode(text.slice(0, start)));
+    const mark = document.createElement('mark');
+    mark.className = 'notes-mark';
+    mark.textContent = text.slice(start, start + len);
+    el.appendChild(mark);
+    if(start + len < text.length) el.appendChild(document.createTextNode(text.slice(start + len)));
+  }
+  // The excerpt is one ellipsized line, so a match deep in a long block would
+  // be cut off: start the line a few characters before the match instead
+  // (phones have room for little context; the desktop row for much more).
+  function appendMarkedExcerpt(el, m){
+    let text = m.text, start = m.start;
+    const lead = isMobileLayout() ? 10 : 48;
+    if(start > lead + 4){
+      let cut = start - lead;
+      const sp = text.indexOf(' ', cut);                 // begin on a word when one starts nearby
+      if(sp > -1 && sp < start - 2 && sp - cut <= 6) cut = sp + 1;
+      const c = text.charCodeAt(cut);
+      if(c >= 0xDC00 && c <= 0xDFFF) cut--;               // never split a surrogate pair
+      text = '…' + text.slice(cut);
+      start = start - cut + 1;
+    }
+    appendMarked(el, text, start, m.len);
   }
 
   function renderNotesListView(groups){
@@ -10232,7 +10344,9 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     return li;
   }
 
-  function renderNotesRow(page, dateField){
+  // match (search only): a title hit marks the title; a block hit replaces the
+  // first-line excerpt with the matching line.
+  function renderNotesRow(page, dateField, match){
     const li = document.createElement('li');
     li.className = 'notes-row' + (isNotesPageNew(page) ? ' is-new' : '') + (page.pinned ? ' is-pinned' : '');
     li.dataset.page = page.id;
@@ -10248,7 +10362,12 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     const a = document.createElement('a');
     a.className = 'notes-row-link';
     a.href = '?board=' + encodeURIComponent(currentBoardId) + '&page=' + encodeURIComponent(page.id);
-    a.textContent = (page.title || '').trim() || 'ללא כותרת';
+    const rawTitle = page.title || '';
+    const titleHit = !!match && !!rawTitle && match.text === rawTitle;
+    if(titleHit){
+      const lead = rawTitle.length - rawTitle.trimStart().length;
+      appendMarked(a, rawTitle.trim(), Math.max(0, match.start - lead), match.len);
+    } else a.textContent = rawTitle.trim() || 'ללא כותרת';
     h.appendChild(a);
     bodyEl.appendChild(h);
     const sub = document.createElement('p');
@@ -10259,7 +10378,8 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     time.textContent = notesShortDate(page[dateField]);
     const ex = document.createElement('span');
     ex.className = 'notes-row-ex';
-    ex.textContent = pageFirstLine(page);
+    if(match && !titleHit) appendMarkedExcerpt(ex, match);
+    else ex.textContent = pageFirstLine(page);
     sub.appendChild(time); sub.appendChild(ex);
     bodyEl.appendChild(sub);
     li.appendChild(bodyEl);
@@ -10287,13 +10407,15 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       const hit = pageOf(link);
       if(!hit || !hit.page) return;
       e.preventDefault();
-      openNotesPage(hit.page.id);
+      const m = notesQuery.trim() ? pageMatch(hit.page, notesQuery) : null; // a search hit opens on its line
+      openNotesPage(hit.page.id, m && m.blockId ? { revealBlockId: m.blockId } : undefined);
     });
     body.addEventListener('keydown', (e) => {
       if(!e.target.matches || !e.target.matches('.notes-row-link, .notes-gcard-link')) return;
       if(e.altKey || e.metaKey || e.ctrlKey || e.shiftKey) return;
       const links = Array.from(body.querySelectorAll('.notes-row-link, .notes-gcard-link'));
       const i = links.indexOf(e.target);
+      if(e.key === 'ArrowUp' && i === 0 && notesQuery.trim()){ e.preventDefault(); focusNotesSearch(); return; } // back up into the search field
       const j = e.key === 'ArrowDown' ? Math.min(i + 1, links.length - 1)
         : e.key === 'ArrowUp' ? Math.max(i - 1, 0)
         : e.key === 'Home' ? 0
@@ -10313,6 +10435,59 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     document.querySelectorAll('#notesBar .notes-view [data-view]').forEach(b => {
       b.onclick = () => { setNotesPref('view', b.dataset.view); renderNotesIndex(); };
     });
+  })();
+
+  // ---------- notes index search ----------
+  // Typing re-renders the index after 90ms (Enter: at once). Esc clears, then
+  // blurs; ArrowDown moves into the results. Phones: ביטול (shown while the
+  // field has focus or a query) clears + blurs. The query survives opening a
+  // result and coming back; switching boards clears it.
+  let notesSearchTimer = null;
+  function runNotesSearch(){
+    clearTimeout(notesSearchTimer); notesSearchTimer = null;
+    if(appState && currentBoardType === 'notes' && !isNotesPageOpen()) renderNotesIndex();
+  }
+  // focusTarget: where focus is going (blur's relatedTarget); default = where it is
+  function syncNotesSearchChrome(focusTarget){
+    const input = document.getElementById('notesSearch'), cancel = document.getElementById('notesSearchCancel');
+    const f = focusTarget === undefined ? document.activeElement : focusTarget;
+    const on = f === input || f === cancel || !!input.value;
+    cancel.hidden = !on;
+    document.getElementById('notesBar').classList.toggle('is-searching', on);
+  }
+  function focusNotesSearch(){ const el = document.getElementById('notesSearch'); el.focus(); el.select(); }
+  function clearNotesSearch(){ document.getElementById('notesSearch').value = ''; notesQuery = ''; runNotesSearch(); }
+  function resetNotesSearch(){
+    clearTimeout(notesSearchTimer); notesSearchTimer = null;
+    notesQuery = '';
+    const input = document.getElementById('notesSearch');
+    if(input){ input.value = ''; syncNotesSearchChrome(null); }
+  }
+  (function wireNotesSearch(){
+    const input = document.getElementById('notesSearch'), cancel = document.getElementById('notesSearchCancel');
+    input.addEventListener('input', () => {
+      notesQuery = input.value;
+      syncNotesSearchChrome();
+      clearTimeout(notesSearchTimer);
+      notesSearchTimer = setTimeout(runNotesSearch, 90);
+    });
+    input.addEventListener('keydown', (e) => {
+      if(e.isComposing) return;
+      if(e.key === 'Enter'){ e.preventDefault(); runNotesSearch(); }
+      else if(e.key === 'Escape'){
+        e.preventDefault(); e.stopPropagation();
+        if(input.value){ clearNotesSearch(); syncNotesSearchChrome(); } else input.blur();
+      } else if(e.key === 'ArrowDown' && !e.altKey && !e.metaKey && !e.ctrlKey && !e.shiftKey){
+        if(notesSearchTimer) runNotesSearch();
+        const first = document.querySelector('#notesBody .notes-row-link, #notesBody .notes-gcard-link');
+        if(first){ e.preventDefault(); first.focus(); }
+      }
+    });
+    input.addEventListener('focus', () => syncNotesSearchChrome());
+    input.addEventListener('blur', (e) => syncNotesSearchChrome(e.relatedTarget));
+    cancel.addEventListener('pointerdown', (e) => e.preventDefault()); // keep the field focused until the click lands
+    cancel.addEventListener('blur', (e) => syncNotesSearchChrome(e.relatedTarget));
+    cancel.addEventListener('click', () => { clearNotesSearch(); input.blur(); syncNotesSearchChrome(null); });
   })();
 
   function renderNotes(){
