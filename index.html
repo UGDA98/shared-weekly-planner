@@ -938,7 +938,6 @@ html,body{
 button.notes-empty{ cursor:pointer; }
 button.notes-empty:hover{ color:var(--ink); }
 button.notes-empty:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
-.notes-body.notes-gallery{ padding:0; margin-top:14px; }
 .notes-toolbar{ display:none; }
 @media (max-width:767px){
   .notes-index{ padding:8px 16px calc(50px + env(safe-area-inset-bottom, 0px) + 16px); }
@@ -965,36 +964,50 @@ button.notes-empty:focus-visible{ outline:2px solid var(--accent); outline-offse
   .notes-toolbar .notes-compose{ position:absolute; inset-inline-end:8px; top:3px; width:44px; height:44px; }
   .planner-root.notes-index-on ~ .undo-toast{ bottom:calc(50px + env(safe-area-inset-bottom, 0px) + 16px); max-width:calc(100vw - 32px); }
 }
+/* gallery: each card is a thumbnail of the page itself (the "paper"), title + date beneath */
+.notes-body.is-gallery .notes-group{ margin-top:22px; }
+.notes-body.is-gallery .notes-group-h{ margin-bottom:10px; padding-inline:2px; }
 .notes-gallery{
-  display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:14px;
-  padding:0 20px 24px;
+  list-style:none; margin:0; padding:0;
+  display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:22px 18px;
 }
-@media (max-width:480px){ .notes-gallery{ grid-template-columns:1fr; } }
-.notes-card{
-  position:relative; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg);
-  box-shadow:var(--shadow); padding:14px 14px 12px; cursor:pointer; display:flex; flex-direction:column; gap:8px;
-  min-height:150px; min-width:0; transition:box-shadow .15s ease, border-color .15s ease, transform .15s ease;
+.notes-gcard{ position:relative; min-width:0; }
+.notes-gcard-link{ display:block; color:inherit; text-decoration:none; outline:none; }
+.notes-paper{
+  position:relative; height:150px; padding:12px 14px; background:var(--s1); border-radius:8px;
+  box-shadow:0 0 0 1px rgba(0,0,0,.06); overflow:hidden; transition:box-shadow .12s ease;
 }
-.notes-card:hover{ border-color:var(--border-strong); box-shadow:var(--shadow-lift); transform:translateY(-2px); }
-.notes-card-title-row{ display:flex; align-items:center; gap:6px; padding-inline-end:24px; min-width:0; }
-.notes-card-icon{ flex-shrink:0; font-size:16px; line-height:1; }
-.notes-card-title{ font-size:14.5px; font-weight:700; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
-.notes-card-title.is-empty{ color:var(--muted); font-weight:600; }
-.notes-card-preview{ flex:1; display:flex; flex-direction:column; gap:3px; overflow:hidden; pointer-events:none; }
-.notes-card-preview-row{ display:flex; align-items:flex-start; gap:5px; font-size:12px; color:var(--muted); line-height:1.4; overflow:hidden; }
-.notes-card-preview-row .cpr-mark{ flex-shrink:0; width:16px; text-align:center; color:var(--muted); opacity:.7; font-size:11px; }
-.notes-card-preview-row .cpr-text{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.notes-card-preview-row.is-h1 .cpr-text{ font-weight:700; color:var(--ink); }
-.notes-card-preview-row.is-h2 .cpr-text{ font-weight:600; color:var(--ink); }
-.notes-card-footer{ font-size:11px; color:var(--muted); }
-.notes-card-menu{
-  position:absolute; top:10px; inset-inline-end:10px; border:none; background:none; color:var(--muted);
-  font-size:16px; line-height:1; padding:4px 7px; border-radius:var(--radius-sm); cursor:pointer;
-  opacity:0; transition:opacity .12s ease, background-color .12s ease;
+.notes-paper::after{
+  content:""; position:absolute; inset-inline:0; bottom:0; height:28px; pointer-events:none;
+  background:linear-gradient(to top, var(--s1), color-mix(in srgb, var(--s1) 0%, transparent));
 }
-.notes-card:hover .notes-card-menu,
-.notes-card-menu:focus{ opacity:1; }
-.notes-card-menu:hover{ background:var(--surface-2); color:var(--ink); }
+.notes-gcard-link:hover .notes-paper{ box-shadow:0 0 0 1px rgba(0,0,0,.12); }
+.notes-gcard:focus-within .notes-paper, .notes-gcard.is-selected .notes-paper{ box-shadow:0 0 0 3px var(--accent); }
+.np-line{ margin:0 0 3px; font-size:10.5px; line-height:1.35; color:var(--ink2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.np-h1, .np-h2{ font-size:11.5px; font-weight:600; color:var(--ink); }
+.np-todo::before{
+  content:""; display:inline-block; box-sizing:border-box; width:8px; height:8px; margin-inline-end:5px; vertical-align:-0.5px;
+  border:1px solid var(--ink3); border-radius:50%;
+}
+.np-done{ color:var(--ink3-text); text-decoration:line-through; }
+.np-done::before{ background:var(--ink3); }
+.notes-gcard-title{
+  margin:8px 0 0; font-size:14px; line-height:19px; font-weight:600; color:var(--ink); text-align:center;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.notes-gcard-title.is-untitled{ color:var(--ink2); }
+.notes-gcard .notes-dot{ position:static; vertical-align:1px; margin-inline-end:6px; }
+.notes-gcard.is-new .notes-dot{ display:inline-block; }
+.notes-gcard-meta{
+  margin:2px 0 0; font-size:12.5px; line-height:17px; color:var(--ink2); text-align:center; font-variant-numeric:tabular-nums;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+@media (max-width:767px){
+  .notes-gallery{ grid-template-columns:repeat(2, minmax(0, 1fr)); gap:18px 14px; }
+  .notes-paper{ height:132px; padding:10px 12px; }
+  .notes-gcard-title{ font-size:14px; }
+  .notes-gcard-meta{ font-size:12px; }
+}
 .picker-item.is-danger{ color:var(--danger); }
 .picker-item.is-danger:hover{ background:rgba(192,57,43,.08); }
 
@@ -1213,7 +1226,6 @@ button.notes-empty:focus-visible{ outline:2px solid var(--accent); outline-offse
   .picker-item .pedit,
   .picker-item .pdel{ opacity:.5; padding:6px; }
   .drawer-board-item-actions{ opacity:.6; }
-  .notes-card-menu{ opacity:.55; }
 }
 @media (prefers-reduced-motion: reduce){
   .nav-btn{ transition:none; }
@@ -5366,7 +5378,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       const hb = document.getElementById('highlightBtn');
       if(hb) hb.setAttribute('aria-expanded', 'false'); // no-op unless this was the trigger
       document.querySelectorAll('[data-pop-anchor][aria-expanded="true"]').forEach(el => el.setAttribute('aria-expanded', 'false'));
-      document.querySelectorAll('.notes-row.is-selected').forEach(el => el.classList.remove('is-selected'));
+      document.querySelectorAll('.notes-row.is-selected, .notes-gcard.is-selected').forEach(el => el.classList.remove('is-selected'));
       if(pickerReturnFocusEl){ try{ pickerReturnFocusEl.focus(); }catch(e){} pickerReturnFocusEl = null; }
     }
   }
@@ -10001,8 +10013,8 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     });
   }
 
-  // Shared page menu — the gallery card's ⋯, the in-page ⋯ button and the
-  // list row's context menu (right-click / menu key; `point` = the pointer),
+  // Shared page menu — the in-page ⋯ button and the list row's / gallery
+  // card's context menu (right-click / menu key; `point` = the pointer),
   // same .picker popover infrastructure as openHighlightMenu
   // (positionPopover/closePicker/onDocClick). Viewers only get "פתיחה".
   const NOTES_MENU_W = 170;
@@ -10010,13 +10022,14 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     closePicker();
     const pop = document.createElement('div');
     pop.className = 'picker';
-    const isRow = anchorEl.classList.contains('notes-row');
+    const isRow = anchorEl.classList.contains('notes-row') || anchorEl.classList.contains('notes-gcard');
     const rtl = getComputedStyle(anchorEl).direction === 'rtl';
     let rect = anchorEl.getBoundingClientRect();
+    const rowLink = isRow ? anchorEl.querySelector('.notes-row-link, .notes-gcard-link') : null;
     if(isRow){
-      // a row is as wide as the list: open at the pointer, or under the title's
+      // a row (or gallery card): open at the pointer, or under the title's
       // start edge for the keyboard, growing toward the row's end (RTL: leftward)
-      const titleRect = (anchorEl.querySelector('.notes-row-link') || anchorEl).getBoundingClientRect();
+      const titleRect = (anchorEl.querySelector('.notes-row-link, .notes-gcard-title') || anchorEl).getBoundingClientRect();
       const x = point ? point.x : (rtl ? titleRect.right : titleRect.left);
       const y = point ? point.y : titleRect.bottom;
       rect = { left: rtl ? x - NOTES_MENU_W : x, top: y, bottom: y };
@@ -10056,7 +10069,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     positionPopover(pop, rect, { width: NOTES_MENU_W });
     openPickerEl = pop;
     if(isRow) anchorEl.classList.add('is-selected'); // cleared by closePicker
-    wirePickerKeyboard(pop, isRow ? (anchorEl.querySelector('.notes-row-link') || anchorEl) : anchorEl);
+    wirePickerKeyboard(pop, isRow ? (rowLink || anchorEl) : anchorEl);
     setTimeout(() => document.addEventListener('mousedown', onDocClick, true), 0);
   }
 
@@ -10074,71 +10087,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     });
   }
 
-  function renderNotesCard(page){
-    const card = document.createElement('div');
-    card.className = 'notes-card';
-    card.onclick = () => openNotesPage(page.id);
-
-    const titleRow = document.createElement('div');
-    titleRow.className = 'notes-card-title-row';
-    if(page.icon){
-      const icon = document.createElement('span');
-      icon.className = 'notes-card-icon';
-      icon.textContent = page.icon;
-      titleRow.appendChild(icon);
-    }
-    const title = document.createElement('div');
-    title.className = 'notes-card-title' + (page.title ? '' : ' is-empty');
-    title.textContent = page.title || 'ללא כותרת';
-    titleRow.appendChild(title);
-    card.appendChild(titleRow);
-
-    const preview = document.createElement('div');
-    preview.className = 'notes-card-preview';
-    const flat = [];
-    const olCounters = {}; // running numbered-list count per depth, same rule as renderBlockList
-    (function walk(blocks, depth){
-      blocks.forEach(b => {
-        if(flat.length >= 6) return;
-        olCounters[depth] = (b.style === 'ol') ? (olCounters[depth] || 0) + 1 : 0;
-        flat.push({ b, depth, olIndex: olCounters[depth] });
-        if(depth < 2) walk(b.children, depth + 1);
-      });
-    })(page.blocks || [], 0);
-    flat.forEach(({ b, depth, olIndex }) => {
-      const row = document.createElement('div');
-      row.className = 'notes-card-preview-row' + (b.style === 'h1' ? ' is-h1' : b.style === 'h2' ? ' is-h2' : '');
-      row.style.paddingInlineStart = (depth * 10) + 'px';
-      const mark = document.createElement('span'); mark.className = 'cpr-mark';
-      mark.textContent = b.children.length ? (b.collapsed ? '▶' : '▼')
-        : b.style === 'todo' ? (b.checked ? '☑' : '☐')
-        : b.style === 'ol' ? (olIndex + '.')
-        : '•';
-      const text = document.createElement('span'); text.className = 'cpr-text';
-      text.textContent = stripHtmlPreview(b.html, 60) || ' ';
-      row.appendChild(mark); row.appendChild(text);
-      preview.appendChild(row);
-    });
-    card.appendChild(preview);
-
-    const footer = document.createElement('div');
-    footer.className = 'notes-card-footer';
-    footer.textContent = 'עודכן ' + relTime(page.updatedAt);
-    card.appendChild(footer);
-
-    if(currentRole === 'editor'){
-      const menu = document.createElement('button');
-      menu.type = 'button'; menu.className = 'notes-card-menu'; menu.textContent = '⋯'; menu.title = 'אפשרויות'; menu.setAttribute('aria-label','אפשרויות רשומה');
-      menu.onclick = (e) => {
-        e.stopPropagation();
-        openNotesPageMenu(page, menu);
-      };
-      card.appendChild(menu);
-    }
-    return card;
-  }
-
-  // ---- notes index (toolbar + list view; gallery = the card grid until Task 4) ----
+  // ---- notes index (toolbar + list view / gallery view) ----
   const HEB_MONTHS_SHORT = ['ינו׳','פבר׳','מרץ','אפר׳','מאי','יוני','יולי','אוג׳','ספט׳','אוק׳','נוב׳','דצמ׳'];
   const NOTES_SORT_LABEL = { updated:'תאריך עריכה', created:'תאריך יצירה', title:'כותרת' };
   // Row date: "16 בספט׳", with the year only when it isn't this year.
@@ -10168,7 +10117,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     document.getElementById('notesCount').textContent = count;
     document.getElementById('notesToolbarCount').textContent = count;
     body.innerHTML = '';
-    body.className = 'notes-body';
+    body.className = 'notes-body' + (view === 'gallery' && pages.length ? ' is-gallery' : '');
     if(!pages.length){
       const empty = document.createElement(isEditor ? 'button' : 'p');
       empty.className = 'notes-empty';
@@ -10180,13 +10129,9 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       body.appendChild(empty);
       return;
     }
-    if(view === 'gallery'){
-      // the old card grid, unchanged, until the gallery view is rebuilt
-      body.classList.add('notes-gallery');
-      pages.slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).forEach(page => body.appendChild(renderNotesCard(page)));
-      return;
-    }
-    renderNotesListView(notesIndexGroups(pages, sort));
+    const groups = notesIndexGroups(pages, sort);
+    if(view === 'gallery') renderNotesGalleryView(groups);
+    else renderNotesListView(groups);
   }
 
   function renderNotesListView(groups){
@@ -10207,6 +10152,84 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       sec.appendChild(ul);
       body.appendChild(sec);
     });
+  }
+
+  // Gallery: same groups as the list; each card = a "paper" thumbnail of the
+  // page's first lines, then title + date · editor beneath.
+  function renderNotesGalleryView(groups){
+    const body = document.getElementById('notesBody');
+    const dateField = notesSort() === 'created' ? 'createdAt' : 'updatedAt';
+    groups.forEach(g => {
+      const sec = document.createElement('section');
+      sec.className = 'notes-group';
+      if(g.label){
+        const h = document.createElement('h2');
+        h.className = 'notes-group-h';
+        h.textContent = g.label;
+        sec.appendChild(h);
+      }
+      const ul = document.createElement('ul');
+      ul.className = 'notes-gallery';
+      g.pages.forEach(page => ul.appendChild(renderNotesGalleryCard(page, dateField)));
+      sec.appendChild(ul);
+      body.appendChild(sec);
+    });
+  }
+
+  const NOTES_PAPER_LINES = 8;
+  function renderNotesGalleryCard(page, dateField){
+    const li = document.createElement('li');
+    li.className = 'notes-gcard' + (isNotesPageNew(page) ? ' is-new' : '') + (page.pinned ? ' is-pinned' : '');
+    li.dataset.page = page.id;
+    const a = document.createElement('a');
+    a.className = 'notes-gcard-link';
+    a.href = '?board=' + encodeURIComponent(currentBoardId) + '&page=' + encodeURIComponent(page.id);
+
+    // the paper: up to 8 non-blank blocks, depth-first (collapsed or not), indented by depth
+    const paper = document.createElement('div');
+    paper.className = 'notes-paper';
+    paper.setAttribute('aria-hidden', 'true');
+    (function walk(blocks, depth){
+      for(const b of blocks || []){
+        if(paper.childElementCount >= NOTES_PAPER_LINES) return;
+        const text = stripHtmlPreview(b.html, 60);
+        if(text){
+          const line = document.createElement('div');
+          line.className = 'np-line ' + (b.style === 'h1' ? 'np-h1' : b.style === 'h2' ? 'np-h2'
+            : b.style === 'todo' ? (b.checked ? 'np-todo np-done' : 'np-todo') : 'np-p');
+          if(depth) line.style.paddingInlineStart = (depth * 8) + 'px';
+          line.textContent = text;
+          paper.appendChild(line);
+        }
+        walk(b.children, depth + 1);
+      }
+    })(page.blocks, 0);
+    a.appendChild(paper);
+
+    // the link's name is the title alone; date · editor is its description
+    const h = document.createElement('h3');
+    h.className = 'notes-gcard-title' + ((page.title || '').trim() ? '' : ' is-untitled');
+    h.id = 'ngt-' + page.id;
+    const dot = document.createElement('span');
+    dot.className = 'notes-dot';
+    dot.setAttribute('aria-hidden', 'true');
+    h.appendChild(dot);
+    h.appendChild(document.createTextNode((page.title || '').trim() || 'ללא כותרת'));
+    a.appendChild(h);
+    const meta = document.createElement('p');
+    meta.className = 'notes-gcard-meta';
+    meta.id = 'ngm-' + page.id;
+    const time = document.createElement('time');
+    time.dateTime = page[dateField] || '';
+    time.textContent = notesShortDate(page[dateField]);
+    meta.appendChild(time);
+    const editor = editorLabel(page.updatedBy);
+    if(editor) meta.appendChild(document.createTextNode(' · ' + editor));
+    a.appendChild(meta);
+    a.setAttribute('aria-labelledby', h.id);
+    a.setAttribute('aria-describedby', meta.id);
+    li.appendChild(a);
+    return li;
   }
 
   function renderNotesRow(page, dateField){
@@ -10249,16 +10272,17 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     return li;
   }
 
-  // One set of delegated listeners on the list container (rows are rebuilt on
-  // every render): click opens, arrows move between rows, context menu.
+  // One set of delegated listeners on the index container (rows/cards are
+  // rebuilt on every render): click opens, arrows move between rows/cards,
+  // context menu.
   (function wireNotesBody(){
     const body = document.getElementById('notesBody');
     const pageOf = (el) => {
-      const li = el && el.closest && el.closest('.notes-row');
+      const li = el && el.closest && el.closest('.notes-row, .notes-gcard');
       return li ? { li, page: (appState.pages || []).find(p => p.id === li.dataset.page) } : null;
     };
     body.addEventListener('click', (e) => {
-      const link = e.target.closest && e.target.closest('.notes-row-link');
+      const link = e.target.closest && e.target.closest('.notes-row-link, .notes-gcard-link');
       if(!link || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return; // modified click: the real link (new tab)
       const hit = pageOf(link);
       if(!hit || !hit.page) return;
@@ -10266,9 +10290,9 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       openNotesPage(hit.page.id);
     });
     body.addEventListener('keydown', (e) => {
-      if(!e.target.classList || !e.target.classList.contains('notes-row-link')) return;
+      if(!e.target.matches || !e.target.matches('.notes-row-link, .notes-gcard-link')) return;
       if(e.altKey || e.metaKey || e.ctrlKey || e.shiftKey) return;
-      const links = Array.from(body.querySelectorAll('.notes-row-link'));
+      const links = Array.from(body.querySelectorAll('.notes-row-link, .notes-gcard-link'));
       const i = links.indexOf(e.target);
       const j = e.key === 'ArrowDown' ? Math.min(i + 1, links.length - 1)
         : e.key === 'ArrowUp' ? Math.max(i - 1, 0)
@@ -10282,7 +10306,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       const hit = pageOf(e.target);
       if(!hit || !hit.page) return;
       e.preventDefault();
-      // mouse: at the pointer; keyboard (Shift+F10 / menu key): under the row's title
+      // mouse: at the pointer; keyboard (Shift+F10 / menu key): under the row's / card's title
       const point = (e.clientX || e.clientY) ? { x: e.clientX, y: e.clientY } : null;
       openNotesPageMenu(hit.page, hit.li, point);
     });
