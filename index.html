@@ -6,7 +6,7 @@
 <!-- App build version, compared against version.txt to detect a new deploy in
      installed standalone PWA windows (which have no reload affordance). MUST be
      bumped together with version.txt on every deploy — see NOTES.md deploy step. -->
-<meta name="app-version" content="20261002-1853">
+<meta name="app-version" content="20261006-1251">
 <title>יומן ומשימות</title>
 <!-- PWA manifest + icons — no service worker on purpose: this is a live-data
      app on a 20s poll, a SW would only risk serving a stale index.html for
@@ -967,6 +967,10 @@ html,body{
   word-break:break-word; white-space:pre-wrap;
 }
 .ob-text:empty::before{ content:"כתבו משהו…"; color:var(--muted); opacity:.7; }
+/* Web addresses in a block render as links (display only — the stored html stays
+   plain text; sanitizeInline unwraps the <a> on every commit). LTR-isolated so a
+   URL never flips the Hebrew line around it; break-all so a long one wraps at 375px. */
+.ob-link{ color:var(--accent); text-decoration:underline; text-underline-offset:2px; direction:ltr; unicode-bidi:isolate; word-break:break-all; cursor:pointer; }
 .ob-text.ob-h1{ font-size:24px; font-weight:800; letter-spacing:-.005em; }
 .ob-text.ob-h2{ font-size:19px; font-weight:700; }
 .ob-row.is-checked > .ob-row-main > .ob-text{
@@ -9024,6 +9028,38 @@ body.has-select-mode .undo-toast{ bottom:84px; }
 
   // ---------- rendering ----------
 
+  // Display-only: wrap http(s) addresses in the block's text nodes in <a>.
+  // Never stored — every commit path runs sanitizeInline, which unwraps <a>
+  // back to its text, so the data model stays b/i/u/s/br only.
+  const OB_URL_RE = /https?:\/\/[^\s<>"'\u200e\u200f]+[^\s<>"'.,;:!?)\]\u200e\u200f]/g;
+  function linkifyBlockHtml(html){
+    if(!html || html.indexOf('http') === -1) return html || '';
+    const tmpl = document.createElement('template');
+    tmpl.innerHTML = html;
+    const walker = document.createTreeWalker(tmpl.content, NodeFilter.SHOW_TEXT);
+    const nodes = [];
+    while(walker.nextNode()) nodes.push(walker.currentNode);
+    nodes.forEach(node => {
+      const str = node.nodeValue;
+      OB_URL_RE.lastIndex = 0;
+      if(!OB_URL_RE.test(str)) return;
+      OB_URL_RE.lastIndex = 0;
+      const frag = document.createDocumentFragment();
+      let last = 0, m;
+      while((m = OB_URL_RE.exec(str))){
+        if(m.index > last) frag.append(str.slice(last, m.index));
+        const a = document.createElement('a');
+        a.className = 'ob-link'; a.href = m[0]; a.target = '_blank'; a.rel = 'noopener noreferrer';
+        a.textContent = m[0];
+        frag.append(a);
+        last = m.index + m[0].length;
+      }
+      if(last < str.length) frag.append(str.slice(last));
+      node.replaceWith(frag);
+    });
+    return tmpl.innerHTML;
+  }
+
   function blockTextClassName(style){
     return 'ob-text' + (style === 'h1' ? ' ob-h1' : style === 'h2' ? ' ob-h2' : '');
   }
@@ -9049,7 +9085,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     const text = document.createElement('div');
     text.className = blockTextClassName(block.style);
     text.contentEditable = currentRole === 'editor' ? 'true' : 'false';
-    text.innerHTML = block.html;
+    text.innerHTML = linkifyBlockHtml(block.html);
     wireOutlineTextEvents(text, block, page);
     main.appendChild(text);
 
@@ -9118,6 +9154,19 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   }
 
   function wireOutlineTextEvents(el, block, page){
+    // A click on a link opens it (like Notion) — unless this block was already
+    // being edited, where a click just places the caret, so a line that is only
+    // a URL (full width on a phone) can still be edited: tap beside it first.
+    let editingAtPress = false;
+    el.addEventListener('pointerdown', () => { editingAtPress = document.activeElement === el; });
+    el.addEventListener('click', (e) => {
+      const a = e.target.closest && e.target.closest('a.ob-link');
+      if(!a || !el.contains(a) || editingAtPress) return;
+      const sel = window.getSelection();
+      if(sel && !sel.isCollapsed) return; // a drag-selection, not a tap
+      e.preventDefault();
+      window.open(a.href, '_blank', 'noopener');
+    });
     el.addEventListener('focus', () => showObToolbarFor(el));
     el.addEventListener('blur', () => {
       block.html = sanitizeInline(el.innerHTML);
