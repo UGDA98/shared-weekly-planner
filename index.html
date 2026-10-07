@@ -903,7 +903,6 @@ html,body{
 .notes-search-cancel{ display:none; }
 .notes-sort b{ font-weight:600; color:var(--ink); }
 /* sort menu: a leading ✓ column (ink, not accent) */
-.notes-sort-menu .picker-item{ gap:4px; }
 .notes-sort-check{ display:inline-block; flex:none; inline-size:1.1em; color:var(--ink); }
 /* while a query lists results the view toggle has nothing to switch */
 .notes-view.is-disabled{ opacity:.5; }
@@ -920,10 +919,35 @@ html,body{
 .notes-group{ margin-top:18px; }
 .notes-group-h{ margin:0 0 6px; padding-inline:16px; font-size:12.5px; line-height:16px; font-weight:600; color:var(--ink2); }
 .notes-list{ list-style:none; margin:0; padding:0; background:var(--s1); border-radius:var(--radius-lg); overflow:hidden; }
-.notes-row{ position:relative; display:flex; align-items:center; gap:16px; min-height:60px; padding:10px 16px; cursor:pointer; }
-.notes-row + .notes-row::before{ content:""; position:absolute; top:0; inset-inline:16px 0; border-top:1px solid rgba(60,60,67,.22); }
-.notes-row:hover, .notes-row.is-selected{ background:var(--s2); }
-.notes-row:focus-within{ box-shadow:inset 0 0 0 2px var(--accent); }
+/* a row = the visible content on an opaque .notes-row-slide, over the swipe
+   actions (.notes-row-actions, only while a row is being swiped / is open) */
+.notes-row{ position:relative; cursor:pointer; }
+.notes-row-slide{
+  position:relative; z-index:1; display:flex; align-items:center; gap:16px; min-height:60px; padding:10px 16px;
+  background:var(--s1); transition:transform .2s var(--sp-out, cubic-bezier(0.23, 1, 0.32, 1));
+}
+.notes-row-slide.is-dragging{ transition:none; }
+.notes-row + .notes-row::before{ content:""; position:absolute; z-index:2; top:0; inset-inline:16px 0; border-top:1px solid rgba(60,60,67,.22); }
+.notes-row:hover .notes-row-slide, .notes-row.is-selected .notes-row-slide{ background:var(--s2); }
+.notes-row:focus-within .notes-row-slide{ box-shadow:inset 0 0 0 2px var(--accent); }
+.notes-row.is-swiping .notes-row-slide{ box-shadow:none; } /* the pressed link's focus is not a keyboard ring */
+/* behind the slide: the uncovered side's colour fills the row, its label in the 84px at that edge */
+.notes-row-actions{ position:absolute; inset:0; display:flex; }
+.notes-row-action{
+  display:none; flex:1 1 auto; align-items:center; padding:0; border:0; margin:0;
+  color:#fff; font:inherit; font-size:15px; font-weight:600; cursor:pointer;
+}
+.notes-row-action > span{ flex:none; inline-size:84px; text-align:center; }
+.notes-row-action.is-pin{ background:#FF9F0A; justify-content:flex-start; }
+.notes-row-action.is-delete{ background:var(--danger); justify-content:flex-end; }
+.notes-row-actions.is-start .is-pin, .notes-row-actions.is-end .is-delete{ display:flex; }
+@media (max-width:767px), (pointer:coarse){
+  /* the finger owns horizontal movement on an editor's row; vertical scroll + pinch stay the browser's */
+  .notes-row.has-swipe{ touch-action:pan-y pinch-zoom; }
+  /* long-press is ours: no iOS link preview / text selection under the finger */
+  .notes-row, .notes-gcard{ -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; }
+}
+@media (prefers-reduced-motion:reduce){ .notes-row-slide{ transition:none; } }
 .notes-dot{ display:none; position:absolute; inset-inline-start:5px; top:21px; width:7px; height:7px; border-radius:50%; background:var(--accent); }
 .notes-row.is-new .notes-dot{ display:block; }
 .notes-row-body{ flex:1 1 auto; min-width:0; }
@@ -968,7 +992,7 @@ button.notes-empty:focus-visible{ outline:2px solid var(--accent); outline-offse
     border:0; border-radius:50%; background:var(--s3); color:var(--accent); font:inherit; font-size:17px; font-weight:700; letter-spacing:1px; cursor:pointer;
   }
   .notes-group-h{ font-size:13px; line-height:18px; }
-  .notes-row{ align-items:flex-start; min-height:64px; padding:11px 16px; }
+  .notes-row-slide{ align-items:flex-start; min-height:64px; padding:11px 16px; }
   .notes-dot{ top:19px; }
   .notes-row-title{ font-size:17px; line-height:22px; }
   .notes-row-sub{ font-size:15px; line-height:20px; }
@@ -1703,6 +1727,7 @@ button.notes-empty:focus-visible{ outline:2px solid var(--accent); outline-offse
 .sheet-item:first-child{ border-top:0; }
 .sheet-item:active, .sheet-item:hover{ background:var(--s3); }
 .sheet-item.is-danger{ color:var(--danger); }
+.sheet-item:disabled{ opacity:.4; cursor:default; background:none; }
 .sheet-item:focus-visible, .sheet-cancel:focus-visible, .chip-opt:focus-visible, .seg button:focus-visible, .sheet-primary:focus-visible{ outline:2px solid var(--accent); outline-offset:-2px; }
 .sheet-cancel{ display:block; margin-top:8px; width:100%; min-height:52px; border:0; border-radius:12px; background:var(--s3); font:inherit; font-size:17px; font-weight:600; color:var(--ink); cursor:pointer; }
 .add-sheet{ display:flex; flex-direction:column; gap:10px; }
@@ -4202,6 +4227,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     }
     if(weekNav) weekNav.style.display = '';
     if(notesSection) notesSection.style.display = 'none';
+    document.getElementById('root').classList.remove('notes-index-on'); // the undo toast's toolbar offset is notes-only
     updateWeekRange();
     renderFilters();
     renderBoard();
@@ -7679,11 +7705,12 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     const list = document.createElement('div');
     list.className = 'sheet-list';
     items.forEach(it => {
-      if(!it) return;
+      if(!it || it.divider) return; // a menu divider has no place in a sheet
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'sheet-item' + (it.danger ? ' is-danger' : '');
       b.textContent = it.label;
+      if(it.disabled){ b.disabled = true; list.appendChild(b); return; } // listed, inert
       // an item that opens a sheet with a text field runs inside the tap (sync),
       // so iOS can raise the keyboard for it; the rest run after the close
       b.onclick = () => { closeSheet(); if(it.sync) it.run(); else setTimeout(it.run, 0); };
@@ -9442,6 +9469,9 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   function commitNotesChange(){
     const page = currentNotesPage();
     if(!page) return;
+    // an edit saves the whole page, so the ancestors a search hit opened are
+    // now saved open: leaving the page must not fold them again
+    notesRevealOpened.forEach(id => { if(findBlockCtx(page.blocks, id)) notesRevealOpened.delete(id); });
     touchNotesPage(page);
     persistState();
     renderNotesOutline(page);
@@ -10054,6 +10084,17 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   }
   document.getElementById('notesNewPageBtn').onclick = createNewNotesPage;
   document.getElementById('notesNewPageBtnM').onclick = createNewNotesPage;
+  // ··· (phones): view + sort in one sheet, the current choices ticked. While a
+  // query lists results the view items are listed but inert (as the desktop toggle).
+  document.getElementById('notesMoreBtn').onclick = () => {
+    const view = notesView(), sort = notesSort(), searching = !!notesQuery.trim();
+    const tick = (on, label) => (on ? '✓ ' : '') + label;
+    const pick = (name, value, current) => () => { if(value === current) return; setNotesPref(name, value); renderNotesIndex(); };
+    openSheet('תצוגה ומיון', sheetList([
+      { label: tick(view === 'list', 'תצוגת רשימה'), disabled: searching, run: pick('view', 'list', view) },
+      { label: tick(view === 'gallery', 'תצוגת גלריה'), disabled: searching, run: pick('view', 'gallery', view) }
+    ].concat(['updated', 'created', 'title'].map(k => ({ label: tick(sort === k, 'מיון: ' + NOTES_SORT_LABEL[k]), run: pick('sort', k, sort) })))));
+  };
 
   function duplicateNotesPage(pageId){
     const page = (appState.pages || []).find(p => p.id === pageId);
@@ -10095,6 +10136,32 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   // same .picker popover infrastructure as openHighlightMenu
   // (positionPopover/closePicker/onDocClick). Viewers only get "פתיחה".
   const NOTES_MENU_W = 170;
+  // The page's actions ({label, run, danger} | {divider}), shared by the
+  // popover menu and the phone's long-press sheet. Viewers: פתיחה only.
+  function toggleNotesPagePin(page){
+    page.pinned = !page.pinned; // pinning is not an edit: updatedAt/updatedBy stay as they are
+    persistState();
+    renderNotes();
+  }
+  function notesPageMenuItems(page){
+    const items = [];
+    if(currentNotesPageId !== page.id) items.push({ label: 'פתיחה', run: () => openNotesPage(page.id) });
+    if(currentRole === 'editor'){
+      items.push({ label: page.pinned ? 'ביטול הצמדה' : 'הצמדה', run: () => toggleNotesPagePin(page) });
+      items.push({ label: 'שינוי שם', run: () => renameNotesPage(page.id) });
+      items.push({ label: 'שכפול', run: () => duplicateNotesPage(page.id) });
+      items.push({ divider: true });
+      items.push({ label: 'מחיקה', danger: true, run: () => {
+        showConfirmModal({
+          title: 'מחיקת רשומה',
+          message: 'למחוק את הרשומה "' + (page.title || 'ללא כותרת') + '"? הפעולה ניתנת לביטול לזמן קצר.',
+          confirmLabel: 'מחיקה',
+          onConfirm: () => deletePageWithUndo(page.id)
+        });
+      }});
+    }
+    return items;
+  }
   function openNotesPageMenu(page, anchorEl, point){
     closePicker();
     const pop = document.createElement('div');
@@ -10113,32 +10180,14 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     }
 
     const list = document.createElement('div'); list.className = 'picker-list';
-    function item(label, onClick, danger){
+    notesPageMenuItems(page).forEach(it => {
+      if(it.divider){ list.appendChild(Object.assign(document.createElement('div'), { className: 'picker-divider' })); return; }
       const r = document.createElement('div');
-      r.className = 'picker-item' + (danger ? ' is-danger' : '');
-      r.textContent = label;
-      r.onclick = () => { closePicker(); onClick(); };
+      r.className = 'picker-item' + (it.danger ? ' is-danger' : '');
+      r.textContent = it.label;
+      r.onclick = () => { closePicker(); it.run(); };
       list.appendChild(r);
-    }
-    if(currentNotesPageId !== page.id) item('פתיחה', () => openNotesPage(page.id));
-    if(currentRole === 'editor'){
-      item(page.pinned ? 'ביטול הצמדה' : 'הצמדה', () => {
-        page.pinned = !page.pinned; // pinning is not an edit: updatedAt/updatedBy stay as they are
-        persistState();
-        renderNotes();
-      });
-      item('שינוי שם', () => renameNotesPage(page.id));
-      item('שכפול', () => duplicateNotesPage(page.id));
-      list.appendChild(Object.assign(document.createElement('div'), { className: 'picker-divider' }));
-      item('מחיקה', () => {
-        showConfirmModal({
-          title: 'מחיקת רשומה',
-          message: 'למחוק את הרשומה "' + (page.title || 'ללא כותרת') + '"? הפעולה ניתנת לביטול לזמן קצר.',
-          confirmLabel: 'מחיקה',
-          onConfirm: () => deletePageWithUndo(page.id)
-        });
-      }, true);
-    }
+    });
     if(!list.children.length) return;
 
     pop.appendChild(list);
@@ -10180,6 +10229,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
 
   function renderNotesIndex(){
     const body = document.getElementById('notesBody');
+    notesOpenRow = null; // the rows are rebuilt closed
     const pages = appState.pages || [];
     const isEditor = currentRole === 'editor';
     ['notesNewPageBtn', 'notesNewPageBtnM'].forEach(id => { const b = document.getElementById(id); if(b) b.style.display = isEditor ? '' : 'none'; });
@@ -10326,9 +10376,11 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   const NOTES_PAPER_LINES = 8;
   // A paragraph whose whole text is bold (Notion-import sub-titles: "<b>נושאים פתוחים</b>")
   // reads as a heading on the paper. html is the sanitizeInline subset.
+  // Every visible character inside some <b> (an outer <i> etc. is fine); &nbsp; is blank.
   function isAllBoldHtml(html){
-    const t = String(html || '').replace(/<br>/g, '').trim();
-    if(!/^<b>/.test(t) || !/<\/b>$/.test(t)) return false;
+    const t = String(html || '').replace(/&nbsp;/g, ' ');
+    const bold = (t.match(/<b>[\s\S]*?<\/b>/g) || []).join('').replace(/<[^>]*>/g, '').trim();
+    if(!bold) return false;
     return !t.replace(/<b>[\s\S]*?<\/b>/g, '').replace(/<[^>]*>/g, '').trim();
   }
   function renderNotesGalleryCard(page, dateField, seen){
@@ -10391,12 +10443,15 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   // first-line excerpt with the matching line.
   function renderNotesRow(page, dateField, seen, match){
     const li = document.createElement('li');
-    li.className = 'notes-row' + (isNotesPageNew(page, seen) ? ' is-new' : '') + (page.pinned ? ' is-pinned' : '');
+    li.className = 'notes-row' + (isNotesPageNew(page, seen) ? ' is-new' : '');
     li.dataset.page = page.id;
+    const slide = document.createElement('div'); // what a swipe moves
+    slide.className = 'notes-row-slide';
+    li.appendChild(slide);
     const dot = document.createElement('span');
     dot.className = 'notes-dot';
     dot.setAttribute('aria-hidden', 'true');
-    li.appendChild(dot);
+    slide.appendChild(dot);
 
     const bodyEl = document.createElement('div');
     bodyEl.className = 'notes-row-body';
@@ -10425,14 +10480,199 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     else ex.textContent = pageFirstLine(page);
     sub.appendChild(time); sub.appendChild(ex);
     bodyEl.appendChild(sub);
-    li.appendChild(bodyEl);
+    slide.appendChild(bodyEl);
 
     const todos = pageOpenTodos(page);
     const meta = document.createElement('span');
     meta.className = 'notes-row-meta';
     meta.textContent = [editorLabel(page.updatedBy), todos === 1 ? 'משימה אחת' : todos > 1 ? todos + ' משימות' : ''].filter(Boolean).join(' · ');
-    li.appendChild(meta);
+    slide.appendChild(meta);
+    if(currentRole === 'editor') attachNotesRowSwipe(li, page);
     return li;
+  }
+
+  // ---------- phone gestures on the index (≤767px or a touch screen) ----------
+  // Swipe a row (editors): the content follows the finger 1:1 and uncovers an
+  // action — RTL like iOS in Hebrew: dragging toward the right uncovers the end
+  // edge (visual left) = מחיקה, toward the left the start edge = הצמדה. Long-press
+  // a row or a gallery card (everyone): the page's menu as a sheet.
+  const NOTES_ACTION_W = 84, NOTES_SLOP = 10, NOTES_LONG_PRESS_MS = 500;
+  const COARSE_MQ = window.matchMedia('(pointer:coarse)');
+  function notesGesturesOn(){ return isMobileLayout() || COARSE_MQ.matches; }
+  let notesOpenRow = null;         // { li, close() } — the one row whose action is showing
+  let notesSwallowClick = false;   // the click that ends a drag / long-press / closing tap
+  let notesLP = null;              // the pending long-press
+  let notesPress = null;           // where the current press started (a press that travelled is not a tap)
+  function closeNotesOpenRow(){ if(notesOpenRow) notesOpenRow.close(); }
+  function cancelNotesLongPress(){ if(notesLP){ clearTimeout(notesLP.timer); notesLP = null; } }
+  // A keyboard click (detail 0) always goes through.
+  window.addEventListener('click', (e) => {
+    if(!notesSwallowClick) return;
+    notesSwallowClick = false;
+    if(e.detail === 0) return;
+    e.preventDefault(); e.stopPropagation();
+  }, true);
+  // Every press forgets a stale swallow. A press outside the open row closes it,
+  // and inside the list that press is spent on closing (it opens nothing).
+  window.addEventListener('pointerdown', (e) => {
+    notesSwallowClick = false;
+    if(!notesOpenRow || !e.target.closest) return;
+    if(notesOpenRow.li.contains(e.target)) return; // the row's own press: closes on lift, or drags on
+    closeNotesOpenRow();
+    if(e.target.closest('#notesBody')) notesSwallowClick = true;
+  }, true);
+  function fireNotesLongPress(){
+    const lp = notesLP; notesLP = null;
+    if(!lp || !document.contains(lp.li) || openSheetEl) return;
+    notesSwallowClick = true;
+    if(notesPress) notesPress.longPressed = true;
+    if(navigator.vibrate) try{ navigator.vibrate(10); }catch(err){}
+    closeNotesOpenRow();
+    openSheet((lp.page.title || '').trim() || 'ללא כותרת', sheetList(notesPageMenuItems(lp.page)), { guardLift: true });
+  }
+  (function wireNotesLongPress(){
+    const body = document.getElementById('notesBody');
+    body.addEventListener('pointerdown', (e) => {
+      cancelNotesLongPress(); notesPress = null;
+      if(!notesGesturesOn() || !e.isPrimary || (e.pointerType === 'mouse' && e.button !== 0)) return;
+      notesPress = { x: e.clientX, y: e.clientY, moved: false };
+      const li = e.target.closest && e.target.closest('.notes-row, .notes-gcard');
+      const page = li && (appState.pages || []).find(p => p.id === li.dataset.page);
+      if(!page || e.target.closest('.notes-row-actions') || openSheetEl || openPickerEl) return;
+      notesLP = { li, page, pointerType: e.pointerType, x: e.clientX, y: e.clientY, timer: setTimeout(fireNotesLongPress, NOTES_LONG_PRESS_MS) };
+    });
+    body.addEventListener('pointermove', (e) => {
+      if(notesPress && !notesPress.moved && Math.hypot(e.clientX - notesPress.x, e.clientY - notesPress.y) >= NOTES_SLOP) notesPress.moved = true;
+      if(notesLP && Math.hypot(e.clientX - notesLP.x, e.clientY - notesLP.y) >= NOTES_SLOP) cancelNotesLongPress();
+    });
+    body.addEventListener('pointerup', () => {
+      cancelNotesLongPress();
+      if(notesPress && notesPress.moved) notesSwallowClick = true; // a drag is not a tap
+      notesPress = null;
+    });
+    body.addEventListener('pointercancel', () => { cancelNotesLongPress(); notesPress = null; });
+    // a mouse drag on a link must stay ours, not become a link drag
+    body.addEventListener('dragstart', (e) => { if(notesGesturesOn() && e.target.closest && e.target.closest('.notes-row, .notes-gcard')) e.preventDefault(); });
+  })();
+  // contextmenu during a touch long-press (Android fires one): the sheet, never the popover
+  function notesContextMenuIsLongPress(){
+    if(notesPress && notesPress.longPressed) return true; // same press, the sheet is already up
+    if(notesLP && notesLP.pointerType === 'touch'){ clearTimeout(notesLP.timer); fireNotesLongPress(); return true; }
+    return false;
+  }
+
+  function attachNotesRowSwipe(li, page){
+    li.classList.add('has-swipe');
+    const slide = li.querySelector('.notes-row-slide');
+    let g = null;          // the drag in progress
+    let x = 0;             // resting offset: 0, or ±NOTES_ACTION_W while open
+    let actions = null, settleTimer = null, busy = false;
+    const endSign = () => getComputedStyle(li).direction === 'rtl' ? 1 : -1; // the translateX sign that uncovers the end edge
+    function ensureActions(){
+      if(actions) return;
+      actions = document.createElement('div');
+      actions.className = 'notes-row-actions';
+      actions.setAttribute('aria-hidden', 'true'); // pointer-only; the same actions are in the row's menu
+      const mk = (cls, label, run) => {
+        const b = document.createElement('button');
+        b.type = 'button'; b.tabIndex = -1; b.className = 'notes-row-action ' + cls;
+        const t = document.createElement('span'); t.textContent = label; b.appendChild(t);
+        b.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); if(!busy) run(); });
+        return b;
+      };
+      actions.append(
+        mk('is-pin', page.pinned ? 'ביטול הצמדה' : 'הצמדה', pinNow),
+        mk('is-delete', 'מחיקה', deleteNow));
+      li.insertBefore(actions, slide);
+    }
+    function paint(v){
+      slide.style.transform = v ? 'translateX(' + v + 'px)' : '';
+      if(actions && v){ const end = v * endSign() > 0; actions.classList.toggle('is-end', end); actions.classList.toggle('is-start', !end); }
+    }
+    function settle(target, then){
+      slide.classList.remove('is-dragging');
+      x = target; paint(target);
+      if(target === 0){ if(notesOpenRow && notesOpenRow.li === li) notesOpenRow = null; }
+      else if(!notesOpenRow || notesOpenRow.li !== li){ closeNotesOpenRow(); notesOpenRow = { li, close: () => settle(0) }; }
+      clearTimeout(settleTimer);
+      settleTimer = setTimeout(() => {
+        if(x === 0 && !g && actions){ actions.remove(); actions = null; li.classList.remove('is-swiping'); }
+        if(then) then();
+      }, prefersReducedMotion() ? 0 : 200);
+    }
+    function pinNow(){
+      busy = true;
+      settle(0, () => {
+        busy = false;
+        const live = (appState.pages || []).find(p => p.id === page.id); // a poll may have swapped the objects meanwhile
+        if(live) toggleNotesPagePin(live);
+      });
+    }
+    function deleteNow(){ busy = true; settle(endSign() * li.offsetWidth, () => { busy = false; deletePageWithUndo(page.id); }); }
+    // past the action the row resists (rubber band); past 55% of the width the action arms and the row follows 1:1 again
+    function shownFor(raw){
+      const mag = Math.abs(raw);
+      return g.armed || mag <= NOTES_ACTION_W ? raw : Math.sign(raw) * (NOTES_ACTION_W + (mag - NOTES_ACTION_W) * 0.55);
+    }
+    function release(cancelled){
+      const st = g; g = null;
+      if(st.state === 'pending'){ if(st.base !== 0) settle(0); return; }
+      if(st.state !== 'drag') return;
+      const sign = Math.sign(st.raw);
+      if(!cancelled && st.armed){ if(sign === endSign()) deleteNow(); else pinNow(); return; }
+      // where the flick was heading (only a recent move counts as velocity)
+      const v = !cancelled && performance.now() - st.lastT <= 80 ? st.v : 0;
+      const projected = st.shown + v * 100;
+      settle(sign && Math.sign(projected) === sign && Math.abs(projected) >= NOTES_ACTION_W / 2 ? sign * NOTES_ACTION_W : 0);
+    }
+    li.addEventListener('pointerdown', (e) => {
+      if(g || busy || !notesGesturesOn() || !e.isPrimary || (e.pointerType === 'mouse' && e.button !== 0)) return;
+      if(e.target.closest('.notes-row-actions') || openSheetEl || openPickerEl) return;
+      g = { id: e.pointerId, x0: e.clientX, y0: e.clientY, base: x, state: 'pending', raw: x, shown: x, armed: false, v: 0, lastX: e.clientX, lastT: performance.now() };
+    });
+    li.addEventListener('pointermove', (e) => {
+      if(!g || e.pointerId !== g.id) return;
+      const dx = e.clientX - g.x0, dy = e.clientY - g.y0;
+      if(g.state === 'pending'){
+        if(openSheetEl){ g = null; return; }                      // a long-press took this press
+        if(Math.abs(dy) > NOTES_SLOP && Math.abs(dy) >= Math.abs(dx)){ release(true); return; } // vertical: the page scrolls
+        if(Math.abs(dx) <= NOTES_SLOP || Math.abs(dx) < Math.abs(dy)) return;
+        g.state = 'drag';
+        g.grab = Math.sign(dx) * NOTES_SLOP;  // start from where the finger is now: no 10px jump
+        g.w = li.offsetWidth;
+        try{ li.setPointerCapture(e.pointerId); }catch(err){}
+        cancelNotesLongPress();
+        if(notesOpenRow && notesOpenRow.li !== li) closeNotesOpenRow();
+        clearTimeout(settleTimer);
+        ensureActions();
+        li.classList.add('is-swiping');
+        slide.classList.add('is-dragging');
+      }
+      if(g.state !== 'drag') return;
+      const now = performance.now();
+      g.v = (e.clientX - g.lastX) / Math.max(1, now - g.lastT); g.lastX = e.clientX; g.lastT = now;
+      g.raw = g.base + dx - g.grab;
+      const full = g.w * 0.55, mag = Math.abs(g.raw);
+      const armed = g.armed ? mag >= full - NOTES_SLOP : mag >= full;   // hysteresis around the threshold
+      if(armed !== g.armed){
+        g.armed = armed;
+        if(armed && navigator.vibrate) try{ navigator.vibrate(8); }catch(err){}
+        // the jump between resisting and following is animated, not snapped
+        slide.classList.remove('is-dragging');
+        const st = g;
+        setTimeout(() => { if(g === st) slide.classList.add('is-dragging'); }, 160);
+      }
+      g.shown = shownFor(g.raw);
+      paint(g.shown);
+    });
+    li.addEventListener('pointerup', (e) => {
+      if(!g || e.pointerId !== g.id) return;
+      if(g.state === 'drag' || g.base !== 0) notesSwallowClick = true; // a drag, or the tap that closes this open row
+      release(false);
+    });
+    const cancel = (e) => { if(g && e.pointerId === g.id) release(true); };
+    li.addEventListener('pointercancel', cancel);
+    li.addEventListener('lostpointercapture', cancel);
   }
 
   // One set of delegated listeners on the index container (rows/cards are
@@ -10471,6 +10711,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       const hit = pageOf(e.target);
       if(!hit || !hit.page) return;
       e.preventDefault();
+      if(notesContextMenuIsLongPress()) return;
       // mouse: at the pointer; keyboard (Shift+F10 / menu key): under the row's / card's title
       const point = (e.clientX || e.clientY) ? { x: e.clientX, y: e.clientY } : null;
       openNotesPageMenu(hit.page, hit.li, point);
@@ -10489,7 +10730,9 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     window.addEventListener('mousedown', (e) => { sortOpenAtPress = sortBtn.contains(e.target) && sortBtn.getAttribute('aria-expanded') === 'true'; }, true);
     sortBtn.onclick = (e) => {
       e.stopPropagation();
-      if(sortOpenAtPress){ sortOpenAtPress = false; closePicker(); return; }
+      const closing = sortOpenAtPress && e.detail !== 0; // a keyboard click (detail 0) never had that press
+      sortOpenAtPress = false;
+      if(closing){ closePicker(); return; }
       toggleHeaderMenu(sortBtn, openNotesSortMenu);
     };
   })();
