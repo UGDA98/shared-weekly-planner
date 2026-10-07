@@ -927,7 +927,8 @@ html,body{
   background:var(--s1); transition:transform .2s var(--sp-out, cubic-bezier(0.23, 1, 0.32, 1));
 }
 .notes-row-slide.is-dragging{ transition:none; }
-.notes-row + .notes-row::before{ content:""; position:absolute; z-index:2; top:0; inset-inline:16px 0; border-top:1px solid rgba(60,60,67,.22); }
+/* the hairline belongs to the content: it slides with it, never over an action's fill */
+.notes-row + .notes-row .notes-row-slide::before{ content:""; position:absolute; top:0; inset-inline:16px 0; border-top:1px solid rgba(60,60,67,.22); pointer-events:none; }
 .notes-row:hover .notes-row-slide, .notes-row.is-selected .notes-row-slide{ background:var(--s2); }
 .notes-row:focus-within .notes-row-slide{ box-shadow:inset 0 0 0 2px var(--accent); }
 .notes-row.is-swiping .notes-row-slide{ box-shadow:none; } /* the pressed link's focus is not a keyboard ring */
@@ -938,7 +939,8 @@ html,body{
   color:#fff; font:inherit; font-size:15px; font-weight:600; cursor:pointer;
 }
 .notes-row-action > span{ flex:none; inline-size:84px; text-align:center; }
-.notes-row-action.is-pin{ background:#FF9F0A; justify-content:flex-start; }
+.notes-row-action.is-pin{ background:#FF9F0A; color:var(--ink); justify-content:flex-start; } /* ink on orange ≈9:1; white would be 2.2:1 */
+:root[data-theme="dark"] .notes-row-action.is-pin{ color:var(--bg); } /* dark ink is light: keep the label dark */
 .notes-row-action.is-delete{ background:var(--danger); justify-content:flex-end; }
 .notes-row-actions.is-start .is-pin, .notes-row-actions.is-end .is-delete{ display:flex; }
 @media (max-width:767px), (pointer:coarse){
@@ -10144,17 +10146,21 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     renderNotes();
   }
   function notesPageMenuItems(page){
+    // the object captured at press time may have been swapped by a poll: act on the live one
+    const live = () => (appState.pages || []).find(p => p.id === page.id);
     const items = [];
     if(currentNotesPageId !== page.id) items.push({ label: 'פתיחה', run: () => openNotesPage(page.id) });
     if(currentRole === 'editor'){
-      items.push({ label: page.pinned ? 'ביטול הצמדה' : 'הצמדה', run: () => toggleNotesPagePin(page) });
+      items.push({ label: page.pinned ? 'ביטול הצמדה' : 'הצמדה', run: () => { const p = live(); if(p) toggleNotesPagePin(p); } });
       items.push({ label: 'שינוי שם', run: () => renameNotesPage(page.id) });
       items.push({ label: 'שכפול', run: () => duplicateNotesPage(page.id) });
       items.push({ divider: true });
       items.push({ label: 'מחיקה', danger: true, run: () => {
+        const p = live();
+        if(!p) return;
         showConfirmModal({
           title: 'מחיקת רשומה',
-          message: 'למחוק את הרשומה "' + (page.title || 'ללא כותרת') + '"? הפעולה ניתנת לביטול לזמן קצר.',
+          message: 'למחוק את הרשומה "' + (p.title || 'ללא כותרת') + '"? הפעולה ניתנת לביטול לזמן קצר.',
           confirmLabel: 'מחיקה',
           onConfirm: () => deletePageWithUndo(page.id)
         });
@@ -10503,6 +10509,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   let notesSwallowClick = false;   // the click that ends a drag / long-press / closing tap
   let notesLP = null;              // the pending long-press
   let notesPress = null;           // where the current press started (a press that travelled is not a tap)
+  let notesSwipePending = null;    // drops a row's not-yet-committed press (released off the row)
   function closeNotesOpenRow(){ if(notesOpenRow) notesOpenRow.close(); }
   function cancelNotesLongPress(){ if(notesLP){ clearTimeout(notesLP.timer); notesLP = null; } }
   // A keyboard click (detail 0) always goes through.
@@ -10530,6 +10537,11 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     closeNotesOpenRow();
     openSheet((lp.page.title || '').trim() || 'ללא כותרת', sheetList(notesPageMenuItems(lp.page)), { guardLift: true });
   }
+  // a press can end anywhere (off the row, off the list): forget what it started
+  ['pointerup', 'pointercancel'].forEach(t => window.addEventListener(t, () => {
+    cancelNotesLongPress();
+    if(notesSwipePending){ const f = notesSwipePending; notesSwipePending = null; f(); }
+  }));
   (function wireNotesLongPress(){
     const body = document.getElementById('notesBody');
     body.addEventListener('pointerdown', (e) => {
@@ -10629,12 +10641,15 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       if(g || busy || !notesGesturesOn() || !e.isPrimary || (e.pointerType === 'mouse' && e.button !== 0)) return;
       if(e.target.closest('.notes-row-actions') || openSheetEl || openPickerEl) return;
       g = { id: e.pointerId, x0: e.clientX, y0: e.clientY, base: x, state: 'pending', raw: x, shown: x, armed: false, v: 0, lastX: e.clientX, lastT: performance.now() };
+      const st = g;
+      notesSwipePending = () => { if(g === st && st.state === 'pending') release(true); };
     });
     li.addEventListener('pointermove', (e) => {
       if(!g || e.pointerId !== g.id) return;
       const dx = e.clientX - g.x0, dy = e.clientY - g.y0;
       if(g.state === 'pending'){
         if(openSheetEl){ g = null; return; }                      // a long-press took this press
+        if(e.pointerType === 'mouse' && !(e.buttons & 1)){ release(true); return; } // the button came up somewhere we never heard of
         if(Math.abs(dy) > NOTES_SLOP && Math.abs(dy) >= Math.abs(dx)){ release(true); return; } // vertical: the page scrolls
         if(Math.abs(dx) <= NOTES_SLOP || Math.abs(dx) < Math.abs(dy)) return;
         g.state = 'drag';
@@ -10672,7 +10687,9 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     });
     const cancel = (e) => { if(g && e.pointerId === g.id) release(true); };
     li.addEventListener('pointercancel', cancel);
-    li.addEventListener('lostpointercapture', cancel);
+    // only the row's own capture ending counts: on touch the link held an implicit
+    // capture, and handing it to the row fires lostpointercapture on the link (it bubbles here)
+    li.addEventListener('lostpointercapture', (e) => { if(e.target === li) cancel(e); });
   }
 
   // One set of delegated listeners on the index container (rows/cards are
