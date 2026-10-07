@@ -6,7 +6,7 @@
 <!-- App build version, compared against version.txt to detect a new deploy in
      installed standalone PWA windows (which have no reload affordance). MUST be
      bumped together with version.txt on every deploy — see NOTES.md deploy step. -->
-<meta name="app-version" content="20261006-1429">
+<meta name="app-version" content="20261007-2302">
 <title>יומן ומשימות</title>
 <!-- PWA manifest + icons — no service worker on purpose: this is a live-data
      app on a 20s poll, a SW would only risk serving a stale index.html for
@@ -909,6 +909,15 @@ html,body{
 .notes-bar{ display:flex; align-items:center; gap:12px; min-height:44px; }
 .notes-bar .notes-search, .notes-bar .notes-search:focus-within{ width:300px; flex:0 1 300px; }
 .notes-search-cancel{ display:none; }
+/* × inside the field while it holds a query (the ⌘K hint gives way to it) */
+.notes-search-clear{
+  position:relative; flex:none; display:grid; place-items:center; width:18px; height:18px; padding:0;
+  border:0; border-radius:50%; background:var(--ink3); color:var(--s1); cursor:pointer;
+}
+.notes-search-clear[hidden]{ display:none; }
+.notes-search-clear svg{ display:block; }
+.notes-search-clear:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+.notes-search.has-query .kbd{ display:none; }
 .notes-sort b{ font-weight:600; color:var(--ink); }
 /* sort menu: a leading ✓ column (ink, not accent) */
 .notes-sort-check{ display:inline-block; flex:none; inline-size:1.1em; color:var(--ink); }
@@ -925,7 +934,7 @@ html,body{
 .notes-compose:hover{ background:var(--s3); }
 .notes-compose:focus-visible, .notes-more:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
 .notes-group{ margin-top:18px; }
-.notes-group-h{ margin:0 0 6px; padding-inline:16px; font-size:12.5px; line-height:16px; font-weight:600; color:var(--ink2); }
+.notes-group-h{ margin:0 0 6px; padding-inline:16px; font-size:12.5px; line-height:16px; font-weight:400; color:var(--ink2); }
 .notes-list{ list-style:none; margin:0; padding:0; background:var(--s1); border-radius:var(--radius-lg); overflow:hidden; }
 /* a row = the visible content on an opaque .notes-row-slide, over the swipe
    actions (.notes-row-actions, only while a row is being swiped / is open) */
@@ -939,14 +948,26 @@ html,body{
 .notes-row-slide.is-dragging{ transition:none; }
 /* the hairline belongs to the content: it slides with it, never over an action's fill */
 .notes-row + .notes-row .notes-row-slide::before{ content:""; position:absolute; top:0; inset-inline:16px 0; border-top:1px solid var(--hair); pointer-events:none; }
-.notes-row:hover .notes-row-slide, .notes-row.is-selected .notes-row-slide{ background:var(--s2); }
+@media (-webkit-min-device-pixel-ratio:2), (min-resolution:2dppx){ .notes-row + .notes-row .notes-row-slide::before{ border-top-width:.5px; } } /* a true hairline */
+.notes-row:hover .notes-row-slide{ background:var(--s2); }
+/* the row a menu / long-press sheet acts on: the one tint (dark: --accent-soft, --accent-tint is light-only) */
+.notes-row.is-selected .notes-row-slide{ background:var(--accent-tint); }
+:root[data-theme="dark"] .notes-row.is-selected .notes-row-slide{ background:var(--accent-soft); }
 /* keyboard focus only: focus handed back to a row after a tap/click on ‹כל הרשומות› draws no ring */
 .notes-row:has(.notes-row-link:focus-visible) .notes-row-slide{ box-shadow:inset 0 0 0 2px var(--accent); }
 .notes-row.is-swiping .notes-row-slide{ box-shadow:none; } /* the pressed link's focus is not a keyboard ring */
-/* behind the slide: the uncovered side's colour fills the row, its label in the 84px at that edge */
-.notes-row-actions{ position:absolute; inset:0; display:flex; }
+/* behind the slide: the uncovered strip (--reveal, set while dragging) in the side's colour, its
+   label in the 84px at that edge. Only the strip is coloured, so no colour fringes the far
+   rounded corners of the list; it grows/shrinks with the slide (same curve). */
+.notes-row-actions{
+  position:absolute; inset-block:0; display:flex; overflow:hidden; inline-size:var(--reveal, 0px);
+  transition:inline-size .2s var(--sp-out);
+}
+.notes-row-actions.is-end{ inset-inline-end:0; }
+.notes-row-actions.is-start{ inset-inline-start:0; }
+.notes-row:has(.notes-row-slide.is-dragging) .notes-row-actions{ transition:none; }
 .notes-row-action{
-  display:none; flex:1 1 auto; align-items:center; padding:0; border:0; margin:0;
+  display:none; flex:1 1 auto; min-width:0; align-items:center; padding:0; border:0; margin:0;
   color:#fff; font:inherit; font-size:15px; font-weight:600; cursor:pointer;
 }
 .notes-row-action > span{ flex:none; inline-size:84px; text-align:center; }
@@ -960,7 +981,7 @@ html,body{
   /* long-press is ours: no iOS link preview / text selection under the finger */
   .notes-row, .notes-gcard{ -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; }
 }
-@media (prefers-reduced-motion:reduce){ .notes-row-slide{ transition:none; } }
+@media (prefers-reduced-motion:reduce){ .notes-row-slide, .notes-row-actions{ transition:none; } }
 .notes-dot{ display:none; position:absolute; inset-inline-start:5px; top:21px; width:7px; height:7px; border-radius:50%; background:var(--accent); }
 .notes-row.is-new .notes-dot{ display:block; }
 .notes-row-body{ flex:1 1 auto; min-width:0; }
@@ -968,11 +989,14 @@ html,body{
 .notes-row-title.is-untitled{ color:var(--ink2); }
 .notes-row-link{ color:inherit; text-decoration:none; outline:none; }
 .notes-row-link::after{ content:""; position:absolute; inset:0; }
-.notes-row-sub{ margin:2px 0 0; font-size:13.5px; line-height:19px; color:var(--ink2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.notes-row-date{ color:var(--ink); }
-.notes-row-ex{ margin-inline-start:8px; }
+.notes-row-sub{ display:flex; gap:8px; margin:2px 0 0; font-size:13.5px; line-height:19px; color:var(--ink2); white-space:nowrap; }
+.notes-row-date{ flex:none; color:var(--ink); }
+/* the first line keeps its own direction (dir=auto + plaintext): a URL reads from its start and
+   ellipsizes at its own end; CSS does all the truncating */
+.notes-row-ex{ flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; unicode-bidi:plaintext; text-align:start; }
 .notes-row-meta{ flex:0 1 auto; max-width:40%; font-size:13px; line-height:18px; color:var(--ink3-text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-variant-numeric:tabular-nums; }
 .notes-row-meta:empty{ display:none; }
+.notes-row-meta .meta-short{ display:none; }
 .notes-mark{ background:rgba(255,214,10,.55); color:inherit; border-radius:3px; padding:0 1px; }
 :root[data-theme="dark"] .notes-mark{ background:rgba(255,214,10,.35); }
 /* while searching the results header already shows the count: the line below stays for screen readers only */
@@ -1000,26 +1024,47 @@ button.notes-empty:focus-visible{ outline:2px solid var(--accent); outline-offse
   .notes-results .notes-row-meta{ display:none; }
   .notes-bar{ gap:8px; }
   .notes-bar .notes-search, .notes-bar .notes-search:focus-within{ width:auto; flex:1 1 auto; height:36px; }
+  /* Body size: under 16px iOS zooms the page on focus */
+  .notes-bar .notes-search input{ font-size:17px; }
+  .notes-search-clear::after{ content:""; position:absolute; inset:-13px; } /* 44px to the finger */
+  /* 44×44 to the finger, the 36px circle drawn inside it */
   .notes-more{
-    display:inline-flex; align-items:center; justify-content:center; flex:none; width:36px; height:36px; padding:0;
-    border:0; border-radius:50%; background:var(--s3); color:var(--accent); cursor:pointer;
+    position:relative; display:inline-flex; align-items:center; justify-content:center; flex:none; width:44px; height:44px; padding:0;
+    border:0; border-radius:50%; background:none; color:var(--accent); cursor:pointer;
   }
-  .notes-more svg{ display:block; } /* a drawn glyph (non-text, 3:1), not "···" text that needs 4.5:1 on --s3 */
+  .notes-more::before{ content:""; position:absolute; inset:4px; border-radius:50%; background:var(--s3); }
+  .notes-more svg{ position:relative; display:block; } /* a drawn glyph (non-text, 3:1), not "···" text that needs 4.5:1 on --s3 */
   .notes-group-h{ font-size:13px; line-height:18px; }
   .notes-row-slide{ align-items:flex-start; min-height:64px; padding:11px 16px; }
   .notes-dot{ top:19px; }
   .notes-row-title{ font-size:17px; line-height:22px; }
   .notes-row-sub{ font-size:15px; line-height:20px; }
-  .notes-row-meta{ padding-top:2px; font-size:13px; }
+  /* phone meta = the open-todo count as a bare grey numeral, centred (Reminders); the author is desktop-only */
+  .notes-row-meta{ align-self:center; font-size:13px; }
+  .notes-row-meta .meta-who, .notes-row-meta .meta-sep, .notes-row-meta .meta-long{ display:none; }
+  .notes-row-meta .meta-short{ display:inline; }
+  .notes-row-meta:not(:has(.meta-todo)){ display:none; }
   .notes-toolbar{
     display:flex; align-items:center; justify-content:center; position:fixed; inset-inline:0; bottom:0; z-index:40;
     height:calc(50px + env(safe-area-inset-bottom, 0px)); padding-bottom:env(safe-area-inset-bottom, 0px);
     background:color-mix(in srgb, var(--s1) 92%, transparent); -webkit-backdrop-filter:saturate(180%) blur(20px); backdrop-filter:saturate(180%) blur(20px);
     border-top:1px solid var(--hair);
   }
+  @media (-webkit-min-device-pixel-ratio:2), (min-resolution:2dppx){ .notes-toolbar{ border-top-width:.5px; } }
   .notes-toolbar-count{ font-size:12px; line-height:16px; color:var(--ink2); font-variant-numeric:tabular-nums; }
   .notes-toolbar .notes-compose{ position:absolute; inset-inline-end:8px; top:3px; width:44px; height:44px; }
   .planner-root.notes-index-on ~ .undo-toast{ bottom:calc(50px + env(safe-area-inset-bottom, 0px) + 16px); max-width:calc(100vw - 32px); }
+}
+/* touch tablets (iPad portrait and up): the desktop bar, sized for a finger; no keyboard hint */
+@media (min-width:768px) and (pointer:coarse){
+  .notes-bar .notes-search, .notes-bar .notes-search:focus-within{ height:44px; }
+  .notes-bar .view-toggle-btn{ min-height:40px; }
+  .notes-bar .notes-sort{ min-height:44px; }
+  .notes-bar .notes-compose{ width:44px; height:44px; }
+  .notes-search-clear::after{ content:""; position:absolute; inset:-13px; }
+  .notes-page-menu-btn{ min-width:44px; min-height:44px; }
+  .notes-back-btn{ min-height:44px; }
+  .search-box .kbd{ display:none; }
 }
 /* gallery: each card is a thumbnail of the page itself (the "paper"), title + date beneath */
 .notes-body.is-gallery .notes-group{ margin-top:22px; }
@@ -1041,7 +1086,7 @@ button.notes-empty:focus-visible{ outline:2px solid var(--accent); outline-offse
 .notes-gcard-link:hover .notes-paper{ box-shadow:0 0 0 1px var(--paper-ring-hover, rgba(0,0,0,.12)); }
 .notes-gcard.is-selected .notes-paper{ box-shadow:0 0 0 3px var(--accent); }
 .notes-gcard:has(.notes-gcard-link:focus-visible) .notes-paper{ box-shadow:0 0 0 3px var(--accent); }
-.np-line{ margin:0 0 3px; font-size:10.5px; line-height:1.35; color:var(--ink2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.np-line{ margin:0 0 3px; font-size:10.5px; line-height:1.35; color:var(--ink2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; unicode-bidi:plaintext; text-align:start; }
 .np-h1, .np-h2{ font-size:11.5px; font-weight:600; color:var(--ink); }
 .np-todo::before{
   content:""; display:inline-block; box-sizing:border-box; width:8px; height:8px; margin-inline-end:5px; vertical-align:-0.5px;
@@ -1071,17 +1116,30 @@ button.notes-empty:focus-visible{ outline:2px solid var(--accent); outline-offse
 .notes-page-toolbar{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
 .notes-breadcrumb{ display:flex; align-items:center; gap:5px; min-width:0; font-size:13px; }
 .notes-back-btn{
-  border:none; background:none; color:var(--muted); font-size:13px; font-weight:600; cursor:pointer;
+  display:inline-flex; align-items:center; gap:4px; border:none; background:none; color:var(--muted); font:inherit; font-size:13px; font-weight:600; cursor:pointer;
   padding:6px 4px; border-radius:var(--radius-sm); flex-shrink:0;
 }
 .notes-back-btn:hover{ color:var(--ink); }
-.notes-breadcrumb-sep{ color:var(--muted); opacity:.5; flex-shrink:0; }
+.notes-back-chev, .notes-back-short{ display:none; }
+/* the separator points toward the child: inline-end (RTL: left) */
+.notes-breadcrumb-sep{ display:block; color:var(--muted); opacity:.5; flex-shrink:0; }
+[dir="rtl"] .notes-breadcrumb-sep, [dir="rtl"] .notes-back-chev{ transform:scaleX(-1); }
 .notes-breadcrumb-current{
   color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0;
 }
-.notes-page-menu-btn{ border:none; background:none; color:var(--muted); padding:6px 8px; border-radius:var(--radius-sm); cursor:pointer; display:flex; align-items:center; }
-.notes-page-menu-btn svg{ width:18px; height:18px; display:block; }
+.notes-page-menu-btn{ border:none; background:none; color:var(--muted); padding:6px 8px; border-radius:var(--radius-sm); cursor:pointer; display:flex; align-items:center; justify-content:center; }
+.notes-page-menu-btn svg{ width:20px; height:20px; display:block; }
 .notes-page-menu-btn:hover{ background:var(--surface-2); color:var(--ink); }
+@media (max-width:767px){
+  /* phones: a tinted ‹ רשומות back control (iOS), the breadcrumb trail is desktop-only */
+  .notes-breadcrumb-sep, .notes-breadcrumb-current, .notes-back-long{ display:none; }
+  .notes-back-chev, .notes-back-short{ display:block; }
+  .notes-back-btn{ gap:5px; min-height:44px; padding-block:0; padding-inline:4px 8px; color:var(--accent); font-size:17px; font-weight:400; }
+  .notes-back-btn:hover{ color:var(--accent); }
+  .notes-back-chev{ width:12px; height:20px; }
+  .notes-page-menu-btn{ min-width:44px; min-height:44px; padding:0; color:var(--accent); }
+}
+.notes-back-btn:focus-visible, .notes-page-menu-btn:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
 .notes-page-head{ display:flex; align-items:flex-start; gap:8px; margin:4px 0 6px; }
 .notes-page-icon{
   flex-shrink:0; width:40px; height:40px; margin-top:2px; display:flex; align-items:center; justify-content:center;
@@ -1740,6 +1798,7 @@ button.notes-empty:focus-visible{ outline:2px solid var(--accent); outline-offse
 .sheet-list{ background:var(--s2); border-radius:12px; overflow:hidden; }
 .sheet-item{ display:block; width:100%; min-height:52px; border:0; border-top:1px solid var(--hl); background:none; font:inherit; font-size:17px; color:var(--ink); text-align:center; cursor:pointer; }
 .sheet-item:first-child{ border-top:0; }
+.sheet-item.is-group-start{ border-top:6px solid var(--s1); } /* a section gap (iOS menu): the sheet's own surface between two groups */
 .sheet-item:active, .sheet-item:hover{ background:var(--s3); }
 .sheet-item.is-danger{ color:var(--danger); }
 .sheet-item:disabled{ opacity:.4; cursor:default; background:none; }
@@ -2339,6 +2398,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
         <label class="search-box notes-search" for="notesSearch">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
           <input id="notesSearch" type="search" placeholder="חיפוש" aria-label="חיפוש ברשומות" autocomplete="off">
+          <button type="button" class="notes-search-clear" id="notesSearchClear" aria-label="ניקוי חיפוש" hidden><svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
           <span class="kbd" aria-hidden="true">⌘K</span>
         </label>
         <button type="button" class="notes-search-cancel" id="notesSearchCancel" hidden>ביטול</button>
@@ -2355,12 +2415,12 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     <div class="notes-page-view" id="notesPageView" style="display:none;">
       <div class="notes-page-toolbar">
         <div class="notes-breadcrumb">
-          <button class="notes-back-btn" id="notesBackBtn" type="button">כל הרשומות</button>
-          <span class="notes-breadcrumb-sep">›</span>
+          <button class="notes-back-btn" id="notesBackBtn" type="button"><svg class="notes-back-chev" viewBox="0 0 12 20" width="12" height="20" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 2 2 10l8 8"/></svg><span class="notes-back-long">כל הרשומות</span><span class="notes-back-short">רשומות</span></button>
+          <svg class="notes-breadcrumb-sep" viewBox="0 0 12 20" width="7" height="12" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 2l8 8-8 8"/></svg>
           <span class="notes-breadcrumb-current" id="notesBreadcrumbCurrent"></span>
         </div>
         <button class="notes-page-menu-btn" id="notesPageMenuBtn" type="button" aria-label="אפשרויות רשומה" title="אפשרויות רשומה">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><circle cx="6" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="18" cy="12" r="1.9"/></svg>
         </button>
       </div>
       <div class="notes-page-head">
@@ -2804,6 +2864,19 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     div.innerHTML = html || '';
     let text = (div.textContent || '').trim();
     if(text.length > max) text = text.slice(0, max) + '…';
+    return text;
+  }
+  // A one-line excerpt that CSS ellipsizes (text-overflow): clipped well past any
+  // visible width, with no "…" of its own — a logical "…" lands on the wrong end of
+  // an LTR line (a URL) inside RTL text. Never splits a surrogate pair.
+  function plainTextClip(html, max){
+    let text = stripHtmlPreview(html, Infinity);
+    if(text.length > max){
+      let cut = max;
+      const c = text.charCodeAt(cut - 1);
+      if(c >= 0xD800 && c <= 0xDBFF) cut--;
+      text = text.slice(0, cut);
+    }
     return text;
   }
   function collectChangeItems(state){
@@ -7730,8 +7803,14 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       if(!it || it.divider) return; // a menu divider has no place in a sheet
       const b = document.createElement('button');
       b.type = 'button';
-      b.className = 'sheet-item' + (it.danger ? ' is-danger' : '');
+      b.className = 'sheet-item' + (it.danger ? ' is-danger' : '') + (it.groupStart ? ' is-group-start' : '');
       b.textContent = it.label;
+      // checked (a choice list): a visual ✓ that VoiceOver skips; the state is aria-current
+      if(it.checked){
+        b.setAttribute('aria-current', 'true');
+        const t = document.createElement('span'); t.setAttribute('aria-hidden', 'true'); t.textContent = '✓ ';
+        b.prepend(t);
+      }
       if(it.disabled){ b.disabled = true; list.appendChild(b); return; } // listed, inert
       // an item that opens a sheet with a text field runs inside the tap (sync),
       // so iOS can raise the keyboard for it; the rest run after the close
@@ -9296,7 +9375,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     (function walk(blocks){
       for(const b of blocks || []){
         if(line) return;
-        const t = stripHtmlPreview(b.html, 140);
+        const t = plainTextClip(b.html, 300);
         if(t){ line = t; return; }
         walk(b.children);
       }
@@ -10119,12 +10198,11 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   // query lists results the view items are listed but inert (as the desktop toggle).
   document.getElementById('notesMoreBtn').onclick = () => {
     const view = notesView(), sort = notesSort(), searching = !!notesQuery.trim();
-    const tick = (on, label) => (on ? '✓ ' : '') + label;
     const pick = (name, value, current) => () => { if(value === current) return; setNotesPref(name, value); renderNotesIndex(); };
     openSheet('תצוגה ומיון', sheetList([
-      { label: tick(view === 'list', 'תצוגת רשימה'), disabled: searching, run: pick('view', 'list', view) },
-      { label: tick(view === 'gallery', 'תצוגת גלריה'), disabled: searching, run: pick('view', 'gallery', view) }
-    ].concat(['updated', 'created', 'title'].map(k => ({ label: tick(sort === k, 'מיון: ' + NOTES_SORT_LABEL[k]), run: pick('sort', k, sort) })))));
+      { label: 'תצוגת רשימה', checked: view === 'list', disabled: searching, run: pick('view', 'list', view) },
+      { label: 'תצוגת גלריה', checked: view === 'gallery', disabled: searching, run: pick('view', 'gallery', view) }
+    ].concat(['updated', 'created', 'title'].map((k, i) => ({ label: 'מיון: ' + NOTES_SORT_LABEL[k], checked: sort === k, groupStart: i === 0, run: pick('sort', k, sort) })))));
   };
 
   function duplicateNotesPage(pageId){
@@ -10433,9 +10511,10 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     (function walk(blocks, depth){
       for(const b of blocks || []){
         if(paper.childElementCount >= NOTES_PAPER_LINES) return;
-        const text = stripHtmlPreview(b.html, 60);
+        const text = plainTextClip(b.html, 120);
         if(text){
           const line = document.createElement('div');
+          line.dir = 'auto'; // a URL line keeps its own direction (CSS ellipsizes it at its end)
           line.className = 'np-line ' + (b.style === 'h1' ? 'np-h1' : b.style === 'h2' ? 'np-h2'
             : b.style === 'todo' ? (b.checked ? 'np-todo np-done' : 'np-todo')
             : b.style === 'p' && isAllBoldHtml(b.html) ? 'np-h2' : 'np-p');
@@ -10511,6 +10590,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     time.textContent = notesShortDate(page[dateField]);
     const ex = document.createElement('span');
     ex.className = 'notes-row-ex';
+    ex.dir = 'auto'; // the line's own direction: a URL reads from its start, ellipsized at its end
     if(match && !titleHit) appendMarkedExcerpt(ex, match);
     else ex.textContent = pageFirstLine(page);
     sub.appendChild(time); sub.appendChild(ex);
@@ -10518,9 +10598,19 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     slide.appendChild(bodyEl);
 
     const todos = pageOpenTodos(page);
+    // desktop: "author · N משימות"; phones (CSS): the bare count, its words in the aria-label
     const meta = document.createElement('span');
     meta.className = 'notes-row-meta';
-    meta.textContent = [editorLabel(page.updatedBy), todos === 1 ? 'משימה אחת' : todos > 1 ? todos + ' משימות' : ''].filter(Boolean).join(' · ');
+    const who = editorLabel(page.updatedBy);
+    const span = (cls, text) => { const el = document.createElement('span'); el.className = cls; el.textContent = text; return el; };
+    if(who) meta.appendChild(span('meta-who', who));
+    if(todos > 0){
+      if(who) meta.appendChild(span('meta-sep', ' · '));
+      const todo = span('meta-todo', '');
+      todo.setAttribute('aria-label', todos === 1 ? 'משימה פתוחה אחת' : todos + ' משימות פתוחות');
+      todo.append(span('meta-long', todos === 1 ? 'משימה אחת' : todos + ' משימות'), span('meta-short', String(todos)));
+      meta.appendChild(todo);
+    }
     slide.appendChild(meta);
     if(currentRole === 'editor') attachNotesRowSwipe(li, page);
     return li;
@@ -10628,6 +10718,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     }
     function paint(v){
       slide.style.transform = v ? 'translateX(' + v + 'px)' : '';
+      li.style.setProperty('--reveal', v ? (Math.abs(v) + 1) + 'px' : '0px'); // the coloured strip = the uncovered width
       if(actions && v){ const end = v * endSign() > 0; actions.classList.toggle('is-end', end); actions.classList.toggle('is-start', !end); }
     }
     function settle(target, then){
@@ -10823,6 +10914,10 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     }
   }
 
+  // the search shortcut hints name this platform's modifier (⌘K on Apple, Ctrl K elsewhere)
+  (function platformKbdHints(){
+    if(!/Mac|iPhone|iPad|iPod/.test(navigator.platform || '')) document.querySelectorAll('.kbd').forEach(k => { k.textContent = 'Ctrl K'; });
+  })();
   // ---------- notes index search ----------
   // Typing re-renders the index after 90ms (Enter: at once). Esc clears, then
   // blurs; ArrowDown moves into the results. Phones: ביטול (shown while the
@@ -10837,8 +10932,11 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   function syncNotesSearchChrome(focusTarget){
     const input = document.getElementById('notesSearch'), cancel = document.getElementById('notesSearchCancel');
     const f = focusTarget === undefined ? document.activeElement : focusTarget;
-    const on = f === input || f === cancel || !!input.value;
+    const clear = document.getElementById('notesSearchClear');
+    const on = f === input || f === cancel || f === clear || !!input.value;
     cancel.hidden = !on;
+    clear.hidden = !input.value;
+    input.closest('.notes-search').classList.toggle('has-query', !!input.value);
     document.getElementById('notesBar').classList.toggle('is-searching', on);
   }
   function focusNotesSearch(){ const el = document.getElementById('notesSearch'); el.focus(); el.select(); }
@@ -10875,6 +10973,11 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     cancel.addEventListener('pointerdown', (e) => e.preventDefault()); // keep the field focused until the click lands
     cancel.addEventListener('blur', (e) => syncNotesSearchChrome(e.relatedTarget));
     cancel.addEventListener('click', () => { clearNotesSearch(); input.blur(); syncNotesSearchChrome(null); });
+    // × clears and stays in the field, ready for the next query
+    const clear = document.getElementById('notesSearchClear');
+    clear.addEventListener('pointerdown', (e) => e.preventDefault()); // the field keeps focus (and the iOS keyboard)
+    clear.addEventListener('blur', (e) => syncNotesSearchChrome(e.relatedTarget));
+    clear.addEventListener('click', (e) => { e.preventDefault(); clearNotesSearch(); input.focus(); syncNotesSearchChrome(); });
   })();
 
   function renderNotes(){
