@@ -90,6 +90,9 @@
   --t-label:12px; --lh-label:16px;
   --t-cap:12px;   --lh-cap:16px;
   --row-min:32px; --r8:8px; --r12:12px;
+  /* motion curves (also used by the sign-in splash) + the iOS hairline separator */
+  --sp-out:cubic-bezier(0.23, 1, 0.32, 1); --sp-inout:cubic-bezier(0.77, 0, 0.175, 1);
+  --hair:rgba(60,60,67,.22);
 }
 /* the app intentionally always renders the light palette below, regardless
    of the device/OS dark-mode setting — no @media(prefers-color-scheme:dark)
@@ -98,11 +101,16 @@
   --bg:#17141d; --surface:#211d2b; --surface-2:#291f38; --accent:#bcaaea; --accent-ink:#221a3a;
   --accent-soft:#362c4a; --accent-soft-ink:#e3d9f8; --ink:#f1eef8; --muted:#a297b3;
   --border:#362c4a; --border-strong:#493c62; --done:#7fcb9c; --today-ring:#e0b263; --done-text:#7fcb9c; --today-text:#e0b263; color-scheme: dark;
+  --hair:rgba(255,255,255,.14);
+  /* the G2 ladder (--s1..--s3, --ink3) on the dark surfaces — the notes index and the header are built on it */
+  --s1:var(--surface); --s2:var(--surface-2); --s3:#352c47; --ink3:#6f6680; --ink3-text:var(--muted);
+  --paper-ring:rgba(255,255,255,.08); --paper-ring-hover:rgba(255,255,255,.16);
 }
 :root[data-theme="light"]{ /* same as :root — kept so an explicit data-theme="light" stays a no-op */ }
 
 *{box-sizing:border-box;}
 html,body{
+  margin:0; /* no UA 8px frame around .planner-root (it was a white border on every board) */
   overscroll-behavior:contain;
   /* declared here, not just on .planner-root, because the drawer, both
      modals, and every picker/menu popover are appended straight to <body>
@@ -922,15 +930,18 @@ html,body{
 /* a row = the visible content on an opaque .notes-row-slide, over the swipe
    actions (.notes-row-actions, only while a row is being swiped / is open) */
 .notes-row{ position:relative; cursor:pointer; }
+/* focus (arrow keys, back from a page) scrolls a row/card clear of the sticky header and the phone toolbar */
+.notes-row, .notes-gcard{ scroll-margin-block:72px; }
 .notes-row-slide{
   position:relative; z-index:1; display:flex; align-items:center; gap:16px; min-height:60px; padding:10px 16px;
-  background:var(--s1); transition:transform .2s var(--sp-out, cubic-bezier(0.23, 1, 0.32, 1));
+  background:var(--s1); transition:transform .2s var(--sp-out);
 }
 .notes-row-slide.is-dragging{ transition:none; }
 /* the hairline belongs to the content: it slides with it, never over an action's fill */
-.notes-row + .notes-row .notes-row-slide::before{ content:""; position:absolute; top:0; inset-inline:16px 0; border-top:1px solid rgba(60,60,67,.22); pointer-events:none; }
+.notes-row + .notes-row .notes-row-slide::before{ content:""; position:absolute; top:0; inset-inline:16px 0; border-top:1px solid var(--hair); pointer-events:none; }
 .notes-row:hover .notes-row-slide, .notes-row.is-selected .notes-row-slide{ background:var(--s2); }
-.notes-row:focus-within .notes-row-slide{ box-shadow:inset 0 0 0 2px var(--accent); }
+/* keyboard focus only: focus handed back to a row after a tap/click on ‹כל הרשומות› draws no ring */
+.notes-row:has(.notes-row-link:focus-visible) .notes-row-slide{ box-shadow:inset 0 0 0 2px var(--accent); }
 .notes-row.is-swiping .notes-row-slide{ box-shadow:none; } /* the pressed link's focus is not a keyboard ring */
 /* behind the slide: the uncovered side's colour fills the row, its label in the 84px at that edge */
 .notes-row-actions{ position:absolute; inset:0; display:flex; }
@@ -991,8 +1002,9 @@ button.notes-empty:focus-visible{ outline:2px solid var(--accent); outline-offse
   .notes-bar .notes-search, .notes-bar .notes-search:focus-within{ width:auto; flex:1 1 auto; height:36px; }
   .notes-more{
     display:inline-flex; align-items:center; justify-content:center; flex:none; width:36px; height:36px; padding:0;
-    border:0; border-radius:50%; background:var(--s3); color:var(--accent); font:inherit; font-size:17px; font-weight:700; letter-spacing:1px; cursor:pointer;
+    border:0; border-radius:50%; background:var(--s3); color:var(--accent); cursor:pointer;
   }
+  .notes-more svg{ display:block; } /* a drawn glyph (non-text, 3:1), not "···" text that needs 4.5:1 on --s3 */
   .notes-group-h{ font-size:13px; line-height:18px; }
   .notes-row-slide{ align-items:flex-start; min-height:64px; padding:11px 16px; }
   .notes-dot{ top:19px; }
@@ -1003,7 +1015,7 @@ button.notes-empty:focus-visible{ outline:2px solid var(--accent); outline-offse
     display:flex; align-items:center; justify-content:center; position:fixed; inset-inline:0; bottom:0; z-index:40;
     height:calc(50px + env(safe-area-inset-bottom, 0px)); padding-bottom:env(safe-area-inset-bottom, 0px);
     background:color-mix(in srgb, var(--s1) 92%, transparent); -webkit-backdrop-filter:saturate(180%) blur(20px); backdrop-filter:saturate(180%) blur(20px);
-    border-top:1px solid rgba(60,60,67,.22);
+    border-top:1px solid var(--hair);
   }
   .notes-toolbar-count{ font-size:12px; line-height:16px; color:var(--ink2); font-variant-numeric:tabular-nums; }
   .notes-toolbar .notes-compose{ position:absolute; inset-inline-end:8px; top:3px; width:44px; height:44px; }
@@ -1020,14 +1032,15 @@ button.notes-empty:focus-visible{ outline:2px solid var(--accent); outline-offse
 .notes-gcard-link{ display:block; color:inherit; text-decoration:none; outline:none; }
 .notes-paper{
   position:relative; height:150px; padding:12px 14px; background:var(--s1); border-radius:8px;
-  box-shadow:0 0 0 1px rgba(0,0,0,.06); overflow:hidden; transition:box-shadow .12s ease;
+  box-shadow:0 0 0 1px var(--paper-ring, rgba(0,0,0,.06)); overflow:hidden; transition:box-shadow .12s ease;
 }
 .notes-paper::after{
   content:""; position:absolute; inset-inline:0; bottom:0; height:28px; pointer-events:none;
   background:linear-gradient(to top, var(--s1), color-mix(in srgb, var(--s1) 0%, transparent));
 }
-.notes-gcard-link:hover .notes-paper{ box-shadow:0 0 0 1px rgba(0,0,0,.12); }
-.notes-gcard:focus-within .notes-paper, .notes-gcard.is-selected .notes-paper{ box-shadow:0 0 0 3px var(--accent); }
+.notes-gcard-link:hover .notes-paper{ box-shadow:0 0 0 1px var(--paper-ring-hover, rgba(0,0,0,.12)); }
+.notes-gcard.is-selected .notes-paper{ box-shadow:0 0 0 3px var(--accent); }
+.notes-gcard:has(.notes-gcard-link:focus-visible) .notes-paper{ box-shadow:0 0 0 3px var(--accent); }
 .np-line{ margin:0 0 3px; font-size:10.5px; line-height:1.35; color:var(--ink2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .np-h1, .np-h2{ font-size:11.5px; font-weight:600; color:var(--ink); }
 .np-todo::before{
@@ -2331,7 +2344,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
         <button type="button" class="notes-search-cancel" id="notesSearchCancel" hidden>ביטול</button>
         <div class="view-toggle notes-view" role="group" aria-label="תצוגה"><button class="view-toggle-btn" type="button" data-view="list" aria-pressed="false">רשימה</button><button class="view-toggle-btn" type="button" data-view="gallery" aria-pressed="false">גלריה</button></div>
         <button class="ctx-link notes-sort" id="notesSortBtn" type="button" aria-haspopup="menu" aria-expanded="false">מיון: <b id="notesSortLabel">תאריך עריכה</b></button>
-        <button class="notes-more" id="notesMoreBtn" type="button" aria-label="תצוגה ומיון" aria-haspopup="true">···</button>
+        <button class="notes-more" id="notesMoreBtn" type="button" aria-label="תצוגה ומיון" aria-haspopup="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><circle cx="6" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="18" cy="12" r="1.9"/></svg></button>
         <button class="notes-compose" id="notesNewPageBtn" type="button" aria-label="רשומה חדשה" title="רשומה חדשה (N)"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/><path d="M17.6 3.4a1.9 1.9 0 0 1 2.7 2.7L12 14.4l-3.6.9.9-3.6z"/></svg></button>
       </div>
       <div class="notes-body" id="notesBody"></div>
@@ -2565,6 +2578,9 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   let appState = null;      // planner: { people, topics, weeks:{ weekKey: dayData } } — notes: { kind:'notes', pages:[...] }
   let lastSyncedJson = '';  // last state string confirmed round-tripped with the server
   let lastKnownHash = '';   // last board StateHash seen (getBoard/getBoardMeta); '' = unknown, always do a full fetch
+  // a newer server state was fetched but not applied (the user was editing / a notes page was open):
+  // lastKnownHash already matches it, so once editing ends the next poll must skip the cheap hash check
+  let remoteApplyDeferred = false;
   let saveTimer = null;
   let pollTimer = null;
   // true from the moment a local edit is queued (scheduleSave) until pushState()
@@ -2946,7 +2962,8 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     // await we bail out if the current board is no longer the one we asked for.
     const reqBoard = currentBoardId;
     try{
-      if(!isInitial && await boardUnchangedSinceLastSync()) return;
+      const retryDeferred = remoteApplyDeferred && !isUserEditing() && !hasPendingLocalChange;
+      if(!isInitial && !retryDeferred && await boardUnchangedSinceLastSync()) return;
       if(currentBoardId !== reqBoard) return;
       const url = API_URL + '?action=getBoard&board=' + encodeURIComponent(reqBoard) + authQuery() + '&t=' + Date.now();
       const res = await fetch(url);
@@ -2983,7 +3000,8 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       if(serverData){
         const serverJson = JSON.stringify(serverData);
         if(serverJson !== lastSyncedJson){
-          if(!isUserEditing() && !hasPendingLocalChange){
+          remoteApplyDeferred = isUserEditing() || hasPendingLocalChange;
+          if(!remoteApplyDeferred){
             appState = pruneBlankItems(serverData);
             if(currentBoardType === 'notes'){
               if(!Array.isArray(appState.pages)) appState.pages = [];
@@ -3009,8 +3027,9 @@ body.has-select-mode .undo-toast{ bottom:84px; }
             // from what this device had cached
             setSyncStatus(isInitial && (!prevLocal || prevLocal === serverJson) ? 'מסונכרן ✓' : 'עודכן ממכשיר אחר');
           }
-        } else if(isInitial){
-          setSyncStatus('מסונכרן ✓');
+        } else {
+          remoteApplyDeferred = false;
+          if(isInitial) setSyncStatus('מסונכרן ✓');
         }
       } else if(isInitial && currentRole === 'editor'){
         // board has no real data yet — seed it from our (cached/default) state
@@ -4151,6 +4170,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     }
     lastSyncedJson = '';
     lastKnownHash = '';
+    remoteApplyDeferred = false;
     // the header shows the board being entered right away, not after the
     // (slow) server round-trip below
     renderBoardSwitcher();
@@ -10070,10 +10090,19 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     setTimeout(() => main.classList.remove('flash'), 600);
   }
   function closeNotesPage(){
+    const fromId = currentNotesPageId;
     restoreNotesReveal();
     currentNotesPageId = null;
     reflectStateInUrl(currentBoardId, currentView, false, null);
     renderNotes();
+    focusNotesIndexItem(fromId);
+  }
+  // Back on the index, focus returns to the row/card of the page just left (if it still exists).
+  function focusNotesIndexItem(pageId){
+    if(!pageId) return;
+    const item = document.querySelector('#notesBody [data-page="' + CSS.escape(pageId) + '"]');
+    const link = item && item.querySelector('.notes-row-link, .notes-gcard-link');
+    if(link) link.focus();
   }
   document.getElementById('notesBackBtn').onclick = closeNotesPage;
 
