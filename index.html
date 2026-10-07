@@ -902,6 +902,12 @@ html,body{
 .notes-bar .notes-search, .notes-bar .notes-search:focus-within{ width:300px; flex:0 1 300px; }
 .notes-search-cancel{ display:none; }
 .notes-sort b{ font-weight:600; color:var(--ink); }
+/* sort menu: a leading ✓ column (ink, not accent) */
+.notes-sort-menu .picker-item{ gap:4px; }
+.notes-sort-check{ display:inline-block; flex:none; inline-size:1.1em; color:var(--ink); }
+/* while a query lists results the view toggle has nothing to switch */
+.notes-view.is-disabled{ opacity:.5; }
+.notes-view.is-disabled .view-toggle-btn{ cursor:default; }
 .notes-more{ display:none; }
 .notes-compose{
   display:inline-flex; align-items:center; justify-content:center; flex:none; width:36px; height:36px; padding:0;
@@ -1018,8 +1024,6 @@ button.notes-empty:focus-visible{ outline:2px solid var(--accent); outline-offse
 @media (max-width:767px){
   .notes-gallery{ grid-template-columns:repeat(2, minmax(0, 1fr)); gap:18px 14px; }
   .notes-paper{ height:132px; padding:10px 12px; }
-  .notes-gcard-title{ font-size:14px; }
-  .notes-gcard-meta{ font-size:12px; }
 }
 .picker-item.is-danger{ color:var(--danger); }
 .picker-item.is-danger:hover{ background:rgba(192,57,43,.08); }
@@ -2299,7 +2303,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
         </label>
         <button type="button" class="notes-search-cancel" id="notesSearchCancel" hidden>ביטול</button>
         <div class="view-toggle notes-view" role="group" aria-label="תצוגה"><button class="view-toggle-btn" type="button" data-view="list" aria-pressed="false">רשימה</button><button class="view-toggle-btn" type="button" data-view="gallery" aria-pressed="false">גלריה</button></div>
-        <button class="ctx-link notes-sort" id="notesSortBtn" type="button" aria-haspopup="true">מיון: <b id="notesSortLabel">תאריך עריכה</b></button>
+        <button class="ctx-link notes-sort" id="notesSortBtn" type="button" aria-haspopup="menu" aria-expanded="false">מיון: <b id="notesSortLabel">תאריך עריכה</b></button>
         <button class="notes-more" id="notesMoreBtn" type="button" aria-label="תצוגה ומיון" aria-haspopup="true">···</button>
         <button class="notes-compose" id="notesNewPageBtn" type="button" aria-label="רשומה חדשה" title="רשומה חדשה (N)"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/><path d="M17.6 3.4a1.9 1.9 0 0 1 2.7 2.7L12 14.4l-3.6.9.9-3.6z"/></svg></button>
       </div>
@@ -2523,6 +2527,11 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   let currentRole = 'viewer';
   let currentBoardId = '';
   let currentBoardType = 'planner'; // 'planner' | 'notes' — see isValidStateFor/defaultStateFor
+  // Block ids a search reveal un-collapsed (in memory only). Leaving the page,
+  // opening another one or resetting the search folds them back — no persist,
+  // since the reveal never was an edit. toggleCollapse drops an id: once the
+  // user has toggled it, the state is theirs.
+  const notesRevealOpened = new Set();
   let currentNotesPageId = null; // which notes page (if any) is open — null means the gallery is showing
   let notesQuery = '';          // notes index search (raw field value; trimmed on use) — per board, cleared on switch
   let boardsList = [];      // [{id, name, role, type}] — boards the current email can access
@@ -9150,7 +9159,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   const BLOCK_STYLES = { p:1, h1:1, h2:1, ol:1, todo:1 };
   function normalizeBlockStyle(style){ return BLOCK_STYLES[style] ? style : 'p'; }
   function emptyBlock(){ return { id: uid(), html:'', style:'p', checked:false, collapsed:false, children:[] }; }
-  function emptyNotesPage(){ return { id: uid(), title:'', icon:'', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), blocks:[emptyBlock()] }; }
+  function emptyNotesPage(){ const now = new Date().toISOString(); return { id: uid(), title:'', icon:'', createdAt: now, updatedAt: now, updatedBy: currentEmail, blocks:[emptyBlock()] }; }
   // Caps an icon string at 8 UTF-16 code units — generous for a single emoji
   // even with a skin-tone modifier or a multi-codepoint ZWJ sequence (family
   // emoji etc. can run longer, but this is a decoration, not content worth
@@ -9197,6 +9206,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     // permanently un-openable for everyone. Writing the arrays back here (not
     // just `|| []` on the recursive call) neutralizes that on load (B2.6).
     if(!Array.isArray(state.pages)) state.pages = [];
+    state.kind = 'notes'; // additive backfill — notesSeenMap only ever seeds from a state that says it is a notes board
     state.pages.forEach(page => {
       page.icon = sanitizeNotesIcon(page.icon);
       page.pinned = !!page.pinned;
@@ -9227,6 +9237,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   function touchNotesPage(page){
     page.updatedAt = new Date().toISOString();
     page.updatedBy = currentEmail;
+    markNotesPageSeen(page); // your own edit is never "new" on this device
   }
   // Plain text of a block, untruncated (html is the sanitizeInline subset).
   function blockPlainText(block){ return stripHtmlPreview(block && block.html, Infinity); }
@@ -9328,25 +9339,32 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   // Seen map {pageId: updatedAt last seen on this device}. Missing (first
   // visit to this board on this device) → seed it with every page's current
   // updatedAt, so nothing shows as "new" until someone else edits after now.
+  // Seeds only from this notes board's own loaded pages — never from a planner
+  // state (mid board switch) and never from a still-empty list (the first
+  // paint before the server answers), either of which would make every page
+  // "new" once the real list arrives.
   function notesSeenMap(){
     let map = null;
     try{ map = JSON.parse(notesPref('seen') || 'null'); }catch(e){ map = null; }
     if(map && typeof map === 'object' && !Array.isArray(map)) return map;
     map = {};
-    ((appState && appState.pages) || []).forEach(p => { map[p.id] = p.updatedAt || ''; });
+    if(currentBoardType !== 'notes' || !appState || appState.kind !== 'notes' || !Array.isArray(appState.pages) || !appState.pages.length) return map;
+    appState.pages.forEach(p => { map[p.id] = p.updatedAt || ''; });
     setNotesPref('seen', JSON.stringify(map));
     return map;
   }
   function markNotesPageSeen(page){
     if(!page) return;
     const map = notesSeenMap();
+    if(map[page.id] === (page.updatedAt || '')) return;
     map[page.id] = page.updatedAt || '';
     setNotesPref('seen', JSON.stringify(map));
   }
-  function isNotesPageNew(page){
+  // seen: the map read once for the whole render (renderNotesIndex)
+  function isNotesPageNew(page, seen){
     if(!page || !page.updatedBy || page.updatedBy === currentEmail) return false;
-    const seen = notesSeenMap()[page.id];
-    return notesTime(page.updatedAt) > (seen ? notesTime(seen) : -Infinity);
+    const at = (seen || notesSeenMap())[page.id];
+    return notesTime(page.updatedAt) > (at ? notesTime(at) : -Infinity);
   }
   // Display name for a last-editor email: the team directory's name (cached by
   // fetchTeam — editors only), else the email's local part.
@@ -9483,6 +9501,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     const ctx = findBlockCtx(page.blocks, blockId);
     if(!ctx || !ctx.block.children.length) return;
     ctx.block.collapsed = !ctx.block.collapsed;
+    notesRevealOpened.delete(blockId); // the user's own choice now — leaving the page keeps it
     commitNotesChange();
   }
 
@@ -9983,7 +10002,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   // (in memory only — not an edit, nothing persisted), then centre and flash it.
   function openNotesPage(pageId, opts){
     const page = (appState.pages || []).find(p => p.id === pageId);
-    markNotesPageSeen(page); // opening from anywhere = seen
+    if(pageId !== currentNotesPageId) restoreNotesReveal();
     const revealId = opts && opts.revealBlockId;
     if(page && revealId) expandNotesBlockPath(page.blocks, revealId);
     currentNotesPageId = pageId;
@@ -9992,12 +10011,24 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     if(page && revealId && isNotesPageOpen()) flashNotesBlock(revealId);
   }
   // true when blockId is in `blocks`; un-collapses every ancestor on the way
+  // (remembering the ones it opened, so leaving the page can close them again)
   function expandNotesBlockPath(blocks, blockId){
     for(const b of blocks || []){
       if(b.id === blockId) return true;
-      if(expandNotesBlockPath(b.children, blockId)){ b.collapsed = false; return true; }
+      if(expandNotesBlockPath(b.children, blockId)){
+        if(b.collapsed){ b.collapsed = false; notesRevealOpened.add(b.id); }
+        return true;
+      }
     }
     return false;
+  }
+  function restoreNotesReveal(){
+    if(!notesRevealOpened.size) return;
+    const pages = (appState && Array.isArray(appState.pages)) ? appState.pages : [];
+    notesRevealOpened.forEach(id => {
+      for(const p of pages){ const ctx = findBlockCtx(p.blocks, id); if(ctx){ ctx.block.collapsed = true; break; } }
+    });
+    notesRevealOpened.clear();
   }
   function flashNotesBlock(blockId){
     const main = document.querySelector('#notesOutline .ob-row[data-id="' + CSS.escape(blockId) + '"] > .ob-row-main');
@@ -10007,6 +10038,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     setTimeout(() => main.classList.remove('flash'), 600);
   }
   function closeNotesPage(){
+    restoreNotesReveal();
     currentNotesPageId = null;
     reflectStateInUrl(currentBoardId, currentView, false, null);
     renderNotes();
@@ -10152,13 +10184,16 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     const isEditor = currentRole === 'editor';
     ['notesNewPageBtn', 'notesNewPageBtnM'].forEach(id => { const b = document.getElementById(id); if(b) b.style.display = isEditor ? '' : 'none'; });
     const view = notesView(), sort = notesSort();
+    const q = notesQuery.trim();
+    // a query always lists its results, so the view toggle has nothing to switch meanwhile
+    document.querySelector('#notesBar .notes-view').classList.toggle('is-disabled', !!q);
     document.querySelectorAll('#notesBar .notes-view [data-view]').forEach(b => {
       const on = b.dataset.view === view;
       b.classList.toggle('is-active', on);
       b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      if(q) b.setAttribute('aria-disabled', 'true'); else b.removeAttribute('aria-disabled');
     });
     document.getElementById('notesSortLabel').textContent = NOTES_SORT_LABEL[sort];
-    const q = notesQuery.trim();
     const searching = !!q && pages.length > 0;
     if(!searching) setNotesCount(pages.length ? notesCountLabel(pages.length) : '');
     body.innerHTML = '';
@@ -10175,10 +10210,12 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       body.appendChild(empty);
       return;
     }
-    if(searching){ renderNotesSearchResults(q, pages); return; }
+    const seen = notesSeenMap(); // read once per render, not per row
+    if(searching){ renderNotesSearchResults(q, pages, seen); return; }
     const groups = notesIndexGroups(pages, sort);
-    if(view === 'gallery') renderNotesGalleryView(groups);
-    else renderNotesListView(groups);
+    const dateField = sort === 'created' ? 'createdAt' : 'updatedAt'; // rows/cards show the date they are sorted by
+    if(view === 'gallery') renderNotesGalleryView(groups, dateField, seen);
+    else renderNotesListView(groups, dateField, seen);
   }
 
   // #notesCount (role=status; visually hidden on phones) + the phone toolbar.
@@ -10190,7 +10227,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
 
   // Search results: one section, newest edit first, no date groups; its
   // header (and the status line) is the result count.
-  function renderNotesSearchResults(q, pages){
+  function renderNotesSearchResults(q, pages, seen){
     const body = document.getElementById('notesBody');
     const hits = [];
     pages.forEach(page => { const m = pageMatch(page, q); if(m) hits.push({ page, m }); });
@@ -10214,7 +10251,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     sec.appendChild(h);
     const ul = document.createElement('ul');
     ul.className = 'notes-list';
-    hits.forEach(hit => ul.appendChild(renderNotesRow(hit.page, 'updatedAt', hit.m)));
+    hits.forEach(hit => ul.appendChild(renderNotesRow(hit.page, 'updatedAt', seen, hit.m)));
     sec.appendChild(ul);
     body.appendChild(sec);
   }
@@ -10246,9 +10283,8 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     appendMarked(el, text, start, m.len);
   }
 
-  function renderNotesListView(groups){
+  function renderNotesListView(groups, dateField, seen){
     const body = document.getElementById('notesBody');
-    const dateField = notesSort() === 'created' ? 'createdAt' : 'updatedAt';
     groups.forEach(g => {
       const sec = document.createElement('section');
       sec.className = 'notes-group';
@@ -10260,7 +10296,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       }
       const ul = document.createElement('ul');
       ul.className = 'notes-list';
-      g.pages.forEach(page => ul.appendChild(renderNotesRow(page, dateField)));
+      g.pages.forEach(page => ul.appendChild(renderNotesRow(page, dateField, seen)));
       sec.appendChild(ul);
       body.appendChild(sec);
     });
@@ -10268,9 +10304,8 @@ body.has-select-mode .undo-toast{ bottom:84px; }
 
   // Gallery: same groups as the list; each card = a "paper" thumbnail of the
   // page's first lines, then title + date · editor beneath.
-  function renderNotesGalleryView(groups){
+  function renderNotesGalleryView(groups, dateField, seen){
     const body = document.getElementById('notesBody');
-    const dateField = notesSort() === 'created' ? 'createdAt' : 'updatedAt';
     groups.forEach(g => {
       const sec = document.createElement('section');
       sec.className = 'notes-group';
@@ -10282,16 +10317,23 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       }
       const ul = document.createElement('ul');
       ul.className = 'notes-gallery';
-      g.pages.forEach(page => ul.appendChild(renderNotesGalleryCard(page, dateField)));
+      g.pages.forEach(page => ul.appendChild(renderNotesGalleryCard(page, dateField, seen)));
       sec.appendChild(ul);
       body.appendChild(sec);
     });
   }
 
   const NOTES_PAPER_LINES = 8;
-  function renderNotesGalleryCard(page, dateField){
+  // A paragraph whose whole text is bold (Notion-import sub-titles: "<b>נושאים פתוחים</b>")
+  // reads as a heading on the paper. html is the sanitizeInline subset.
+  function isAllBoldHtml(html){
+    const t = String(html || '').replace(/<br>/g, '').trim();
+    if(!/^<b>/.test(t) || !/<\/b>$/.test(t)) return false;
+    return !t.replace(/<b>[\s\S]*?<\/b>/g, '').replace(/<[^>]*>/g, '').trim();
+  }
+  function renderNotesGalleryCard(page, dateField, seen){
     const li = document.createElement('li');
-    li.className = 'notes-gcard' + (isNotesPageNew(page) ? ' is-new' : '') + (page.pinned ? ' is-pinned' : '');
+    li.className = 'notes-gcard' + (isNotesPageNew(page, seen) ? ' is-new' : '');
     li.dataset.page = page.id;
     const a = document.createElement('a');
     a.className = 'notes-gcard-link';
@@ -10308,7 +10350,8 @@ body.has-select-mode .undo-toast{ bottom:84px; }
         if(text){
           const line = document.createElement('div');
           line.className = 'np-line ' + (b.style === 'h1' ? 'np-h1' : b.style === 'h2' ? 'np-h2'
-            : b.style === 'todo' ? (b.checked ? 'np-todo np-done' : 'np-todo') : 'np-p');
+            : b.style === 'todo' ? (b.checked ? 'np-todo np-done' : 'np-todo')
+            : b.style === 'p' && isAllBoldHtml(b.html) ? 'np-h2' : 'np-p');
           if(depth) line.style.paddingInlineStart = (depth * 8) + 'px';
           line.textContent = text;
           paper.appendChild(line);
@@ -10346,9 +10389,9 @@ body.has-select-mode .undo-toast{ bottom:84px; }
 
   // match (search only): a title hit marks the title; a block hit replaces the
   // first-line excerpt with the matching line.
-  function renderNotesRow(page, dateField, match){
+  function renderNotesRow(page, dateField, seen, match){
     const li = document.createElement('li');
-    li.className = 'notes-row' + (isNotesPageNew(page) ? ' is-new' : '') + (page.pinned ? ' is-pinned' : '');
+    li.className = 'notes-row' + (isNotesPageNew(page, seen) ? ' is-new' : '') + (page.pinned ? ' is-pinned' : '');
     li.dataset.page = page.id;
     const dot = document.createElement('span');
     dot.className = 'notes-dot';
@@ -10433,9 +10476,63 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       openNotesPageMenu(hit.page, hit.li, point);
     });
     document.querySelectorAll('#notesBar .notes-view [data-view]').forEach(b => {
-      b.onclick = () => { setNotesPref('view', b.dataset.view); renderNotesIndex(); };
+      b.onclick = () => {
+        if(notesQuery.trim() || b.dataset.view === notesView()) return; // disabled while searching; the active one is a no-op
+        setNotesPref('view', b.dataset.view); renderNotesIndex();
+      };
     });
+    const sortBtn = document.getElementById('notesSortBtn');
+    // onDocClick (capture mousedown) has already closed an open menu by the
+    // time the button's click lands, so remember at press time that this
+    // click is meant to close it, not to reopen it
+    let sortOpenAtPress = false;
+    window.addEventListener('mousedown', (e) => { sortOpenAtPress = sortBtn.contains(e.target) && sortBtn.getAttribute('aria-expanded') === 'true'; }, true);
+    sortBtn.onclick = (e) => {
+      e.stopPropagation();
+      if(sortOpenAtPress){ sortOpenAtPress = false; closePicker(); return; }
+      toggleHeaderMenu(sortBtn, openNotesSortMenu);
+    };
   })();
+
+  // Sort picker (desktop bar; phones get it in the ··· sheet): a radio menu,
+  // the current choice marked with a leading ✓.
+  function openNotesSortMenu(){
+    const sortBtn = document.getElementById('notesSortBtn');
+    const current = notesSort();
+    const items = [];
+    openHeaderMenu(sortBtn, 180, (pop) => {
+      pop.classList.add('notes-sort-menu');
+      const list = document.createElement('div'); list.className = 'picker-list';
+      ['updated', 'created', 'title'].forEach(key => {
+        const on = key === current;
+        const r = document.createElement('div');
+        r.className = 'picker-item' + (on ? ' selected' : ''); // .selected = where focus starts
+        const check = document.createElement('span');
+        check.className = 'notes-sort-check';
+        check.setAttribute('aria-hidden', 'true');
+        check.textContent = on ? '✓ ' : '';
+        const label = document.createElement('span');
+        label.textContent = NOTES_SORT_LABEL[key];
+        r.append(check, label);
+        r.dataset.sort = key;
+        r.onclick = () => {
+          closePicker();
+          if(key === notesSort()) return;
+          setNotesPref('sort', key);
+          renderNotesIndex();
+        };
+        list.appendChild(r);
+        items.push(r);
+      });
+      pop.appendChild(list);
+    });
+    // wirePickerKeyboard made it a listbox; this one is a menu of radio items
+    if(openPickerEl){
+      openPickerEl.setAttribute('role', 'menu');
+      openPickerEl.setAttribute('aria-label', 'מיון');
+      items.forEach(r => { r.setAttribute('role', 'menuitemradio'); r.setAttribute('aria-checked', r.dataset.sort === current ? 'true' : 'false'); });
+    }
+  }
 
   // ---------- notes index search ----------
   // Typing re-renders the index after 90ms (Enter: at once). Esc clears, then
@@ -10460,6 +10557,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   function resetNotesSearch(){
     clearTimeout(notesSearchTimer); notesSearchTimer = null;
     notesQuery = '';
+    restoreNotesReveal();
     const input = document.getElementById('notesSearch');
     if(input){ input.value = ''; syncNotesSearchChrome(null); }
   }
@@ -10501,6 +10599,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       index.style.display = 'none'; toolbar.style.display = 'none';
       root.classList.remove('notes-index-on');
       pageView.style.display = '';
+      markNotesPageSeen(page); // open = seen, including another device's change arriving while it is open
       renderNotesPageView(page);
     } else {
       if(currentNotesPageId){ currentNotesPageId = null; reflectStateInUrl(currentBoardId, currentView, true, null); } // page was deleted remotely — back to the index, not an error
