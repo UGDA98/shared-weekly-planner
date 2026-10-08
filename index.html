@@ -6,7 +6,7 @@
 <!-- App build version, compared against version.txt to detect a new deploy in
      installed standalone PWA windows (which have no reload affordance). MUST be
      bumped together with version.txt on every deploy — see NOTES.md deploy step. -->
-<meta name="app-version" content="20261007-2302">
+<meta name="app-version" content="20261007-2018">
 <title>יומן ומשימות</title>
 <!-- PWA manifest + icons — no service worker on purpose: this is a live-data
      app on a 20s poll, a SW would only risk serving a stale index.html for
@@ -915,7 +915,8 @@ html,body{
   border:0; border-radius:50%; background:var(--ink3); color:var(--s1); cursor:pointer;
 }
 .notes-search-clear[hidden]{ display:none; }
-.notes-search-clear svg{ display:block; }
+.search-box .notes-search-clear svg{ display:block; width:10px; height:10px; color:inherit; } /* not the 15px ink2 field icon */
+.notes-search-icon{ display:flex; flex:none; cursor:text; }
 .notes-search-clear:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
 .notes-search.has-query .kbd{ display:none; }
 .notes-sort b{ font-weight:600; color:var(--ink); }
@@ -991,9 +992,9 @@ html,body{
 .notes-row-link::after{ content:""; position:absolute; inset:0; }
 .notes-row-sub{ display:flex; gap:8px; margin:2px 0 0; font-size:13.5px; line-height:19px; color:var(--ink2); white-space:nowrap; }
 .notes-row-date{ flex:none; color:var(--ink); }
-/* the first line keeps its own direction (dir=auto + plaintext): a URL reads from its start and
-   ellipsizes at its own end; CSS does all the truncating */
-.notes-row-ex{ flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; unicode-bidi:plaintext; text-align:start; }
+/* the first line in its own direction (dir from its content, isolated): a URL reads from its start and
+   ellipsizes at its own end; the box hugs the text beside the date; CSS does all the truncating */
+.notes-row-ex{ flex:0 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; unicode-bidi:isolate; }
 .notes-row-meta{ flex:0 1 auto; max-width:40%; font-size:13px; line-height:18px; color:var(--ink3-text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-variant-numeric:tabular-nums; }
 .notes-row-meta:empty{ display:none; }
 .notes-row-meta .meta-short{ display:none; }
@@ -1086,7 +1087,10 @@ button.notes-empty:focus-visible{ outline:2px solid var(--accent); outline-offse
 .notes-gcard-link:hover .notes-paper{ box-shadow:0 0 0 1px var(--paper-ring-hover, rgba(0,0,0,.12)); }
 .notes-gcard.is-selected .notes-paper{ box-shadow:0 0 0 3px var(--accent); }
 .notes-gcard:has(.notes-gcard-link:focus-visible) .notes-paper{ box-shadow:0 0 0 3px var(--accent); }
-.np-line{ margin:0 0 3px; font-size:10.5px; line-height:1.35; color:var(--ink2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; unicode-bidi:plaintext; text-align:start; }
+.np-line{ margin:0 0 3px; font-size:10.5px; line-height:1.35; color:var(--ink2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; unicode-bidi:isolate; }
+/* an LTR line (a URL) still sits at the paper's start edge, like every other line */
+[dir="rtl"] .np-line[dir="ltr"]{ text-align:right; }
+[dir="ltr"] .np-line[dir="rtl"]{ text-align:left; }
 .np-h1, .np-h2{ font-size:11.5px; font-weight:600; color:var(--ink); }
 .np-todo::before{
   content:""; display:inline-block; box-sizing:border-box; width:8px; height:8px; margin-inline-end:5px; vertical-align:-0.5px;
@@ -2395,12 +2399,12 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   <div id="notesSection" style="display:none;">
     <div class="notes-index" id="notesIndex">
       <div class="notes-bar" id="notesBar">
-        <label class="search-box notes-search" for="notesSearch">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <div class="search-box notes-search" id="notesSearchBox">
+          <label class="notes-search-icon" for="notesSearch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></label>
           <input id="notesSearch" type="search" placeholder="חיפוש" aria-label="חיפוש ברשומות" autocomplete="off">
           <button type="button" class="notes-search-clear" id="notesSearchClear" aria-label="ניקוי חיפוש" hidden><svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
           <span class="kbd" aria-hidden="true">⌘K</span>
-        </label>
+        </div>
         <button type="button" class="notes-search-cancel" id="notesSearchCancel" hidden>ביטול</button>
         <div class="view-toggle notes-view" role="group" aria-label="תצוגה"><button class="view-toggle-btn" type="button" data-view="list" aria-pressed="false">רשימה</button><button class="view-toggle-btn" type="button" data-view="gallery" aria-pressed="false">גלריה</button></div>
         <button class="ctx-link notes-sort" id="notesSortBtn" type="button" aria-haspopup="menu" aria-expanded="false">מיון: <b id="notesSortLabel">תאריך עריכה</b></button>
@@ -2869,6 +2873,12 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   // A one-line excerpt that CSS ellipsizes (text-overflow): clipped well past any
   // visible width, with no "…" of its own — a logical "…" lands on the wrong end of
   // an LTR line (a URL) inside RTL text. Never splits a surrogate pair.
+  // Direction of a one-line excerpt from its content: any Hebrew → rtl ("Zoom עם הצוות"
+  // reads as a Hebrew line); Latin with no Hebrew (a URL) → ltr; digits/punctuation only → rtl.
+  function notesLineDir(text){
+    text = String(text || '');
+    return /[\u0590-\u05FF]/.test(text) || !/[A-Za-z]/.test(text) ? 'rtl' : 'ltr';
+  }
   function plainTextClip(html, max){
     let text = stripHtmlPreview(html, Infinity);
     if(text.length > max){
@@ -10514,7 +10524,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
         const text = plainTextClip(b.html, 120);
         if(text){
           const line = document.createElement('div');
-          line.dir = 'auto'; // a URL line keeps its own direction (CSS ellipsizes it at its end)
+          line.dir = notesLineDir(text); // a URL line keeps its own direction (CSS ellipsizes it at its end)
           line.className = 'np-line ' + (b.style === 'h1' ? 'np-h1' : b.style === 'h2' ? 'np-h2'
             : b.style === 'todo' ? (b.checked ? 'np-todo np-done' : 'np-todo')
             : b.style === 'p' && isAllBoldHtml(b.html) ? 'np-h2' : 'np-p');
@@ -10590,9 +10600,9 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     time.textContent = notesShortDate(page[dateField]);
     const ex = document.createElement('span');
     ex.className = 'notes-row-ex';
-    ex.dir = 'auto'; // the line's own direction: a URL reads from its start, ellipsized at its end
     if(match && !titleHit) appendMarkedExcerpt(ex, match);
     else ex.textContent = pageFirstLine(page);
+    ex.dir = notesLineDir(ex.textContent); // a URL reads from its start, ellipsized at its end
     sub.appendChild(time); sub.appendChild(ex);
     bodyEl.appendChild(sub);
     slide.appendChild(bodyEl);
@@ -10607,8 +10617,10 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     if(todos > 0){
       if(who) meta.appendChild(span('meta-sep', ' · '));
       const todo = span('meta-todo', '');
-      todo.setAttribute('aria-label', todos === 1 ? 'משימה פתוחה אחת' : todos + ' משימות פתוחות');
-      todo.append(span('meta-long', todos === 1 ? 'משימה אחת' : todos + ' משימות'), span('meta-short', String(todos)));
+      const shown = document.createElement('span'); // what the eye reads; the words are for screen readers
+      shown.setAttribute('aria-hidden', 'true');
+      shown.append(span('meta-long', todos === 1 ? 'משימה אחת' : todos + ' משימות'), span('meta-short', String(todos)));
+      todo.append(shown, span('sr-only', todos === 1 ? 'משימה פתוחה אחת' : todos + ' משימות פתוחות'));
       meta.appendChild(todo);
     }
     slide.appendChild(meta);
@@ -10973,6 +10985,10 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     cancel.addEventListener('pointerdown', (e) => e.preventDefault()); // keep the field focused until the click lands
     cancel.addEventListener('blur', (e) => syncNotesSearchChrome(e.relatedTarget));
     cancel.addEventListener('click', () => { clearNotesSearch(); input.blur(); syncNotesSearchChrome(null); });
+    // the field's padding (outside the input) focuses it, as the old <label> did
+    document.getElementById('notesSearchBox').addEventListener('pointerdown', (e) => {
+      if(e.target === e.currentTarget){ e.preventDefault(); input.focus(); }
+    });
     // × clears and stays in the field, ready for the next query
     const clear = document.getElementById('notesSearchClear');
     clear.addEventListener('pointerdown', (e) => e.preventDefault()); // the field keeps focus (and the iOS keyboard)
