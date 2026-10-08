@@ -6,7 +6,7 @@
 <!-- App build version, compared against version.txt to detect a new deploy in
      installed standalone PWA windows (which have no reload affordance). MUST be
      bumped together with version.txt on every deploy — see NOTES.md deploy step. -->
-<meta name="app-version" content="20261007-2018">
+<meta name="app-version" content="20261008-0657">
 <title>יומן ומשימות</title>
 <!-- PWA manifest + icons — no service worker on purpose: this is a live-data
      app on a 20s poll, a SW would only risk serving a stale index.html for
@@ -1048,6 +1048,7 @@ button.notes-empty:focus-visible{ outline:2px solid var(--accent); outline-offse
   .notes-toolbar{
     display:flex; align-items:center; justify-content:center; position:fixed; inset-inline:0; bottom:0; z-index:40;
     height:calc(50px + env(safe-area-inset-bottom, 0px)); padding-bottom:env(safe-area-inset-bottom, 0px);
+    background:var(--s1);
     background:color-mix(in srgb, var(--s1) 92%, transparent); -webkit-backdrop-filter:saturate(180%) blur(20px); backdrop-filter:saturate(180%) blur(20px);
     border-top:1px solid var(--hair);
   }
@@ -1082,6 +1083,7 @@ button.notes-empty:focus-visible{ outline:2px solid var(--accent); outline-offse
 }
 .notes-paper::after{
   content:""; position:absolute; inset-inline:0; bottom:0; height:28px; pointer-events:none;
+  background:linear-gradient(to top, var(--s1), transparent);
   background:linear-gradient(to top, var(--s1), color-mix(in srgb, var(--s1) 0%, transparent));
 }
 .notes-gcard-link:hover .notes-paper{ box-shadow:0 0 0 1px var(--paper-ring-hover, rgba(0,0,0,.12)); }
@@ -2408,7 +2410,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
         <button type="button" class="notes-search-cancel" id="notesSearchCancel" hidden>ביטול</button>
         <div class="view-toggle notes-view" role="group" aria-label="תצוגה"><button class="view-toggle-btn" type="button" data-view="list" aria-pressed="false">רשימה</button><button class="view-toggle-btn" type="button" data-view="gallery" aria-pressed="false">גלריה</button></div>
         <button class="ctx-link notes-sort" id="notesSortBtn" type="button" aria-haspopup="menu" aria-expanded="false">מיון: <b id="notesSortLabel">תאריך עריכה</b></button>
-        <button class="notes-more" id="notesMoreBtn" type="button" aria-label="תצוגה ומיון" aria-haspopup="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><circle cx="6" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="18" cy="12" r="1.9"/></svg></button>
+        <button class="notes-more" id="notesMoreBtn" type="button" aria-label="תצוגה ומיון" aria-haspopup="dialog"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><circle cx="6" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="18" cy="12" r="1.9"/></svg></button>
         <button class="notes-compose" id="notesNewPageBtn" type="button" aria-label="רשומה חדשה" title="רשומה חדשה (N)"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/><path d="M17.6 3.4a1.9 1.9 0 0 1 2.7 2.7L12 14.4l-3.6.9.9-3.6z"/></svg></button>
       </div>
       <div class="notes-body" id="notesBody"></div>
@@ -2823,6 +2825,10 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   }
 
   function persistState(){
+    // a search reveal unfolds ancestors in memory only; once anything on the
+    // board is saved while they are open, that unfold is part of the saved
+    // (shared) state, so leaving the page must not fold them again locally
+    if(currentBoardType === 'notes') notesRevealOpened.clear();
     // keep a one-step-back copy of whatever was cached *before* this write,
     // so a bad local write (or a save that raced with something else) always
     // leaves one earlier known-good snapshot recoverable, not just the latest.
@@ -9580,9 +9586,6 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   function commitNotesChange(){
     const page = currentNotesPage();
     if(!page) return;
-    // an edit saves the whole page, so the ancestors a search hit opened are
-    // now saved open: leaving the page must not fold them again
-    notesRevealOpened.forEach(id => { if(findBlockCtx(page.blocks, id)) notesRevealOpened.delete(id); });
     touchNotesPage(page);
     persistState();
     renderNotesOutline(page);
@@ -10140,7 +10143,8 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   }
 
   // opts.revealBlockId (a search hit): open that line's collapsed ancestors
-  // (in memory only — not an edit, nothing persisted), then centre and flash it.
+  // (in memory only — not an edit; any later save makes the unfold real, see
+  // persistState), then centre and flash it.
   function openNotesPage(pageId, opts){
     const page = (appState.pages || []).find(p => p.id === pageId);
     if(pageId !== currentNotesPageId) restoreNotesReveal();
