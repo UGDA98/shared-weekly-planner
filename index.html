@@ -6,7 +6,7 @@
 <!-- App build version, compared against version.txt to detect a new deploy in
      installed standalone PWA windows (which have no reload affordance). MUST be
      bumped together with version.txt on every deploy — see NOTES.md deploy step. -->
-<meta name="app-version" content="20261011-1147">
+<meta name="app-version" content="20261011-1640">
 <title>יומן ומשימות</title>
 <!-- PWA manifest + icons — no service worker on purpose: this is a live-data
      app on a 20s poll, a SW would only risk serving a stale index.html for
@@ -1897,22 +1897,21 @@ button.add-row{ cursor:pointer; }
     align-self:flex-start; margin-top:calc(env(safe-area-inset-top, 0px) + 56px);
     height:calc(100% - env(safe-area-inset-top, 0px) - 56px);
     border-radius:18px 18px 0 0; box-shadow:0 -10px 34px -10px rgba(40,24,32,.3);
-    /* a page sheet opens together with the iOS keyboard (focus happens in the tap): the keyboard
-       is the one thing that rises, the sheet settles into place — one motion, not two */
-    transform:translateY(16px); opacity:0; transition:transform .2s var(--sp-out), opacity .2s var(--sp-out); will-change:transform, opacity;
+    /* the same slide as the menu sheets (the one motion verified smooth on the owner's iPhone):
+       full travel from below, 220ms, soft curve, no fade. A 16px "settle" with a strong ease-out
+       was over in ~40ms and read as a pop. The keyboard is not part of this motion: on phones
+       the field is not auto-focused, it rises only when the field is tapped, and the sheet
+       (frozen height, top-anchored) does not move for it. */
+    transform:translateY(100%); transition:transform .22s cubic-bezier(.2,.8,.2,1);
   }
-  .sheet-overlay.open .sheet.sheet--page{ transform:none; opacity:1; }
-  .sheet-overlay:not(.open) .sheet.sheet--page{ transition:transform .16s var(--sp-out), opacity .16s var(--sp-out); }   /* ביטול: the same way back */
+  .sheet-overlay.open .sheet.sheet--page{ transform:none; }
   .sheet.sheet--page.is-dragging{ transition:none; }
-  /* released past the threshold: keeps going down from where the finger left it, no fade */
-  .sheet-overlay:not(.open) .sheet.sheet--page.is-flung{ opacity:1; transition:transform .26s var(--sp-out); }
+  /* released past the threshold: keeps going down from where the finger left it */
+  .sheet-overlay:not(.open) .sheet.sheet--page.is-flung{ transition:transform .26s var(--sp-out); }
   .sheet--page .sheet-grip{ flex:none; margin:7px auto 0; }
   .sheet--page .sheet-head{ flex:none; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:8px; min-height:50px; padding:0 8px 2px; border-bottom:1px solid var(--hl); touch-action:none; }
   .sheet--page .sheet-head .seg{ width:172px; }
   .sheet--page .sheet-head .seg button{ min-height:32px; }
-  /* takes the tap's focus (iOS raises the keyboard only then) while the drawer
-     is still sliding in; it sits where the real field will be, so iOS has
-     nothing to scroll. The real field takes over when the slide ends. */
   .sheet--page .sheet-head .sheet-title{ padding:0; font-size:16px; font-weight:700; color:var(--ink); }
   .sheet--page .sheet-head-cancel, .sheet--page .sheet-head .sheet-primary{
     min-height:44px; min-width:44px; padding:0 8px; margin:0; border:0; border-radius:8px; background:none; box-shadow:none; position:static;
@@ -7750,12 +7749,11 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     openSheetEl = overlay;
     document.addEventListener('keydown', sheetKeydown, true);
     requestAnimationFrame(() => overlay.classList.add('open'));
-    if(page && opts.focus){
-      // iOS raises the keyboard only for a focus() made while the tap is
-      // still being handled, so the real field gets it right now. The sheet
-      // already sits at its final position (16px low, transparent), so there
-      // is nothing for iOS to scroll towards and no focus hand-over later.
-      try{ opts.focus.focus({preventScroll:true}); }catch(e){}
+    if(page){
+      // phones: no auto focus. The keyboard rises only when the field is
+      // tapped, so the sheet's slide is the only motion on screen (the
+      // keyboard's own presentation ate the first frames of any slide that
+      // started in the same tap — owner's recording, 2026-10-11).
     } else setTimeout(() => {
       const target = opts.focus || panel.querySelector('input, button');
       if(target) try{ target.focus({preventScroll:true}); }catch(e){}
