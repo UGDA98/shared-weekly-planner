@@ -6,7 +6,7 @@
 <!-- App build version, compared against version.txt to detect a new deploy in
      installed standalone PWA windows (which have no reload affordance). MUST be
      bumped together with version.txt on every deploy — see NOTES.md deploy step. -->
-<meta name="app-version" content="20261008-0947">
+<meta name="app-version" content="20261011-1147">
 <title>יומן ומשימות</title>
 <!-- PWA manifest + icons — no service worker on purpose: this is a live-data
      app on a 20s poll, a SW would only risk serving a stale index.html for
@@ -1891,7 +1891,11 @@ button.add-row{ cursor:pointer; }
 @media (max-width:767px){
   .sheet.sheet--page{
     display:flex; flex-direction:column; overflow:hidden; padding:0; max-height:none;
-    height:calc(100% - env(safe-area-inset-top, 0px) - 56px);   /* a drawer: the board header stays visible above it */
+    /* anchored to the top (the board header stays visible above it); the height is frozen in px
+       by freezePageSheet() — the installed iOS web app shrinks the whole viewport while the
+       keyboard rises, and a %-height sheet would fold and re-layout under the finger */
+    align-self:flex-start; margin-top:calc(env(safe-area-inset-top, 0px) + 56px);
+    height:calc(100% - env(safe-area-inset-top, 0px) - 56px);
     border-radius:18px 18px 0 0; box-shadow:0 -10px 34px -10px rgba(40,24,32,.3);
     /* a page sheet opens together with the iOS keyboard (focus happens in the tap): the keyboard
        is the one thing that rises, the sheet settles into place — one motion, not two */
@@ -1909,7 +1913,6 @@ button.add-row{ cursor:pointer; }
   /* takes the tap's focus (iOS raises the keyboard only then) while the drawer
      is still sliding in; it sits where the real field will be, so iOS has
      nothing to scroll. The real field takes over when the slide ends. */
-  .sheet-focus-proxy{ position:absolute; top:calc(env(safe-area-inset-top, 0px) + 132px); inset-inline:16px; width:auto; height:48px; margin:0; padding:0; border:0; background:none; opacity:0; pointer-events:none; font-size:17px; }
   .sheet--page .sheet-head .sheet-title{ padding:0; font-size:16px; font-weight:700; color:var(--ink); }
   .sheet--page .sheet-head-cancel, .sheet--page .sheet-head .sheet-primary{
     min-height:44px; min-width:44px; padding:0 8px; margin:0; border:0; border-radius:8px; background:none; box-shadow:none; position:static;
@@ -7742,40 +7745,17 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     if(anchored) overlay.classList.add('sheet-overlay--anchored');
     document.body.appendChild(overlay);
     if(anchored) placeAnchoredPanel(panel, opts.anchor);
+    if(page) freezePageSheet(panel);
     overlay.__untrack = page ? trackKeyboardInset(panel) : null;
     openSheetEl = overlay;
     document.addEventListener('keydown', sheetKeydown, true);
     requestAnimationFrame(() => overlay.classList.add('open'));
     if(page && opts.focus){
       // iOS raises the keyboard only for a focus() made while the tap is
-      // still being handled — a timer is too late (the sheet then opened
-      // without a keyboard). The drawer is still below the screen at that
-      // moment, and iOS scrolls the page towards a focused field it cannot
-      // see, so a stand-in field at the final position takes the focus and
-      // hands it (and anything typed meanwhile) to the real one after the slide.
-      const real = opts.focus;
-      if(prefersReducedMotion()){ try{ real.focus({preventScroll:true}); }catch(e){} }
-      else {
-        const proxy = document.createElement('input');
-        proxy.className = 'sheet-focus-proxy'; proxy.type = real.type || 'text'; proxy.tabIndex = -1;
-        proxy.setAttribute('aria-hidden', 'true'); proxy.autocomplete = 'off';
-        ['enterkeyhint', 'inputmode', 'autocapitalize', 'dir'].forEach(a => { if(real.hasAttribute(a)) proxy.setAttribute(a, real.getAttribute(a)); });
-        overlay.appendChild(proxy);
-        try{ proxy.focus({preventScroll:true}); }catch(e){}
-        let done = false;
-        const hand = () => {
-          if(done) return; done = true;
-          if(overlay === openSheetEl && document.activeElement === proxy){
-            if(proxy.value){ real.value += proxy.value; real.dispatchEvent(new Event('input', {bubbles:true})); }
-            try{ real.focus({preventScroll:true}); }catch(e){}
-          }
-          proxy.remove();
-        };
-        // Enter typed before the slide ended belongs to the real field
-        proxy.addEventListener('keydown', (e) => { if(e.key === 'Enter' && !e.isComposing){ e.preventDefault(); hand(); real.dispatchEvent(new KeyboardEvent('keydown', {key:'Enter', bubbles:true, cancelable:true})); } });
-        panel.addEventListener('transitionend', (e) => { if(e.target === panel && e.propertyName === 'transform') hand(); });
-        setTimeout(hand, 450);
-      }
+      // still being handled, so the real field gets it right now. The sheet
+      // already sits at its final position (16px low, transparent), so there
+      // is nothing for iOS to scroll towards and no focus hand-over later.
+      try{ opts.focus.focus({preventScroll:true}); }catch(e){}
     } else setTimeout(() => {
       const target = opts.focus || panel.querySelector('input, button');
       if(target) try{ target.focus({preventScroll:true}); }catch(e){}
@@ -7810,19 +7790,36 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     head.addEventListener('pointerup', end);
     head.addEventListener('pointercancel', end);
   }
-  // Page sheets never move with the keyboard; they only learn its height
-  // (layout viewport minus visual viewport) to pad their scroll area, so
-  // the rows under the keyboard can still be scrolled into view.
-  function trackKeyboardInset(panel){
-    const vv = window.visualViewport;
-    if(!vv) return null;
+  // A page sheet is sized once, in pixels, from the layout height measured
+  // before the keyboard (Safari overlays the keyboard; the installed iOS web
+  // app shrinks the viewport instead — either way the sheet keeps its size and
+  // its bottom simply goes under the keyboard). Re-measured only on rotation.
+  function freezePageSheet(panel){
+    let width = window.innerWidth;
     const fit = () => {
-      const kb = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
-      panel.style.setProperty('--kb', kb + 'px');
+      const h = Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0);
+      panel.style.height = 'calc(' + h + 'px - env(safe-area-inset-top, 0px) - 56px)';
     };
     fit();
-    vv.addEventListener('resize', fit);
-    return () => vv.removeEventListener('resize', fit);
+    panel.__refit = () => { if(window.innerWidth !== width){ width = window.innerWidth; fit(); } };
+    window.addEventListener('resize', panel.__refit);
+  }
+  // Page sheets never move with the keyboard; they only learn how much of
+  // their own bottom it covers, to pad the scroll area so the rows under the
+  // keyboard can still be scrolled into view. (A frame late: the installed
+  // web app sometimes reports a stale offsetTop inside the resize event.)
+  function trackKeyboardInset(panel){
+    const vv = window.visualViewport;
+    const fit = () => requestAnimationFrame(() => {
+      if(!document.contains(panel)) return;
+      const bottom = panel.getBoundingClientRect().bottom;
+      const visible = vv ? vv.offsetTop + vv.height : window.innerHeight;
+      panel.style.setProperty('--kb', Math.max(0, Math.round(bottom - visible)) + 'px');
+    });
+    fit();
+    if(vv) vv.addEventListener('resize', fit);
+    window.addEventListener('resize', fit);
+    return () => { if(vv) vv.removeEventListener('resize', fit); window.removeEventListener('resize', fit); if(panel.__refit) window.removeEventListener('resize', panel.__refit); };
   }
   // desktop: a menu opened from a control on a row appears next to that
   // control (like any desktop context menu), not as a dialog in mid-screen
