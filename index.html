@@ -6,7 +6,7 @@
 <!-- App build version, compared against version.txt to detect a new deploy in
      installed standalone PWA windows (which have no reload affordance). MUST be
      bumped together with version.txt on every deploy — see NOTES.md deploy step. -->
-<meta name="app-version" content="20261022-1237">
+<meta name="app-version" content="20261022-1325">
 <title>יומן ומשימות</title>
 <!-- PWA manifest + icons — no service worker on purpose: this is a live-data
      app on a 20s poll, a SW would only risk serving a stale index.html for
@@ -83,6 +83,9 @@
   --ink2:var(--muted); --ink3:#8c868a;
   --accent-tint:#FCEEF0; --accent-deco:#F6C6CC; --danger:#c0392b;
   --ink3-text:#706a6f; /* receding TEXT (done, other-month days): ≥4.5:1 on white, canvas, tint */
+  /* table cell colours (notes tables): soft, ink stays ≥4.5:1 on each */
+  --cell-gray:#F1EEF0; --cell-pink:#FCEEF0; --cell-yellow:#FBF3DC; --cell-green:#E8F3EC;
+  --cell-blue:#E7F0FA; --cell-purple:#F0EBF8; --cell-orange:#FDEBDD;
   /* type ladder v2 — desktop ≥1366 (compact and mobile steps below) */
   --t-title:17px; --lh-title:24px;
   --t-head:15px;  --lh-head:20px;
@@ -1290,6 +1293,64 @@ button.notes-empty:focus-visible{ outline:2px solid var(--accent); outline-offse
   .ob-toolbar .obt-fine{ display:flex; }
   .ob-toolbar .obt-blocktype .obt-label, .ob-toolbar .obt-blocktype svg{ display:block; }
 }
+/* Tables (notes, 2026-10-22, design B "clean"): an outer hairline card,
+   row rules, faint column rules, a quiet header row; a cell holds lines
+   (text / bullet / numbered / to-do). Wide tables scroll sideways in their
+   own card, never the page. */
+.ob-row.is-table > .ob-row-main{ display:block; padding:4px 0 8px; }
+.ob-table-wrap{ border:1px solid var(--hl); border-radius:var(--r12, 12px); background:var(--s1); overflow-x:auto; overscroll-behavior-x:contain; }
+.ob-table{ border-collapse:collapse; width:100%; table-layout:fixed; font-size:15px; line-height:1.5; color:var(--ink); }
+.ob-table td{ padding:8px 10px; vertical-align:top; text-align:start; border-bottom:1px solid var(--hl); min-width:0; position:relative; }
+.ob-table td:not([data-c="0"]){ border-inline-start:1px solid var(--s3); }
+.ob-table tr:last-child > td{ border-bottom:none; }
+/* 550, not 600: at 600 the browser counts the header as already bold and Ctrl+B there would un-bold instead */
+.ob-table td.is-head{ font-size:12.5px; font-weight:550; color:var(--ink3-text); }
+.ob-table td.is-head .tc-text{ line-height:1.6; }
+.ob-table td.bg-gray{ background:var(--cell-gray); } .ob-table td.bg-pink{ background:var(--cell-pink); }
+.ob-table td.bg-yellow{ background:var(--cell-yellow); } .ob-table td.bg-green{ background:var(--cell-green); }
+.ob-table td.bg-blue{ background:var(--cell-blue); } .ob-table td.bg-purple{ background:var(--cell-purple); }
+.ob-table td.bg-orange{ background:var(--cell-orange); }
+.ob-table td.is-sel{ box-shadow:inset 0 0 0 2px var(--accent); }
+.ob-table:not(.is-multisel) td.is-sel{ box-shadow:inset 0 0 0 1.5px var(--accent-deco); }
+.tc-line{ display:flex; align-items:flex-start; gap:4px; }
+.tc-line > .ob-bullet, .tc-line > .ob-olnum, .tc-line > .ob-checkbox{ width:18px; min-width:18px; height:22.5px; }
+.tc-line > .ob-olnum{ font-size:14px; }
+.tc-text{ flex:1; min-width:0; outline:none; word-break:break-word; white-space:pre-wrap; cursor:text; min-height:1.5em; }
+.tc-line.is-checked > .tc-text{ color:var(--muted); text-decoration:line-through; text-decoration-color:var(--border-strong); }
+.ob-table.is-cell-selecting .tc-text, .ob-table.is-multisel .tc-text{ caret-color:transparent; }
+.ob-table.is-cell-selecting .tc-text::selection, .ob-table.is-multisel .tc-text::selection{ background:transparent; }
+.ob-table.is-cell-selecting{ user-select:none; -webkit-user-select:none; }
+.planner-root.view-only .tc-text{ cursor:default; }
+@media (max-width:767px){
+  /* a phone keeps columns readable and scrolls the table sideways */
+  .ob-table{ width:max(100%, calc(var(--cols, 3) * 116px)); font-size:16px; }
+  .ob-table td.is-head{ font-size:13px; }
+}
+/* the table bar: under the selected cells (a floating card) */
+.ob-tablebar{ position:fixed; z-index:160; display:flex; align-items:center; gap:2px; padding:4px; background:var(--s1); border:1px solid var(--hl); border-radius:10px; box-shadow:var(--shadow-lift); font-size:13.5px; max-width:calc(100vw - 16px); overflow-x:auto; scrollbar-width:none; }
+.ob-tablebar[hidden]{ display:none; }
+.ob-tablebar::-webkit-scrollbar{ display:none; }
+.ob-tablebar button{ flex-shrink:0; border:none; background:none; color:var(--ink); font:inherit; padding:6px 10px; min-height:32px; border-radius:7px; display:flex; align-items:center; gap:6px; cursor:pointer; white-space:nowrap; }
+.ob-tablebar button:hover{ background:var(--s3); }
+.ob-tablebar button:disabled{ opacity:.4; cursor:default; background:none; }
+.ob-tablebar button[aria-pressed="true"]{ background:var(--accent-soft); color:var(--accent-soft-ink); }
+.ob-tablebar button:focus-visible{ outline:2px solid var(--accent); outline-offset:-2px; }
+.ob-tablebar .tb-sep{ width:1px; height:20px; background:var(--hl); margin:0 2px; flex-shrink:0; }
+.ob-tablebar .tb-sw{ width:14px; height:14px; border-radius:4px; border:1px solid var(--hl2); background:var(--s1); }
+.ob-tablebar .tb-touch{ display:none; }
+@media (pointer:coarse){ .ob-tablebar{ font-size:14px; } .ob-tablebar .tb-touch{ display:flex; } .ob-tablebar button{ min-height:40px; padding:6px 8px; } .ob-tablebar .tb-sep{ margin:0 1px; } }
+.tb-sw.bg-gray, .ob-swatch.bg-gray{ background:var(--cell-gray); } .tb-sw.bg-pink, .ob-swatch.bg-pink{ background:var(--cell-pink); }
+.tb-sw.bg-yellow, .ob-swatch.bg-yellow{ background:var(--cell-yellow); } .tb-sw.bg-green, .ob-swatch.bg-green{ background:var(--cell-green); }
+.tb-sw.bg-blue, .ob-swatch.bg-blue{ background:var(--cell-blue); } .tb-sw.bg-purple, .ob-swatch.bg-purple{ background:var(--cell-purple); }
+.tb-sw.bg-orange, .ob-swatch.bg-orange{ background:var(--cell-orange); }
+.picker.ob-palette{ padding:10px; display:grid; grid-template-columns:repeat(4, 28px); gap:8px; width:auto !important; }
+.ob-swatch{ width:28px; height:28px; border-radius:8px; border:1px solid var(--hl2); padding:0; cursor:pointer; background:var(--s1); }
+.ob-swatch.is-none{ background:linear-gradient(135deg, var(--s1) 45%, var(--danger) 47%, var(--danger) 53%, var(--s1) 55%); }
+.ob-swatch.is-current{ box-shadow:0 0 0 2px var(--s1), 0 0 0 4px var(--accent); }
+.ob-swatch:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+@media (pointer:coarse){ .picker.ob-palette{ grid-template-columns:repeat(4, 40px); gap:10px; } .ob-swatch{ width:40px; height:40px; border-radius:10px; } }
+/* in a table, indent/outdent have nothing to act on */
+.ob-toolbar.in-table [data-action="indent"], .ob-toolbar.in-table [data-action="outdent"], .ob-toolbar.in-table .obt-notable{ display:none !important; }
 /* the "/" menu: a .picker--menu that never takes focus from the line */
 .notes-outline:focus{ outline:none; }
 .ob-row.is-sel-root{ background:var(--accent-tint); }
@@ -2577,7 +2638,8 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     <button type="button" data-action="kind" data-kind="ul" title="רשימת תבליטים (Ctrl+Shift+8)" aria-label="רשימת תבליטים" aria-pressed="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="6" x2="15" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="15" y2="18"/><circle cx="20" cy="6" r="1.2" fill="currentColor"/><circle cx="20" cy="12" r="1.2" fill="currentColor"/><circle cx="20" cy="18" r="1.2" fill="currentColor"/></svg></button>
     <button type="button" data-action="kind" data-kind="ol" title="רשימה ממוספרת (Ctrl+Shift+7)" aria-label="רשימה ממוספרת" aria-pressed="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="6" x2="14" y2="6"/><line x1="3" y1="12" x2="14" y2="12"/><line x1="3" y1="18" x2="14" y2="18"/><path d="M19 4v4M18 4h1M17.5 13.5a1.5 1.5 0 1 1 2.5 1.1L17.5 17H21" stroke-width="1.6"/></svg></button>
     <button type="button" data-action="kind" data-kind="todo" title="משימה (Ctrl+Shift+9)" aria-label="משימה" aria-pressed="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="14" y="3" width="7" height="7" rx="1.6"/><polyline points="15.5 6.6 17.2 8.2 19.6 5"/><line x1="3" y1="6.5" x2="10" y2="6.5"/><rect x="14" y="14" width="7" height="7" rx="1.6"/><line x1="3" y1="17.5" x2="10" y2="17.5"/></svg></button>
-    <span class="obt-sep"></span>
+    <button type="button" class="obt-fine" data-action="table" title="הוספת טבלה" aria-label="הוספת טבלה"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="12" y1="4" x2="12" y2="20"/></svg></button>
+    <span class="obt-sep obt-notable"></span>
     <button type="button" data-action="outdent" title="הקטנת הזחה (Shift+Tab)" aria-label="הקטנת הזחה"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="5" x2="21" y2="5"/><line x1="3" y1="19" x2="21" y2="19"/><line x1="3" y1="12" x2="13" y2="12"/><polyline points="17 9 20 12 17 15"/></svg></button>
     <button type="button" data-action="indent" title="הגדלת הזחה (Tab)" aria-label="הגדלת הזחה"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="5" x2="21" y2="5"/><line x1="3" y1="19" x2="21" y2="19"/><line x1="3" y1="12" x2="13" y2="12"/><polyline points="20 9 17 12 20 15"/></svg></button>
     <button type="button" class="obt-done" data-action="seldone" title="סיום בחירה" aria-label="סיום בחירת שורות">סיום</button>
@@ -9676,6 +9738,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   const BLOCK_KINDS = ['text', 'h1', 'h2', 'ul', 'ol', 'todo'];
   function blockKind(b){ return b.style === 'p' ? (b.plain ? 'text' : 'ul') : b.style; }
   function setBlockKind(b, kind){
+    if(b.table) return; // a table line has no kind of its own
     if(kind === 'text' || kind === 'ul'){ b.style = 'p'; b.plain = kind === 'text'; }
     else { b.style = kind; b.plain = false; }
     if(b.style !== 'todo') b.checked = false;
@@ -9688,7 +9751,9 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   // preserving byte-for-byte if someone pastes something huge into it).
   function sanitizeNotesIcon(raw){ return String(raw || '').trim().slice(0, 8); }
   function cloneBlockWithNewIds(block){
-    return { id: uid(), html: block.html, style: block.style, plain: !!block.plain, checked: !!block.checked, collapsed: block.collapsed, children: (block.children || []).map(cloneBlockWithNewIds) };
+    const b = { id: uid(), html: block.html, style: block.style, plain: !!block.plain, checked: !!block.checked, collapsed: block.collapsed, children: (block.children || []).map(cloneBlockWithNewIds) };
+    if(block.table) b.table = JSON.parse(JSON.stringify(block.table));
+    return b;
   }
 
   function sanitizeInline(html){
@@ -9752,6 +9817,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
           b.style = normalizeBlockStyle(b.style);
           b.checked = b.style === 'todo' ? !!b.checked : false;
           b.plain = b.style === 'p' && !!b.plain;
+          if(b.table !== undefined){ const t = sanitizeTable(b.table); if(t){ b.table = t; syncTableFallback(b); } else delete b.table; }
           if(!Array.isArray(b.children)) b.children = [];
           walk(b.children);
         });
@@ -9938,7 +10004,12 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     // and keys typed before the next frame would be lost), and again next
     // frame in case the line is rendered later.
     const go = () => {
-      const el = document.querySelector(notesTextSelector(blockId));
+      let el = document.querySelector(notesTextSelector(blockId));
+      if(!el){
+        // a table: its first cell from above, its last from below
+        const all = document.querySelectorAll('.ob-row[data-id="' + blockId + '"] > .ob-row-main .tc-text');
+        el = all.length ? all[atStart ? 0 : all.length - 1] : null;
+      }
       if(!el || document.activeElement === el) return;
       el.focus();
       placeCaretAt(el, atStart);
@@ -10123,6 +10194,13 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     const idx = flat.findIndex(b => b.id === blockId);
     if(idx <= 0) return; // first visible block — nothing above to merge into
     const prev = flat[idx - 1];
+    // nothing merges into a table: an empty line under it goes, the caret
+    // moves into its last cell
+    if(prev.table || ctx.block.table){
+      if(prev.table && !ctx.block.table && !ctx.block.html && !ctx.block.children.length){ ctx.arr.splice(ctx.index, 1); commitNotesChange(); }
+      focusBlock(prev.id, false);
+      return;
+    }
     const prevPlainLen = (prev.html || '').replace(/<[^>]+>/g, '').length;
     prev.html = sanitizeInline((prev.html || '') + (ctx.block.html || ''));
     if(ctx.block.children.length){
@@ -10329,6 +10407,16 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       toggle.onclick = () => toggleCollapse(block.id);
       main.appendChild(toggle);
     }
+    if(block.table){
+      row.classList.add('is-table');
+      renderTableInto(main, block);
+      row.appendChild(main);
+      const cw = document.createElement('div');
+      cw.className = 'ob-children';
+      renderBlockList(block.children, page, cw);
+      row.appendChild(cw);
+      return row;
+    }
     const marker = buildBlockMarker(block, olIndex);
     if(marker) main.appendChild(marker);
 
@@ -10370,6 +10458,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     try{ container.innerHTML = ''; } finally { obRendering = false; }
     renderBlockList(page.blocks, page, container);
     obSelAfterRender();
+    if(tblSel) paintTableSel();
   }
 
   const BLOCK_TYPE_LABELS = { text:'טקסט רגיל', h1:'כותרת 1', h2:'כותרת 2', ul:'רשימת תבליטים', ol:'רשימה ממוספרת', todo:'משימה' };
@@ -10381,8 +10470,12 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     h2:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6v12M11 6v12M3 12h8M15.5 11a2.5 2.5 0 1 1 4.3 1.7L15.5 18H21"/></svg>',
     ul:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="3" y1="6" x2="15" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="15" y2="18"/><circle cx="20" cy="6" r="1.2" fill="currentColor"/><circle cx="20" cy="12" r="1.2" fill="currentColor"/><circle cx="20" cy="18" r="1.2" fill="currentColor"/></svg>',
     ol:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="6" x2="14" y2="6"/><line x1="3" y1="12" x2="14" y2="12"/><line x1="3" y1="18" x2="14" y2="18"/><path d="M19 4v4M18 4h1M17.5 13.5a1.5 1.5 0 1 1 2.5 1.1L17.5 17H21" stroke-width="1.6"/></svg>',
-    todo:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="14" y="3" width="7" height="7" rx="1.6"/><polyline points="15.5 6.6 17.2 8.2 19.6 5"/><line x1="3" y1="6.5" x2="10" y2="6.5"/><rect x="14" y="14" width="7" height="7" rx="1.6"/><line x1="3" y1="17.5" x2="10" y2="17.5"/></svg>'
+    todo:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="14" y="3" width="7" height="7" rx="1.6"/><polyline points="15.5 6.6 17.2 8.2 19.6 5"/><line x1="3" y1="6.5" x2="10" y2="6.5"/><rect x="14" y="14" width="7" height="7" rx="1.6"/><line x1="3" y1="17.5" x2="10" y2="17.5"/></svg>',
+    table:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="12" y1="4" x2="12" y2="20"/></svg>'
   };
+  BLOCK_TYPE_LABELS.table = 'טבלה'; BLOCK_TYPE_HINTS.table = '';
+  // the "/" menu and the type menus also offer a table (not a line kind)
+  const BLOCK_MENU_KINDS = BLOCK_KINDS.concat('table');
   const ICON_CHECK_SMALL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>';
   function menuItemEl(icon, label, opts){
     opts = opts || {};
@@ -10398,7 +10491,15 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   // The block the format bar acts on: the line being written, or (after a
   // click elsewhere, e.g. on the bar itself) the last one written in.
   let obToolbarTargetId = null;
-  function obTargetEl(){ return obToolbarTargetId ? document.querySelector(notesTextSelector(obToolbarTargetId)) : null; }
+  function obTargetEl(){ return obToolbarTargetId ? (document.querySelector(notesTextSelector(obToolbarTargetId)) || tblLastCellEl(obToolbarTargetId)) : null; }
+  // the model object whose html a line element shows: a block, or a table cell's line
+  function obLineModel(el){
+    if(!el) return null;
+    if(el.classList.contains('tc-text')){ const x = cellLineFromEl(el); return x ? x.line : null; }
+    const row = el.closest('.ob-row'); const page = currentNotesPage();
+    const c = row && page && findBlockCtx(page.blocks, row.dataset.id);
+    return c ? c.block : null;
+  }
   function showObToolbarFor(el){
     if(currentRole !== 'editor') return;
     const row = el.closest('.ob-row');
@@ -10411,7 +10512,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   function hideObToolbarSoon(){
     setTimeout(() => {
       const ae = document.activeElement;
-      if(ae && ae.closest && (ae.closest('.ob-text') || ae.closest('#obToolbar') || ae.closest('.picker'))) return;
+      if(ae && ae.closest && (ae.closest('.ob-text') || ae.closest('.tc-text') || ae.closest('#obToolbar') || ae.closest('#obTableBar') || ae.closest('.picker'))) return;
       if(obSelActive() && obSel.touch) return; // lines selected on touch: the bar acts on them
       const bar = document.getElementById('obToolbar');
       if(bar) bar.classList.remove('is-visible'); // touch only — the mouse bar stays (CSS)
@@ -10426,7 +10527,9 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     // with whole lines selected the bar shows what ALL of them share
     const selBlocks = (page && obSelActive()) ? obSelIds().map(id => findBlockCtx(page.blocks, id)).filter(Boolean).map(c => c.block) : null;
     const ctx = page && obToolbarTargetId && findBlockCtx(page.blocks, obToolbarTargetId);
-    const kinds = selBlocks && selBlocks.length ? selBlocks.map(blockKind) : (ctx ? [blockKind(ctx.block)] : []);
+    const cellX = !selBlocks && ctx && ctx.block.table ? (activeCellLine() || (tblLastCellEl(ctx.block.id) && cellLineFromEl(tblLastCellEl(ctx.block.id)))) : null;
+    const kinds = cellX ? [cellX.line.kind] : selBlocks && selBlocks.length ? selBlocks.map(blockKind) : (ctx ? [blockKind(ctx.block)] : []);
+    bar.classList.toggle('in-table', !!(ctx && ctx.block.table && !selBlocks));
     const kind = kinds.length && kinds.every(k => k === kinds[0]) ? kinds[0] : null;
     const label = document.getElementById('obBlockTypeLabel');
     if(label) label.textContent = (kind === 'h1' || kind === 'h2') ? BLOCK_TYPE_LABELS[kind] : BLOCK_TYPE_LABELS.text;
@@ -10459,7 +10562,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   }
   document.addEventListener('selectionchange', () => {
     const ae = document.activeElement;
-    if(ae && ae.classList && ae.classList.contains('ob-text')){ refreshObToolbarState(); obRememberRange(); }
+    if(ae && ae.classList && (ae.classList.contains('ob-text') || ae.classList.contains('tc-text'))){ refreshObToolbarState(); obRememberRange(); }
     refreshLinkBubble();
   });
   // Touch: keep the bar on top of the on-screen keyboard. The visual viewport
@@ -10487,8 +10590,8 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     notesHistoryRecord();
     document.execCommand(cmd);
     const page = currentNotesPage();
-    const ctx = page && findBlockCtx(page.blocks, obToolbarTargetId);
-    if(ctx){ ctx.block.html = sanitizeInline(el.innerHTML); touchNotesPage(page); persistState(); }
+    const m = obLineModel(el);
+    if(m && page){ m.html = sanitizeInline(el.innerHTML); if(el.classList.contains('tc-text')){ const x = cellLineFromEl(el); if(x) syncTableFallback(x.block); } touchNotesPage(page); persistState(); }
     refreshObToolbarState();
   }
 
@@ -10509,7 +10612,8 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     const list = document.createElement('div'); list.className = 'picker-list';
     const add = (r, run) => { r.onmousedown = (e) => e.preventDefault(); r.onclick = () => { pickerReturnFocusEl = null; closePicker(); run(); }; list.appendChild(r); };
     const divider = () => list.appendChild(Object.assign(document.createElement('div'), { className:'picker-divider' }));
-    BLOCK_KINDS.forEach(k => add(menuItemEl(BLOCK_TYPE_ICONS[k], BLOCK_TYPE_LABELS[k], { selected: k === kind }), () => selIds ? obSelSetKind(k) : setBlockStyleAndRefresh(blockId, k)));
+    if(!ctx.block.table || selIds) BLOCK_KINDS.forEach(k => add(menuItemEl(BLOCK_TYPE_ICONS[k], BLOCK_TYPE_LABELS[k], { selected: k === kind }), () => selIds ? obSelSetKind(k) : setBlockStyleAndRefresh(blockId, k)));
+    if(!ctx.block.table && !selIds) add(menuItemEl(BLOCK_TYPE_ICONS.table, BLOCK_TYPE_LABELS.table), () => insertTableAt(blockId));
     const I = (d) => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>';
     const ICO_DUP = I('<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>');
     const ICO_DEL = I('<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>');
@@ -10529,9 +10633,9 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       add(menuItemEl(ICO_DUP, 'שכפול'), () => obSelDuplicate());
       add(menuItemEl(ICO_DEL, selIds.length === 1 ? 'מחיקה' : 'מחיקת ' + selIds.length + ' שורות', { danger:true }), () => obSelDelete());
     } else if(!typesOnly){
-      divider();
-      if(touch) add(menuItemEl(I('<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>'), 'קישור'), () => openLinkEditor(blockId));
-      if(touch) add(menuItemEl(I('<rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/>'), 'בחירת שורות'), () => obSelSet(blockId, blockId, true));
+      if(!ctx.block.table) divider();
+      if(touch && !ctx.block.table) add(menuItemEl(I('<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>'), 'קישור'), () => openLinkEditor(blockId));
+      if(touch && !ctx.block.table) add(menuItemEl(I('<rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/>'), 'בחירת שורות'), () => obSelSet(blockId, blockId, true));
       if(ctx.index > 0) add(menuItemEl(I('<polyline points="18 15 12 9 6 15"/>'), 'הזזה למעלה'), () => moveBlockAmongSiblings(blockId, -1));
       if(ctx.index < ctx.arr.length - 1) add(menuItemEl(I('<polyline points="6 9 12 15 18 9"/>'), 'הזזה למטה'), () => moveBlockAmongSiblings(blockId, 1));
       if(ctx.block.children.length) add(menuItemEl(I('<polyline points="6 9 12 15 18 9"/>'), ctx.block.collapsed ? 'הרחבה' : 'כיווץ'), () => toggleCollapse(blockId));
@@ -10571,7 +10675,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     const text = el.textContent || '';
     if(text.charAt(0) !== '/' || text.length > 16 || /\s\s/.test(text)){ closeSlashMenu(); return; }
     const q = text.slice(1).trim();
-    const kinds = BLOCK_KINDS.filter(k => !q || BLOCK_TYPE_LABELS[k].indexOf(q) !== -1 || BLOCK_TYPE_HINTS[k] === q);
+    const kinds = BLOCK_MENU_KINDS.filter(k => !q || BLOCK_TYPE_LABELS[k].indexOf(q) !== -1 || BLOCK_TYPE_HINTS[k] === q);
     if(!kinds.length){ closeSlashMenu(); return; }
     if(!obSlash || obSlash.blockId !== block.id){
       closeSlashMenu(); closePicker();
@@ -10609,6 +10713,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     closeSlashMenu();
     el.textContent = '';
     block.html = '';
+    if(kind === 'table'){ insertTableAt(block.id); return; }
     setBlockStyleAndRefresh(block.id, kind);
   }
 
@@ -10634,7 +10739,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   function obRememberRange(){
     const ae = document.activeElement;
     const sel = window.getSelection();
-    if(!ae || !ae.classList || !ae.classList.contains('ob-text') || !sel || !sel.rangeCount) return;
+    if(!ae || !ae.classList || !(ae.classList.contains('ob-text') || ae.classList.contains('tc-text')) || !sel || !sel.rangeCount) return;
     const r = sel.getRangeAt(0);
     if(!ae.contains(r.startContainer)) return;
     obLastRange = { id: ae.closest('.ob-row').dataset.id, range: r.cloneRange() };
@@ -10648,6 +10753,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   function obCommitLineDom(el, block, caretOffset){
     block.html = sanitizeInline(el.innerHTML);
     el.innerHTML = linkifyBlockHtml(block.html);
+    if(el.classList.contains('tc-text')){ const x = cellLineFromEl(el); if(x) syncTableFallback(x.block); }
     const page = currentNotesPage();
     if(page){ touchNotesPage(page); persistState(); }
     if(caretOffset != null){ el.focus(); placeCaretAtOffset(el, caretOffset); }
@@ -10662,11 +10768,11 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     if(pop){ if(openPickerEl === pop) closePicker(); else pop.remove(); }
   }
   // 🔗 / Ctrl+K: link the selected text, or edit the link the caret is in
-  function openLinkEditor(blockId){
+  function openLinkEditor(blockId, elOverride){
     const page = currentNotesPage(); if(!page) return;
     const ctx = findBlockCtx(page.blocks, blockId); if(!ctx) return;
-    const el = document.querySelector(notesTextSelector(blockId)); if(!el) return;
-    const block = ctx.block;
+    const el = elOverride || document.querySelector(notesTextSelector(blockId)) || tblLastCellEl(blockId); if(!el) return;
+    const block = obLineModel(el); if(!block) return;
     const sel = window.getSelection();
     let range = (sel && sel.rangeCount && el.contains(sel.getRangeAt(0).startContainer)) ? sel.getRangeAt(0).cloneRange()
       : (obLastRange && obLastRange.id === blockId && el.contains(obLastRange.range.startContainer) ? obLastRange.range.cloneRange() : null);
@@ -10742,7 +10848,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     const ae = document.activeElement;
     const sel = window.getSelection();
     let link = null;
-    if(ae && ae.classList && ae.classList.contains('ob-text') && sel && sel.rangeCount && sel.isCollapsed && !obSelActive()) link = obLinkAt(ae, sel.anchorNode);
+    if(ae && ae.classList && (ae.classList.contains('ob-text') || ae.classList.contains('tc-text')) && sel && sel.rangeCount && sel.isCollapsed && !obSelActive()) link = obLinkAt(ae, sel.anchorNode);
     if(!link){ if(bub) bub.hidden = true; return; }
     if(!bub){
       bub = document.createElement('div');
@@ -10753,12 +10859,12 @@ body.has-select-mode .undo-toast{ bottom:84px; }
         const btn = e.target.closest('button'); if(!btn) return;
         const ae2 = document.activeElement;
         const row = ae2 && ae2.closest && ae2.closest('.ob-row'); if(!row) return;
-        if(btn.dataset.act === 'edit') openLinkEditor(row.dataset.id);
+        if(btn.dataset.act === 'edit') openLinkEditor(row.dataset.id, ae2);
         else {
           const s = window.getSelection();
           const l = s && s.rangeCount ? obLinkAt(ae2, s.anchorNode) : null;
-          const page = currentNotesPage(); const c = page && findBlockCtx(page.blocks, row.dataset.id);
-          if(l && c){ const off = caretTextOffset(ae2); notesHistoryRecord(); l.replaceWith(...l.childNodes); obCommitLineDom(ae2, c.block, off); }
+          const m = obLineModel(ae2);
+          if(l && m){ const off = caretTextOffset(ae2); notesHistoryRecord(); l.replaceWith(...l.childNodes); obCommitLineDom(ae2, m, off); }
         }
         bub.hidden = true;
       });
@@ -10829,7 +10935,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     if(/^\s*(☑|☒|✅|\[[xX]\])\s*/.test(text)) return true;
     return null;
   }
-  function htmlToNoteItems(html){
+  function htmlToNoteItems(html, inCell){
     const doc = new DOMParser().parseFromString(html, 'text/html');
     doc.querySelectorAll('script,style,meta,link,title,noscript,template,iframe,object,embed,svg,img,picture,video,audio,canvas,button,select,textarea,head').forEach(n => n.remove());
     const items = [];
@@ -10886,6 +10992,12 @@ body.has-select-mode .undo-toast{ bottom:84px; }
           });
           return;
         }
+        // a table stays a table (more than one cell; one cell is just its text)
+        if(tag === 'TABLE' && !inCell && ch.querySelectorAll('td, th').length > 1){
+          const t = htmlTableToTable(ch);
+          if(t){ items.push({ kind: 'table', table: t, html: '', depth: ctx.depth || 0, checked: false }); return; }
+        }
+        if(tag === 'TABLE' && ch.querySelectorAll('td, th').length <= 1){ walk(ch.querySelector('td, th') || ch, ctx); return; }
         if(tag === 'TABLE' || tag === 'THEAD' || tag === 'TBODY' || tag === 'TFOOT'){
           ch.querySelectorAll(':scope > tr, :scope > thead > tr, :scope > tbody > tr, :scope > tfoot > tr').forEach(tr => {
             const cells = Array.from(tr.children).map(td => richInlineHtml(td.childNodes)).filter(Boolean);
@@ -10917,6 +11029,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     const sel = window.getSelection();
     if(sel && sel.rangeCount && !sel.isCollapsed) document.execCommand('delete');
     const { before, after } = splitElementAtCaret(el);
+    if(items.some(it => it.kind === 'table')){ pasteItemsWithTables(page, ctx, before, after, items); return; }
     const base = items[0].depth;
     const first = items[0];
     block.html = sanitizeInline(before + first.html);
@@ -10939,6 +11052,39 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     last.html = sanitizeInline(last.html + after);
     commitNotesChange();
     focusBlockAtOffset(last.id, lastLen);
+  }
+
+  // A paste that holds a table: the line keeps the text before the caret,
+  // everything pasted goes under it as its own lines (a table can't join a
+  // line), the text after the caret follows on a line of its own.
+  function pasteItemsWithTables(page, ctx, before, after, items){
+    const block = ctx.block;
+    const plain = (h) => !String(h || '').replace(/<br>/g, '').replace(/&nbsp;/g, '').trim();
+    const fill = (b, it) => {
+      if(it.kind === 'table'){ setBlockKind(b, 'text'); b.html = ''; b.table = it.table; syncTableFallback(b); }
+      else { setBlockKind(b, it.kind); b.html = it.html; b.checked = it.kind === 'todo' && !!it.checked; }
+    };
+    const base = Math.min(...items.map(it => it.depth));
+    let lastAt = [], insertAt = ctx.index + 1, last = block, rest = items;
+    block.html = before;
+    // an empty line pasted into becomes the first pasted line (or the table)
+    if(plain(before) && !block.children.length){ fill(block, items[0]); lastAt = [block]; rest = items.slice(1); }
+    rest.forEach(it => {
+      let d = Math.min(Math.max(0, it.depth - base), lastAt.length);
+      const nb = emptyBlock();
+      fill(nb, it);
+      if(d === 0 || !lastAt[d - 1] || lastAt[d - 1].table){ d = 0; ctx.arr.splice(insertAt++, 0, nb); }
+      else { const parent = lastAt[d - 1]; parent.children.push(nb); parent.collapsed = false; }
+      lastAt.length = d; lastAt[d] = nb;
+      last = nb;
+    });
+    // the text after the caret follows on its own line; writing goes on under a table that ends the page
+    if(!plain(after) || (last.table && ctx.arr === page.blocks && insertAt >= ctx.arr.length)){
+      const tail = emptyBlock(); tail.html = after; ctx.arr.splice(insertAt, 0, tail);
+      if(last.table){ commitNotesChange(); focusBlockAtOffset(tail.id, 0); return; }
+    }
+    commitNotesChange();
+    focusBlock(last.id, false);
   }
 
   // Multi-line paste becomes one line per line of text, like a document;
@@ -11227,6 +11373,10 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   }
   function notesFocusInfo(){
     const ae = document.activeElement;
+    if(ae && ae.classList && ae.classList.contains('tc-text')){
+      const x = cellLineFromEl(ae);
+      return x ? { id: x.block.id, cell: { r: x.r, c: x.c, i: x.i }, offset: caretTextOffset(ae) } : null;
+    }
     if(!ae || !ae.classList || !ae.classList.contains('ob-text')) return null;
     const row = ae.closest('.ob-row');
     return row ? { id: row.dataset.id, offset: caretTextOffset(ae) } : null;
@@ -11234,6 +11384,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   // the line being typed in is flushed first: its text reaches the model only on 'input'
   function notesFlushActive(page){
     const ae = document.activeElement;
+    if(ae && ae.classList && ae.classList.contains('tc-text')){ const x = cellLineFromEl(ae); if(x){ x.line.html = sanitizeInline(ae.innerHTML); syncTableFallback(x.block); } return; }
     if(!ae || !ae.classList || !ae.classList.contains('ob-text')) return;
     const row = ae.closest('.ob-row');
     const ctx = row && findBlockCtx(page.blocks, row.dataset.id);
@@ -11282,7 +11433,12 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     renderNotesOutline(page);
     if(keep){ obSelSet(keep.anchor, keep.focus, keep.touch); return true; }
     const f = snap.focus && findBlockCtx(page.blocks, snap.focus.id) ? snap.focus : null;
-    if(f) focusBlockAtOffset(f.id, f.offset);
+    if(f && f.cell){
+      const b = tableBlockFor(f.id);
+      const cell = b && b.table.rows[f.cell.r] && b.table.rows[f.cell.r][f.cell.c];
+      if(cell && !cell.m && cell.lines[f.cell.i]) focusCellLine(f.id, f.cell.r, f.cell.c, f.cell.i, f.offset);
+      else focusBlock(f.id, false);
+    } else if(f) focusBlockAtOffset(f.id, f.offset);
     return true;
   }
   function notesUndo(){ return notesHistoryStep(notesHist.undo, notesHist.redo); }
@@ -11352,12 +11508,9 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   }
   function obSelSet(anchor, focus, touch){
     obSel = { anchor, focus: focus || anchor, touch: !!(touch || (obSel && obSel.touch)) };
-    const ae = document.activeElement;
-    if(ae && ae.classList && ae.classList.contains('ob-text')){
-      const page = currentNotesPage();
-      const ctx = page && findBlockCtx(page.blocks, ae.closest('.ob-row').dataset.id);
-      if(ctx) ctx.block.html = sanitizeInline(ae.innerHTML);
-    }
+    const page0 = currentNotesPage();
+    if(page0) notesFlushActive(page0);
+    tblSelClear();
     const outline = document.getElementById('notesOutline');
     if(outline && document.activeElement !== outline) outline.focus({ preventScroll: true });
     try{ window.getSelection().removeAllRanges(); }catch(e){}
@@ -11456,6 +11609,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     blocks.forEach(b => {
       const k = blockKind(b);
       n = k === 'ol' ? n + 1 : 0;
+      if(b.table){ b.table.rows.forEach(r => out.push('    '.repeat(depth) + r.map(c => c.m ? '' : tableCellText(c)).join('\t'))); blocksToText(b.children, depth + 1, out); return; }
       const mark = k === 'ul' ? '- ' : k === 'ol' ? n + '. ' : k === 'todo' ? (b.checked ? '[x] ' : '[ ] ') : k === 'h1' ? '# ' : k === 'h2' ? '## ' : '';
       out.push('    '.repeat(depth) + mark + blockPlainText(b));
       blocksToText(b.children, depth + 1, out);
@@ -11468,6 +11622,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       const k = blockKind(b);
       const inner = b.html || '';
       const kids = b.children.length ? blocksToHtml(b.children) : '';
+      if(b.table){ html += tableToHtml(b.table) + kids; return; }
       if(k === 'h1') html += '<h1>' + inner + '</h1>' + kids;
       else if(k === 'h2') html += '<h2>' + inner + '</h2>' + kids;
       else if(k === 'ul') html += '<ul><li>' + inner + kids + '</li></ul>';
@@ -11536,7 +11691,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
           const r = main.getBoundingClientRect();
           const before = ev.clientY < r.top + r.height / 2;
           target = { id: row.dataset.id, before };
-          const text = main.querySelector(':scope > .ob-text').getBoundingClientRect();
+          const text = (main.querySelector(':scope > .ob-text') || main.querySelector(':scope > .ob-table-wrap') || main).getBoundingClientRect();
           const o = outline.getBoundingClientRect();
           const rtl = getComputedStyle(outline).direction === 'rtl';
           // after a line with visible children = after its whole subtree: draw under the subtree
@@ -11647,6 +11802,19 @@ body.has-select-mode .undo-toast{ bottom:84px; }
         return;
       }
       const id = obToolbarTargetId;
+      if(action === 'table'){ insertTableAt(id); return; }
+      const tb = tableBlockFor(id);
+      if(tb){
+        // in a table the bar acts on the cell line being written
+        const cel = tblLastCellEl(id);
+        const x = cel && cellLineFromEl(cel);
+        if(action === 'rowmenu') openBlockRowMenu(id, btn, false);
+        else if(!x) return;
+        else if(action === 'kind'){ if(document.activeElement !== cel) cel.focus(); setCellLineKind(tb, x, btn.dataset.kind); }
+        else if(action === 'blocktype') openCellKindMenu(tb, x, btn);
+        else if(INLINE_TAG[action]) applyInlineFormat(action);
+        return;
+      }
       if(action === 'outdent') outdentBlock(id);
       else if(action === 'indent') indentBlock(id);
       else if(action === 'kind') toggleBlockKind(id, btn.dataset.kind);
@@ -11715,6 +11883,766 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       notesHistoryKey(e);
     });
   })();
+
+  // ---------- tables (phase 3, 2026-10-22) ----------
+  // A table is a block with an additive `table` field:
+  //   table = { header: bool, rows: [[Cell]] }   (rectangular grid)
+  //   Cell  = { lines: [{ html, kind: 'text'|'ul'|'ol'|'todo', checked }],
+  //             bg: '' | TABLE_BG key, cs, rs (col/row span on the anchor cell),
+  //             m: true on a cell covered by a merge (content kept empty) }
+  // The block's own html is a text copy of the table (rows on lines, cells
+  // joined by " | "), so old clients, search and previews still read it.
+  const TABLE_BG = ['', 'gray', 'pink', 'yellow', 'green', 'blue', 'purple', 'orange'];
+  const TABLE_BG_LABEL = { '':'ללא צבע', gray:'אפור', pink:'ורוד', yellow:'צהוב', green:'ירוק', blue:'כחול', purple:'סגול', orange:'כתום' };
+  const TABLE_LINE_KINDS = ['text', 'ul', 'ol', 'todo'];
+  const TABLE_MAX_ROWS = 200, TABLE_MAX_COLS = 20;
+  function newTableLine(kind, html){ return { html: html || '', kind: kind || 'text', checked: false }; }
+  function newTableCell(){ return { lines: [newTableLine()], bg: '', cs: 1, rs: 1, m: false }; }
+  function newTable(rows, cols){
+    const t = { header: true, rows: [] };
+    for(let r = 0; r < rows; r++){ const row = []; for(let c = 0; c < cols; c++) row.push(newTableCell()); t.rows.push(row); }
+    return t;
+  }
+  function sanitizeTable(t){
+    if(!t || typeof t !== 'object' || !Array.isArray(t.rows) || !t.rows.length) return null;
+    const rows = t.rows.slice(0, TABLE_MAX_ROWS).map(r => Array.isArray(r) ? r : []);
+    const cols = Math.min(TABLE_MAX_COLS, Math.max(1, ...rows.map(r => r.length)));
+    const out = { header: !!t.header, rows: rows.map(r => {
+      const row = [];
+      for(let c = 0; c < cols; c++){
+        const x = r[c] && typeof r[c] === 'object' ? r[c] : {};
+        const lines = (Array.isArray(x.lines) ? x.lines : []).slice(0, 200).map(l => {
+          const kind = TABLE_LINE_KINDS.includes(l && l.kind) ? l.kind : 'text';
+          return { html: sanitizeInline(l && l.html), kind, checked: kind === 'todo' && !!(l && l.checked) };
+        });
+        row.push({ lines: lines.length ? lines : [newTableLine()], bg: TABLE_BG.includes(x.bg) ? x.bg : '', cs: Math.max(1, x.cs | 0), rs: Math.max(1, x.rs | 0), m: false });
+      }
+      return row;
+    }) };
+    normalizeTableMerges(out);
+    return out;
+  }
+  // every anchor's span stays inside the grid and covers only free cells;
+  // covered cells are marked m (and emptied), nothing else is
+  function normalizeTableMerges(t){
+    const R = t.rows.length, C = t.rows[0].length;
+    const owner = t.rows.map(r => r.map(() => false));
+    for(let r = 0; r < R; r++) for(let c = 0; c < C; c++){
+      const cell = t.rows[r][c];
+      if(owner[r][c]){ cell.m = true; cell.cs = cell.rs = 1; cell.lines = [newTableLine()]; cell.bg = ''; continue; }
+      cell.m = false;
+      cell.cs = Math.min(cell.cs || 1, C - c); cell.rs = Math.min(cell.rs || 1, R - r);
+      // shrink until the whole span is free
+      let ok = false;
+      while(!ok){
+        ok = true;
+        for(let i = r; i < r + cell.rs && ok; i++) for(let j = c; j < c + cell.cs; j++){ if((i !== r || j !== c) && owner[i][j]){ ok = false; break; } }
+        if(!ok){ if(cell.cs > 1) cell.cs--; else cell.rs--; }
+      }
+      for(let i = r; i < r + cell.rs; i++) for(let j = c; j < c + cell.cs; j++) if(i !== r || j !== c) owner[i][j] = true;
+    }
+  }
+  function tableCellText(cell){ return cell.lines.map(l => stripHtmlPreview(l.html, Infinity)).filter(Boolean).join(' '); }
+  function syncTableFallback(block){
+    if(!block.table) return;
+    block.html = sanitizeInline(block.table.rows.map(r => r.filter(c => !c.m).map(c => escapeTextHtml(tableCellText(c))).join(' | ') + ' ').join('<br>'));
+  }
+  function tableBlockFor(id){ const page = currentNotesPage(); const ctx = page && findBlockCtx(page.blocks, id); return ctx && ctx.block.table ? ctx.block : null; }
+  function cellLineFromEl(el){
+    const td = el.closest('td'); const row = el.closest('.ob-row');
+    if(!td || !row) return null;
+    const block = tableBlockFor(row.dataset.id); if(!block) return null;
+    const r = +td.dataset.r, c = +td.dataset.c, i = +el.dataset.i;
+    const cell = block.table.rows[r] && block.table.rows[r][c];
+    const line = cell && cell.lines[i];
+    return line ? { block, cell, line, r, c, i } : null;
+  }
+  function tableTextSelector(id, r, c, i){ return '.ob-row[data-id="' + id + '"] td[data-r="' + r + '"][data-c="' + c + '"] .tc-text[data-i="' + i + '"]'; }
+  function focusCellLine(id, r, c, i, offset){
+    const go = () => {
+      const el = document.querySelector(tableTextSelector(id, r, c, i));
+      if(!el || document.activeElement === el) return;
+      el.focus();
+      if(offset == null || offset === 'end') placeCaretAt(el, false); else if(offset === 'start') placeCaretAt(el, true); else placeCaretAtOffset(el, offset);
+    };
+    go(); requestAnimationFrame(go);
+  }
+  function commitTable(block, focus){
+    syncTableFallback(block);
+    commitNotesChange();
+    if(focus) focusCellLine(block.id, focus.r, focus.c, focus.i || 0, focus.offset);
+  }
+
+  // ----- rendering -----
+  function renderTableInto(main, block){
+    const t = block.table;
+    const wrap = document.createElement('div');
+    wrap.className = 'ob-table-wrap';
+    const table = document.createElement('table');
+    table.className = 'ob-table' + (t.header ? ' has-header' : '');
+    table.style.setProperty('--cols', t.rows[0].length);
+    const editor = currentRole === 'editor';
+    t.rows.forEach((row, r) => {
+      const tr = document.createElement('tr');
+      row.forEach((cell, c) => {
+        if(cell.m) return;
+        const td = document.createElement('td');
+        td.dataset.r = r; td.dataset.c = c;
+        if(cell.cs > 1) td.colSpan = cell.cs;
+        if(cell.rs > 1) td.rowSpan = cell.rs;
+        if(cell.bg) td.className = 'bg-' + cell.bg;
+        if(r === 0 && t.header) td.classList.add('is-head');
+        let ol = 0;
+        cell.lines.forEach((line, i) => {
+          const ln = document.createElement('div');
+          ln.className = 'tc-line' + (line.kind === 'todo' && line.checked ? ' is-checked' : '');
+          ol = line.kind === 'ol' ? ol + 1 : 0;
+          if(line.kind === 'todo'){
+            const cb = document.createElement('button');
+            cb.type = 'button'; cb.className = 'ob-checkbox' + (line.checked ? ' is-checked' : '');
+            cb.setAttribute('aria-label', line.checked ? 'סימון כלא בוצע' : 'סימון כבוצע');
+            cb.disabled = !editor;
+            cb.onmousedown = (e) => e.preventDefault();
+            cb.onclick = (e) => { e.stopPropagation(); notesHistoryRecord(); line.checked = !line.checked; commitTable(block); };
+            ln.appendChild(cb);
+          } else if(line.kind === 'ul'){ const d = document.createElement('span'); d.className = 'ob-bullet'; ln.appendChild(d); }
+          else if(line.kind === 'ol'){ const n = document.createElement('span'); n.className = 'ob-olnum'; n.textContent = ol + '.'; ln.appendChild(n); }
+          const tx = document.createElement('div');
+          tx.className = 'tc-text';
+          tx.dataset.i = i;
+          tx.contentEditable = editor ? 'true' : 'false';
+          tx.innerHTML = linkifyBlockHtml(line.html);
+          ln.appendChild(tx);
+          td.appendChild(ln);
+        });
+        tr.appendChild(td);
+      });
+      table.appendChild(tr);
+    });
+    wrap.appendChild(table);
+    main.appendChild(wrap);
+    if(editor) wireTableEvents(table, block);
+  }
+
+  // ----- the cell selection (one cell while writing; a rectangle by drag,
+  // Shift+click, or "סימון תאים" on touch) -----
+  let tblSel = null; // { id, r0, c0, r1, c1, extend }
+  // the cell line last written in: the format bar acts on it after a click on the bar
+  let tblLastCell = null; // { id, r, c, i }
+  function tblLastCellEl(id){ return tblLastCell && tblLastCell.id === id ? document.querySelector(tableTextSelector(id, tblLastCell.r, tblLastCell.c, tblLastCell.i)) : null; }
+  function tableRectExpand(t, r0, c0, r1, c1){
+    let a = Math.min(r0, r1), b = Math.max(r0, r1), x = Math.min(c0, c1), y = Math.max(c0, c1);
+    let changed = true;
+    while(changed){
+      changed = false;
+      for(let r = 0; r < t.rows.length; r++) for(let c = 0; c < t.rows[0].length; c++){
+        const cell = t.rows[r][c];
+        if(cell.m) continue;
+        const r2 = r + cell.rs - 1, c2 = c + cell.cs - 1;
+        const meets = r <= b && r2 >= a && c <= y && c2 >= x;
+        if(meets && (r < a || r2 > b || c < x || c2 > y)){ a = Math.min(a, r); b = Math.max(b, r2); x = Math.min(x, c); y = Math.max(y, c2); changed = true; }
+      }
+    }
+    return { r0: a, r1: b, c0: x, c1: y };
+  }
+  function tblSelAnchors(block){
+    if(!tblSel || !block || tblSel.id !== block.id) return [];
+    const out = [];
+    block.table.rows.forEach((row, r) => row.forEach((cell, c) => { if(!cell.m && r >= tblSel.r0 && r <= tblSel.r1 && c >= tblSel.c0 && c <= tblSel.c1) out.push({ r, c, cell }); }));
+    return out;
+  }
+  function tblSelSet(block, r0, c0, r1, c1, extend){
+    const rect = tableRectExpand(block.table, r0, c0, r1 == null ? r0 : r1, c1 == null ? c0 : c1);
+    tblSel = Object.assign({ id: block.id, extend: !!(extend || (tblSel && tblSel.id === block.id && tblSel.extend)) }, rect);
+    paintTableSel();
+  }
+  function tblSelClear(){ if(!tblSel) return; tblSel = null; paintTableSel(); }
+  function tblSelMulti(){ return !!tblSel && (tblSel.r0 !== tblSel.r1 || tblSel.c0 !== tblSel.c1) && tblSelAnchors(tableBlockFor(tblSel.id)).length > 1; }
+  function paintTableSel(){
+    document.querySelectorAll('#notesOutline td.is-sel').forEach(td => td.classList.remove('is-sel'));
+    document.querySelectorAll('#notesOutline .ob-table.is-multisel').forEach(t => t.classList.remove('is-multisel'));
+    const block = tblSel && tableBlockFor(tblSel.id);
+    if(!block){ tblSel = null; positionTableBar(); return; }
+    const table = document.querySelector('.ob-row[data-id="' + block.id + '"] .ob-table');
+    if(table){
+      tblSelAnchors(block).forEach(({ r, c }) => { const td = table.querySelector('td[data-r="' + r + '"][data-c="' + c + '"]'); if(td) td.classList.add('is-sel'); });
+      table.classList.toggle('is-multisel', tblSelMulti());
+    }
+    positionTableBar();
+  }
+
+  // ----- the table bar (merge, colour, + row, + column, ⋯) -----
+  const TB_ICON = (d) => '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>';
+  function tableBarEl(){
+    let bar = document.getElementById('obTableBar');
+    if(bar) return bar;
+    bar = document.createElement('div');
+    bar.id = 'obTableBar'; bar.className = 'ob-tablebar'; bar.hidden = true;
+    bar.setAttribute('role', 'toolbar'); bar.setAttribute('aria-label', 'טבלה');
+    bar.innerHTML =
+      '<button type="button" data-tb="merge">מיזוג תאים</button>'
+      + '<span class="tb-sep"></span><button type="button" data-tb="color" aria-haspopup="true"><span class="tb-sw"></span>צבע</button>'
+      + '<span class="tb-sep"></span><button type="button" data-tb="addrow">+ שורה</button><button type="button" data-tb="addcol">+ עמודה</button>'
+      + '<button type="button" data-tb="multi" class="tb-touch">סימון תאים</button>'
+      + '<span class="tb-sep"></span><button type="button" data-tb="more" aria-label="עוד פעולות לטבלה" aria-haspopup="true">' + TB_ICON('<circle cx="5" cy="12" r="1.3" fill="currentColor"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/><circle cx="19" cy="12" r="1.3" fill="currentColor"/>') + '</button>';
+    bar.addEventListener('mousedown', (e) => e.preventDefault());
+    bar.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-tb]'); if(!btn || !tblSel) return;
+      const block = tableBlockFor(tblSel.id); if(!block) return;
+      const a = btn.dataset.tb;
+      if(a === 'merge'){ if(btn.dataset.unmerge) tableUnmerge(block); else tableMerge(block); }
+      else if(a === 'color') openTablePalette(block, btn);
+      else if(a === 'addrow') tableInsertRow(block, tblSel.r1 + 1);
+      else if(a === 'addcol') tableInsertCol(block, tblSel.c1 + 1);
+      else if(a === 'multi'){ tblSel.extend = !tblSel.extend; positionTableBar(); }
+      else if(a === 'more') openTableMenu(block, btn);
+    });
+    document.body.appendChild(bar);
+    return bar;
+  }
+  function positionTableBar(){
+    const bar = tableBarEl();
+    const block = tblSel && tableBlockFor(tblSel.id);
+    const ae = document.activeElement;
+    const inTable = ae && ae.closest && (ae.closest('.ob-table') || ae.closest('#obTableBar') || ae.closest('#notesOutline'));
+    if(!block || !inTable || currentRole !== 'editor'){ bar.hidden = true; return; }
+    const anchors = tblSelAnchors(block);
+    const one = anchors.length === 1 ? anchors[0].cell : null;
+    const mergeBtn = bar.querySelector('[data-tb="merge"]');
+    const unmerge = !!one && (one.cs > 1 || one.rs > 1);
+    const touch = window.matchMedia && matchMedia('(pointer:coarse)').matches;
+    mergeBtn.textContent = unmerge ? 'ביטול מיזוג' : (touch ? 'מיזוג' : 'מיזוג תאים');
+    if(unmerge) mergeBtn.dataset.unmerge = '1'; else delete mergeBtn.dataset.unmerge;
+    mergeBtn.disabled = !unmerge && anchors.length < 2;
+    const bgs = new Set(anchors.map(x => x.cell.bg));
+    bar.querySelector('.tb-sw').className = 'tb-sw' + (bgs.size === 1 && [...bgs][0] ? ' bg-' + [...bgs][0] : '');
+    const multi = bar.querySelector('[data-tb="multi"]');
+    multi.setAttribute('aria-pressed', tblSel.extend ? 'true' : 'false');
+    bar.hidden = false;
+    // under the selected cells, kept on screen (and above a phone keyboard + the docked bar)
+    const table = document.querySelector('.ob-row[data-id="' + block.id + '"] .ob-table');
+    const tds = anchors.map(x => table && table.querySelector('td[data-r="' + x.r + '"][data-c="' + x.c + '"]')).filter(Boolean);
+    if(!tds.length){ bar.hidden = true; return; }
+    const rects = tds.map(td => td.getBoundingClientRect());
+    const top = Math.min(...rects.map(r => r.top)), bottom = Math.max(...rects.map(r => r.bottom));
+    const right = Math.max(...rects.map(r => r.right));
+    const vv = window.visualViewport;
+    const viewBottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
+    const dock = document.getElementById('obToolbar');
+    const dockH = dock && getComputedStyle(dock).position === 'fixed' && dock.classList.contains('is-visible') ? dock.offsetHeight : 0;
+    const w = bar.offsetWidth, h = bar.offsetHeight;
+    let y = bottom + 6;
+    if(y + h > viewBottom - dockH - 6) y = top - h - 6;
+    y = Math.max(8, Math.min(y, viewBottom - dockH - h - 6));
+    bar.style.top = Math.round(y) + 'px';
+    bar.style.left = Math.round(Math.max(8, Math.min(window.innerWidth - w - 8, right - w))) + 'px';
+  }
+  window.addEventListener('scroll', () => { if(tblSel) positionTableBar(); }, true);
+  window.addEventListener('resize', () => { if(tblSel) positionTableBar(); });
+  if(window.visualViewport) window.visualViewport.addEventListener('resize', () => { if(tblSel) positionTableBar(); });
+  function openTablePalette(block, anchor){
+    closePicker();
+    const pop = document.createElement('div');
+    pop.className = 'picker ob-palette';
+    pop.setAttribute('role', 'listbox'); pop.setAttribute('aria-label', 'צבע התא');
+    const cur = new Set(tblSelAnchors(block).map(x => x.cell.bg));
+    TABLE_BG.forEach(bg => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'ob-swatch' + (bg ? ' bg-' + bg : ' is-none') + (cur.size === 1 && cur.has(bg) ? ' is-current' : '');
+      b.title = TABLE_BG_LABEL[bg]; b.setAttribute('aria-label', TABLE_BG_LABEL[bg]);
+      b.onmousedown = (e) => e.preventDefault();
+      b.onclick = () => { closePicker(); tableSetBg(block, bg); };
+      pop.appendChild(b);
+    });
+    document.body.appendChild(pop);
+    const r = anchor.getBoundingClientRect();
+    const W = pop.offsetWidth;
+    positionPopover(pop, { left: r.right - W, top: r.top, bottom: r.bottom }, { width: W });
+    openPickerEl = pop;
+    setTimeout(() => document.addEventListener('mousedown', onDocClick, true), 0);
+  }
+  function openTableMenu(block, anchor){
+    closePicker();
+    const pop = document.createElement('div');
+    pop.className = 'picker picker--menu';
+    const list = document.createElement('div'); list.className = 'picker-list';
+    const add = (label, run, opts) => { const r = menuItemEl('', label, opts); r.onmousedown = (e) => e.preventDefault(); r.onclick = () => { closePicker(); run(); }; list.appendChild(r); };
+    const div = () => list.appendChild(Object.assign(document.createElement('div'), { className:'picker-divider' }));
+    const s = tblSel;
+    add('הוספת שורה מעל', () => tableInsertRow(block, s.r0));
+    add('הוספת שורה מתחת', () => tableInsertRow(block, s.r1 + 1));
+    add('הוספת עמודה מימין', () => tableInsertCol(block, s.c0));
+    add('הוספת עמודה משמאל', () => tableInsertCol(block, s.c1 + 1));
+    div();
+    add('שורת כותרת', () => { notesHistoryRecord(); block.table.header = !block.table.header; commitTable(block, refocusInfo()); }, { selected: block.table.header });
+    div();
+    const nr = s.r1 - s.r0 + 1, nc = s.c1 - s.c0 + 1;
+    if(block.table.rows.length > nr) add(nr === 1 ? 'מחיקת השורה' : 'מחיקת ' + nr + ' שורות', () => tableDeleteRows(block, s.r0, s.r1), { danger:true });
+    if(block.table.rows[0].length > nc) add(nc === 1 ? 'מחיקת העמודה' : 'מחיקת ' + nc + ' עמודות', () => tableDeleteCols(block, s.c0, s.c1), { danger:true });
+    add('מחיקת הטבלה', () => { tblSelClear(); deleteBlockWithUndo(block.id); }, { danger:true });
+    pop.appendChild(list);
+    document.body.appendChild(pop);
+    const W = 210, r = anchor.getBoundingClientRect();
+    pop.style.width = W + 'px';
+    positionPopover(pop, { left: r.right - W, top: r.top, bottom: r.bottom }, { width: W });
+    openPickerEl = pop;
+    wirePickerKeyboard(pop, anchor);
+    setTimeout(() => document.addEventListener('mousedown', onDocClick, true), 0);
+  }
+  // where to put the caret back after a table op
+  function refocusInfo(){
+    const ae = document.activeElement;
+    if(ae && ae.classList && ae.classList.contains('tc-text')){ const x = cellLineFromEl(ae); if(x) return { r: x.r, c: x.c, i: x.i, offset: caretTextOffset(ae) }; }
+    return tblSel ? { r: tblSel.r0, c: tblSel.c0, i: 0, offset: 'end' } : null;
+  }
+  function flushActiveCell(){
+    const ae = document.activeElement;
+    if(ae && ae.classList && ae.classList.contains('tc-text')){ const x = cellLineFromEl(ae); if(x) x.line.html = sanitizeInline(ae.innerHTML); }
+  }
+
+  // ----- table operations -----
+  function tableSetBg(block, bg){
+    notesHistoryRecord();
+    const f = refocusInfo();
+    tblSelAnchors(block).forEach(x => { x.cell.bg = bg; });
+    const keep = Object.assign({}, tblSel);
+    commitTable(block, tblSelMulti() ? null : f);
+    tblSel = keep; paintTableSel();
+  }
+  function tableMerge(block){
+    const anchors = tblSelAnchors(block); if(anchors.length < 2) return;
+    flushActiveCell();
+    notesHistoryRecord();
+    const t = block.table, s = tblSel;
+    const top = t.rows[s.r0][s.c0];
+    const lines = [];
+    anchors.forEach(x => x.cell.lines.forEach(l => { if(stripHtmlPreview(l.html, Infinity) || l.kind !== 'text') lines.push(l); }));
+    top.lines = lines.length ? lines : [newTableLine()];
+    top.cs = s.c1 - s.c0 + 1; top.rs = s.r1 - s.r0 + 1;
+    normalizeTableMerges(t);
+    tblSel = { id: block.id, r0: s.r0, c0: s.c0, r1: s.r0, c1: s.c0, extend: false };
+    commitTable(block, { r: s.r0, c: s.c0, i: top.lines.length - 1, offset: 'end' });
+    tblSelSet(block, s.r0, s.c0);
+  }
+  function tableUnmerge(block){
+    const a = tblSelAnchors(block)[0]; if(!a) return;
+    notesHistoryRecord();
+    const f = refocusInfo();
+    const { r, c, cell } = a;
+    for(let i = r; i < r + cell.rs; i++) for(let j = c; j < c + cell.cs; j++){ const x = block.table.rows[i][j]; if(i !== r || j !== c){ x.m = false; x.lines = [newTableLine()]; x.bg = cell.bg; } }
+    cell.cs = cell.rs = 1;
+    normalizeTableMerges(block.table);
+    commitTable(block, f);
+    tblSelSet(block, r, c);
+  }
+  function tableInsertRow(block, at){
+    const t = block.table; if(t.rows.length >= TABLE_MAX_ROWS) return;
+    flushActiveCell();
+    notesHistoryRecord();
+    const C = t.rows[0].length;
+    const row = [];
+    for(let c = 0; c < C; c++) row.push(newTableCell());
+    // a merge that spans the insertion point grows over the new row
+    for(let r = 0; r < t.rows.length; r++) for(let c = 0; c < C; c++){
+      const cell = t.rows[r][c];
+      if(!cell.m && r < at && r + cell.rs > at){ cell.rs++; for(let j = c; j < c + cell.cs; j++) row[j].m = true; }
+    }
+    t.rows.splice(at, 0, row);
+    normalizeTableMerges(t);
+    const c0 = row.findIndex(x => !x.m);
+    commitTable(block, c0 >= 0 ? { r: at, c: c0, i: 0, offset: 'start' } : null);
+    if(c0 >= 0) tblSelSet(block, at, c0);
+  }
+  function tableInsertCol(block, at){
+    const t = block.table; if(t.rows[0].length >= TABLE_MAX_COLS) return;
+    flushActiveCell();
+    notesHistoryRecord();
+    const grow = new Set();
+    t.rows.forEach((row, r) => row.forEach((cell, c) => { if(!cell.m && c < at && c + cell.cs > at){ cell.cs++; for(let i = r; i < r + cell.rs; i++) grow.add(i); } }));
+    t.rows.forEach((row, r) => { const nc = newTableCell(); if(grow.has(r)) nc.m = true; row.splice(at, 0, nc); });
+    normalizeTableMerges(t);
+    const r0 = t.rows.findIndex(row => !row[at].m);
+    commitTable(block, r0 >= 0 ? { r: r0, c: at, i: 0, offset: 'start' } : null);
+    if(r0 >= 0) tblSelSet(block, r0, at);
+  }
+  function tableDeleteRows(block, a, b){
+    const t = block.table; if(t.rows.length - (b - a + 1) < 1) return;
+    notesHistoryRecord();
+    const C = t.rows[0].length;
+    for(let r = 0; r < t.rows.length; r++) for(let c = 0; c < C; c++){
+      const cell = t.rows[r][c]; if(cell.m) continue;
+      const r2 = r + cell.rs - 1;
+      if(r2 < a || r > b) continue;
+      const keepTop = Math.max(0, a - r), keepBottom = Math.max(0, r2 - b);
+      if(r >= a && keepBottom > 0){
+        // the anchor's row goes: its content moves down to the first kept row
+        const nb = t.rows[b + 1][c];
+        nb.lines = cell.lines; nb.bg = cell.bg; nb.cs = cell.cs; nb.rs = keepBottom; nb.m = false;
+      } else if(r < a){ cell.rs = keepTop + keepBottom; }
+    }
+    t.rows.splice(a, b - a + 1);
+    normalizeTableMerges(t);
+    tblSel = null;
+    const r = Math.min(a, t.rows.length - 1);
+    const c = t.rows[r].findIndex(x => !x.m);
+    commitTable(block, { r, c: Math.max(0, c), i: 0, offset: 'end' });
+  }
+  function tableDeleteCols(block, a, b){
+    const t = block.table; if(t.rows[0].length - (b - a + 1) < 1) return;
+    notesHistoryRecord();
+    t.rows.forEach((row, r) => row.forEach((cell, c) => {
+      if(cell.m) return;
+      const c2 = c + cell.cs - 1;
+      if(c2 < a || c > b) return;
+      const keepStart = Math.max(0, a - c), keepEnd = Math.max(0, c2 - b);
+      if(c >= a && keepEnd > 0){ const nb = row[b + 1]; nb.lines = cell.lines; nb.bg = cell.bg; nb.rs = cell.rs; nb.cs = keepEnd; nb.m = false; }
+      else if(c < a) cell.cs = keepStart + keepEnd;
+    }));
+    t.rows.forEach(row => row.splice(a, b - a + 1));
+    normalizeTableMerges(t);
+    tblSel = null;
+    const c = Math.min(a, t.rows[0].length - 1);
+    const r = t.rows.findIndex(row => !row[c].m);
+    commitTable(block, { r: Math.max(0, r), c, i: 0, offset: 'end' });
+  }
+  // a new 3×3 table: the empty line it was asked from becomes the table,
+  // otherwise it goes right after that line
+  function insertTableAt(blockId){
+    const page = currentNotesPage(); if(!page) return;
+    const ctx = findBlockCtx(page.blocks, blockId); if(!ctx) return;
+    notesHistoryRecord();
+    const b = ctx.block;
+    let tb;
+    if(!b.table && !b.html && !b.children.length){ tb = b; setBlockKind(tb, 'text'); }
+    else { tb = emptyBlock(); ctx.arr.splice(ctx.index + 1, 0, tb); }
+    tb.table = newTable(3, 3);
+    // writing goes on below a table that ends the page
+    const after = findBlockCtx(page.blocks, tb.id);
+    if(after.index === after.arr.length - 1 && after.arr === page.blocks) after.arr.push(emptyBlock());
+    commitTable(tb, { r: 0, c: 0, i: 0, offset: 'start' });
+  }
+
+  // ----- editing inside cells -----
+  function cellOrder(t){ const out = []; t.rows.forEach((row, r) => row.forEach((cell, c) => { if(!cell.m) out.push({ r, c }); })); return out; }
+  function wireTableEvents(table, block){
+    const lineOf = (el) => cellLineFromEl(el);
+    table.addEventListener('focusin', (e) => {
+      const el = e.target; if(!el.classList || !el.classList.contains('tc-text')) return;
+      const x = lineOf(el); if(!x) return;
+      obToolbarTargetId = block.id;
+      tblLastCell = { id: block.id, r: x.r, c: x.c, i: x.i };
+      const bar = document.getElementById('obToolbar'); if(bar) bar.classList.add('is-visible', 'in-table');
+      trackObKeyboard();
+      if(!(tblSel && tblSel.id === block.id && tblSel.r0 <= x.r && x.r <= tblSel.r1 && tblSel.c0 <= x.c && x.c <= tblSel.c1 && tblSelMulti())) tblSelSet(block, x.r, x.c);
+      else positionTableBar();
+      refreshObToolbarState();
+    });
+    table.addEventListener('focusout', (e) => {
+      const el = e.target; if(!el.classList || !el.classList.contains('tc-text')) return;
+      if(obRendering || !el.isConnected) return;
+      const x = lineOf(el); if(x){ x.line.html = sanitizeInline(el.innerHTML); syncTableFallback(block); }
+      setTimeout(() => {
+        const ae = document.activeElement;
+        if(ae && ae.closest && (ae.closest('.ob-table') || ae.closest('#obTableBar') || ae.closest('.picker') || ae.closest('#obToolbar'))) return;
+        if(openPickerEl) return;
+        const bar = document.getElementById('obToolbar'); if(bar) bar.classList.remove('in-table');
+        tblSelClear();
+      }, 150);
+      hideObToolbarSoon();
+    });
+    table.addEventListener('beforeinput', (e) => { if(e.target.classList && e.target.classList.contains('tc-text')) notesTypingRecord(); });
+    table.addEventListener('input', (e) => {
+      const el = e.target; if(!el.classList || !el.classList.contains('tc-text')) return;
+      const x = lineOf(el); if(!x) return;
+      x.line.html = sanitizeInline(el.innerHTML);
+      syncTableFallback(block);
+      const page = currentNotesPage(); if(page){ touchNotesPage(page); persistState(); }
+      positionTableBar();
+    });
+    table.addEventListener('paste', (e) => {
+      const el = e.target.closest && e.target.closest('.tc-text'); if(!el) return;
+      e.preventDefault();
+      const cd = e.clipboardData || window.clipboardData;
+      const text = cd.getData('text/plain').replace(/\r\n?/g, '\n').replace(/\n+$/, '');
+      const x = lineOf(el); if(!x) return;
+      const sel = window.getSelection();
+      const href = !/\s/.test(text.trim()) ? safeLinkHref(text.trim()) : null;
+      if(href && sel && !sel.isCollapsed && sel.toString().trim()){ notesHistoryRecord(); document.execCommand('createLink', false, href); obCommitLineDom(el, x.line, textOffsetIn(el, sel.focusNode, sel.focusOffset)); return; }
+      // rich content keeps bold/links/list kinds, line by line (a pasted table flattens)
+      const html = cd.getData('text/html');
+      let items = [];
+      if(html && !href){ try{ items = htmlToNoteItems(html, true); }catch(err){ items = []; } }
+      if(items.length === 1 && (items[0].kind === 'text' || items[0].kind === 'h1' || items[0].kind === 'h2')){
+        notesHistoryRecord();
+        document.execCommand('insertHTML', false, items[0].html);
+        obCommitLineDom(el, x.line, caretTextOffset(el));
+        return;
+      }
+      if(items.length > 1){
+        notesHistoryRecord();
+        if(sel && !sel.isCollapsed) document.execCommand('delete');
+        const { before, after } = splitElementAtCaret(el);
+        const lines = items.map(it => { const l = newTableLine(TABLE_LINE_KINDS.includes(it.kind) ? it.kind : 'text', sanitizeInline(it.kind === 'h1' || it.kind === 'h2' ? '<b>' + it.html + '</b>' : it.html)); if(it.kind === 'todo') l.checked = !!it.checked; return l; });
+        const tmp = document.createElement('div'); tmp.innerHTML = lines[lines.length - 1].html;
+        const lastLen = tmp.textContent.length;
+        x.line.html = sanitizeInline(before + lines[0].html);
+        if(!stripHtmlPreview(before, Infinity) && x.line.kind === 'text'){ x.line.kind = lines[0].kind; x.line.checked = lines[0].checked; }
+        const added = lines.slice(1);
+        x.cell.lines.splice(x.i + 1, 0, ...added);
+        const last = added.length ? added[added.length - 1] : x.line;
+        last.html = sanitizeInline(last.html + after);
+        commitTable(block, { r: x.r, c: x.c, i: x.i + added.length, offset: added.length ? lastLen : stripHtmlPreview(x.line.html, Infinity).length - stripHtmlPreview(after, Infinity).length });
+        return;
+      }
+      if(text.indexOf('\n') === -1){ document.execCommand('insertText', false, text); return; }
+      notesHistoryRecord();
+      if(sel && !sel.isCollapsed) document.execCommand('delete');
+      const { before, after } = splitElementAtCaret(el);
+      const parts = text.split('\n');
+      x.line.html = sanitizeInline(before + escapeTextHtml(parts[0]));
+      const added = parts.slice(1).map(p => newTableLine(x.line.kind === 'todo' || x.line.kind === 'ul' || x.line.kind === 'ol' ? x.line.kind : 'text', escapeTextHtml(p)));
+      x.cell.lines.splice(x.i + 1, 0, ...added);
+      const last = added[added.length - 1];
+      const lastLen = parts[parts.length - 1].length;
+      last.html = sanitizeInline(last.html + after);
+      commitTable(block, { r: x.r, c: x.c, i: x.i + added.length, offset: lastLen });
+    });
+    // mouse: drag across cells selects a rectangle; Shift+click extends
+    table.addEventListener('pointerdown', (e) => {
+      const td = e.target.closest && e.target.closest('td'); if(!td || e.button !== 0) return;
+      const r = +td.dataset.r, c = +td.dataset.c;
+      if(e.pointerType !== 'mouse'){
+        if(tblSel && tblSel.id === block.id && tblSel.extend){ e.preventDefault(); tblSelSet(block, tblSel.r0, tblSel.c0, r, c); }
+        return;
+      }
+      if(e.shiftKey && tblSel && tblSel.id === block.id){ e.preventDefault(); tblSelSet(block, tblSel.r0, tblSel.c0, r, c); return; }
+      let moved = false;
+      const onMove = (ev) => {
+        const t = document.elementFromPoint(ev.clientX, ev.clientY);
+        const td2 = t && t.closest && t.closest('td');
+        if(!td2 || !table.contains(td2)) return;
+        const r2 = +td2.dataset.r, c2 = +td2.dataset.c;
+        if(!moved && r2 === r && c2 === c) return;
+        moved = true;
+        table.classList.add('is-cell-selecting');
+        try{ window.getSelection().removeAllRanges(); }catch(err){}
+        tblSelSet(block, r, c, r2, c2);
+      };
+      const onUp = () => {
+        document.removeEventListener('pointermove', onMove, true);
+        document.removeEventListener('pointerup', onUp, true);
+        table.classList.remove('is-cell-selecting');
+        if(moved){ const el = table.querySelector('td[data-r="' + r + '"][data-c="' + c + '"] .tc-text'); if(el && document.activeElement !== el) el.focus({ preventScroll: true }); try{ window.getSelection().removeAllRanges(); }catch(err){} positionTableBar(); }
+      };
+      document.addEventListener('pointermove', onMove, true);
+      document.addEventListener('pointerup', onUp, true);
+    });
+    // a click on a cell's padding writes in it
+    table.addEventListener('mousedown', (e) => {
+      if(e.target.tagName !== 'TD' || e.shiftKey) return;
+      e.preventDefault();
+      const lines = e.target.querySelectorAll('.tc-text');
+      const el = lines[lines.length - 1]; if(el){ el.focus(); placeCaretAt(el, false); }
+    });
+    table.addEventListener('keydown', (e) => {
+      const el = e.target; if(!el.classList || !el.classList.contains('tc-text')) return;
+      const x = lineOf(el); if(!x) return;
+      const mod = e.metaKey || e.ctrlKey;
+      if(notesHistoryKey(e)) return;
+      const t = block.table;
+      if(tblSelMulti() && (e.key === 'Backspace' || e.key === 'Delete')){
+        e.preventDefault();
+        notesHistoryRecord();
+        tblSelAnchors(block).forEach(a => { a.cell.lines = [newTableLine()]; });
+        const keep = Object.assign({}, tblSel);
+        commitTable(block, { r: keep.r0, c: keep.c0, i: 0, offset: 'start' });
+        tblSel = keep; paintTableSel();
+        return;
+      }
+      if(e.key === 'Escape'){ e.preventDefault(); tblSelClear(); obSelSet(block.id); return; }
+      if(e.key === 'Tab'){
+        e.preventDefault();
+        const order = cellOrder(t);
+        const k = order.findIndex(o => o.r === x.r && o.c === x.c) + (e.shiftKey ? -1 : 1);
+        if(k >= order.length){ tableInsertRow(block, t.rows.length); return; }
+        if(k < 0) return;
+        focusCellLine(block.id, order[k].r, order[k].c, 0, 'end');
+        return;
+      }
+      if(e.key === 'Enter' && !e.shiftKey){
+        e.preventDefault();
+        const listy = x.line.kind !== 'text';
+        if(listy && !el.textContent){ notesHistoryRecord(); x.line.kind = 'text'; x.line.checked = false; commitTable(block, { r: x.r, c: x.c, i: x.i, offset: 'start' }); return; }
+        notesHistoryRecord();
+        const { before, after } = splitElementAtCaret(el);
+        x.line.html = before;
+        x.cell.lines.splice(x.i + 1, 0, newTableLine(x.line.kind, after));
+        commitTable(block, { r: x.r, c: x.c, i: x.i + 1, offset: 'start' });
+        return;
+      }
+      if(e.key === 'Backspace'){
+        const sel = window.getSelection();
+        if(sel && sel.isCollapsed && caretTextOffset(el) === 0){
+          e.preventDefault();
+          if(x.line.kind !== 'text'){ notesHistoryRecord(); x.line.kind = 'text'; x.line.checked = false; commitTable(block, { r: x.r, c: x.c, i: x.i, offset: 'start' }); return; }
+          if(x.i > 0){
+            notesHistoryRecord();
+            const prev = x.cell.lines[x.i - 1];
+            const len = stripHtmlPreview(prev.html, Infinity).length;
+            prev.html = sanitizeInline(prev.html + sanitizeInline(el.innerHTML));
+            x.cell.lines.splice(x.i, 1);
+            commitTable(block, { r: x.r, c: x.c, i: x.i - 1, offset: len });
+          }
+        }
+        return;
+      }
+      if((e.key === 'ArrowUp' || e.key === 'ArrowDown') && !e.shiftKey && !mod){
+        const sel = window.getSelection(); if(!sel || !sel.isCollapsed) return;
+        const off = caretTextOffset(el), len = (el.textContent || '').length;
+        const up = e.key === 'ArrowUp';
+        if(up && off !== 0) return;
+        if(!up && off !== len) return;
+        e.preventDefault();
+        if(up && x.i > 0){ focusCellLine(block.id, x.r, x.c, x.i - 1, 'end'); return; }
+        if(!up && x.i < x.cell.lines.length - 1){ focusCellLine(block.id, x.r, x.c, x.i + 1, 'start'); return; }
+        // the cell above/below in this column (skipping covered cells to their anchor)
+        let r = up ? x.r - 1 : x.r + x.cell.rs;
+        if(r >= 0 && r < t.rows.length){
+          let c = x.c, rr = r;
+          // find the anchor that covers (r, c)
+          for(let i = 0; i <= r; i++) for(let j = 0; j <= c; j++){ const k = t.rows[i][j]; if(!k.m && i + k.rs > r && j + k.cs > c){ rr = i; c = j; } }
+          const target = t.rows[rr][c];
+          focusCellLine(block.id, rr, c, up ? target.lines.length - 1 : 0, up ? 'end' : 'start');
+          return;
+        }
+        // leave the table
+        const page = currentNotesPage();
+        const flat = flattenVisibleBlocks(page.blocks);
+        const idx = flat.findIndex(b => b.id === block.id);
+        const nb = flat[idx + (up ? -1 : 1)];
+        if(nb) focusBlock(nb.id, !up);
+        return;
+      }
+      // Ctrl+Shift+7/8/9/0: numbered / bullets / to-do / text for the line
+      if(mod && e.shiftKey && !e.altKey){
+        const digit = /^Digit\d$/.test(e.code || '') ? e.code.slice(5) : e.key;
+        const kind = { '7':'ol', '8':'ul', '9':'todo', '0':'text' }[digit];
+        if(kind){ e.preventDefault(); setCellLineKind(block, x, kind); return; }
+        if(e.code === 'KeyX'){ e.preventDefault(); applyInlineFormat('strikeThrough'); return; }
+      }
+      if(mod && !e.shiftKey && !e.altKey){
+        const k = (e.code === 'KeyB') ? 'bold' : (e.code === 'KeyI') ? 'italic' : (e.code === 'KeyU') ? 'underline' : null;
+        if(k){ e.preventDefault(); applyInlineFormat(k); return; }
+        if(e.code === 'KeyK'){ e.preventDefault(); openLinkEditor(block.id, el); return; }
+      }
+    });
+  }
+  function setCellLineKind(block, x, kind){
+    notesHistoryRecord();
+    const off = caretTextOffset(document.activeElement) || 0;
+    const k = x.line.kind === kind && kind !== 'text' ? 'text' : kind;
+    x.line.kind = k; if(k !== 'todo') x.line.checked = false;
+    commitTable(block, { r: x.r, c: x.c, i: x.i, offset: off });
+  }
+  // the cell line being written in, if any (the format bar acts on it)
+  function activeCellLine(){
+    const ae = document.activeElement;
+    return ae && ae.classList && ae.classList.contains('tc-text') ? cellLineFromEl(ae) : null;
+  }
+
+  // ----- rich paste of a table (Docs, Word, Sheets, the web) -----
+  const CELL_BG_RGB = { gray:[241,238,240], pink:[252,238,240], yellow:[251,243,220], green:[232,243,236], blue:[231,240,250], purple:[240,235,248], orange:[253,235,221] };
+  const CELL_BG_HUE = { pink:345, yellow:45, green:140, blue:210, purple:265, orange:25 };
+  function nearestCellBg(css){
+    const m = String(css || '').match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*([\d.]+))?/) || null;
+    let rgb = null;
+    if(m){ if(m[4] !== undefined && +m[4] < 0.1) return ''; rgb = [+m[1], +m[2], +m[3]]; }
+    else { const h = String(css || '').match(/#([0-9a-f]{6}|[0-9a-f]{3})\b/i); if(h){ let x = h[1]; if(x.length === 3) x = x.split('').map(ch => ch + ch).join(''); rgb = [parseInt(x.slice(0,2),16), parseInt(x.slice(2,4),16), parseInt(x.slice(4,6),16)]; } }
+    if(!rgb) return '';
+    const [r, g, b] = rgb.map(v => v / 255);
+    const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2, d = max - min;
+    if(l > 0.97 && d < 0.03) return ''; // white
+    const s = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
+    if(s < 0.15) return 'gray';
+    let h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    h = (h * 60 + 360) % 360;
+    let best = '', bd = 999;
+    Object.keys(CELL_BG_HUE).forEach(k => { const dh = Math.min(Math.abs(h - CELL_BG_HUE[k]), 360 - Math.abs(h - CELL_BG_HUE[k])); if(dh < bd){ bd = dh; best = k; } });
+    return best;
+  }
+  function htmlTableToTable(tableEl){
+    const trs = Array.from(tableEl.querySelectorAll('tr')).filter(tr => tr.closest('table') === tableEl).slice(0, TABLE_MAX_ROWS);
+    if(!trs.length) return null;
+    const grid = [];
+    const place = (r, c, cell) => { grid[r] = grid[r] || []; grid[r][c] = cell; };
+    let header = false;
+    trs.forEach((tr, r) => {
+      grid[r] = grid[r] || [];
+      let c = 0;
+      Array.from(tr.children).filter(x => x.tagName === 'TD' || x.tagName === 'TH').forEach(td => {
+        while(grid[r][c]) c++;
+        if(c >= TABLE_MAX_COLS) return;
+        if(r === 0 && td.tagName === 'TH') header = true;
+        const cs = Math.max(1, Math.min(+td.getAttribute('colspan') || 1, TABLE_MAX_COLS - c));
+        const rs = Math.max(1, Math.min(+td.getAttribute('rowspan') || 1, trs.length - r));
+        let items = [];
+        try{ items = htmlToNoteItems(td.innerHTML, true); }catch(err){}
+        const lines = items.map(it => it.table ? newTableLine('text', it.html || '') : newTableLine(TABLE_LINE_KINDS.includes(it.kind) ? it.kind : 'text', (it.kind === 'h1' || it.kind === 'h2') ? '<b>' + it.html + '</b>' : it.html)).map((l, i) => { if(items[i] && items[i].kind === 'todo') l.checked = !!items[i].checked; l.html = sanitizeInline(l.html); return l; });
+        const style = (td.getAttribute('style') || '') + ';' + (td.getAttribute('bgcolor') ? 'background-color:' + td.getAttribute('bgcolor') : '');
+        const bgm = style.match(/background(?:-color)?\s*:\s*([^;]+)/i);
+        const cell = { lines: lines.length ? lines : [newTableLine()], bg: bgm ? nearestCellBg(bgm[1]) : '', cs, rs, m: false };
+        place(r, c, cell);
+        for(let i = r; i < r + rs; i++) for(let j = c; j < c + cs; j++) if(i !== r || j !== c){ grid[i] = grid[i] || []; grid[i][j] = { lines: [newTableLine()], bg: '', cs: 1, rs: 1, m: true }; }
+        c += cs;
+      });
+    });
+    const cols = Math.min(TABLE_MAX_COLS, Math.max(1, ...grid.map(r => (r || []).length)));
+    const rows = grid.map(r => { const row = []; for(let c = 0; c < cols; c++) row.push((r && r[c]) || newTableCell()); return row; });
+    return sanitizeTable({ header, rows });
+  }
+
+  function openCellKindMenu(block, x, anchor){
+    closePicker();
+    const pop = document.createElement('div');
+    pop.className = 'picker picker--menu';
+    const list = document.createElement('div'); list.className = 'picker-list';
+    TABLE_LINE_KINDS.forEach(k => {
+      const r = menuItemEl(BLOCK_TYPE_ICONS[k], BLOCK_TYPE_LABELS[k], { selected: x.line.kind === k });
+      r.onmousedown = (e) => e.preventDefault();
+      r.onclick = () => { closePicker(); const el = document.querySelector(tableTextSelector(block.id, x.r, x.c, x.i)); if(el && document.activeElement !== el) el.focus(); setCellLineKind(block, x, k); };
+      list.appendChild(r);
+    });
+    pop.appendChild(list);
+    document.body.appendChild(pop);
+    const W = 220, r = anchor.getBoundingClientRect();
+    pop.style.width = W + 'px';
+    positionPopover(pop, { left: r.right - W, top: r.top, bottom: r.bottom }, { width: W });
+    openPickerEl = pop;
+    wirePickerKeyboard(pop, anchor);
+    setTimeout(() => document.addEventListener('mousedown', onDocClick, true), 0);
+  }
+  // copy out: a real <table> (Docs, Word and Sheets keep it), colours as inline backgrounds
+  function tableToHtml(t){
+    let h = '<table style="border-collapse:collapse">';
+    t.rows.forEach((row, r) => {
+      h += '<tr>';
+      row.forEach(cell => {
+        if(cell.m) return;
+        const tag = r === 0 && t.header ? 'th' : 'td';
+        const rgb = cell.bg && CELL_BG_RGB[cell.bg];
+        let inner = '', ol = 0;
+        cell.lines.forEach(l => {
+          ol = l.kind === 'ol' ? ol + 1 : 0;
+          const mark = l.kind === 'ul' ? '• ' : l.kind === 'ol' ? ol + '. ' : l.kind === 'todo' ? (l.checked ? '☑ ' : '☐ ') : '';
+          inner += '<div>' + mark + (l.html || '') + '</div>';
+        });
+        h += '<' + tag + (cell.cs > 1 ? ' colspan="' + cell.cs + '"' : '') + (cell.rs > 1 ? ' rowspan="' + cell.rs + '"' : '')
+          + ' style="border:1px solid #d8d1d5;padding:6px 8px;vertical-align:top' + (rgb ? ';background-color:rgb(' + rgb.join(',') + ')' : '') + '">' + inner + '</' + tag + '>';
+      });
+      h += '</tr>';
+    });
+    return h + '</table>';
+  }
 
   // ---------- page view + gallery ----------
 
