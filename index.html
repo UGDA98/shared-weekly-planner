@@ -6,7 +6,7 @@
 <!-- App build version, compared against version.txt to detect a new deploy in
      installed standalone PWA windows (which have no reload affordance). MUST be
      bumped together with version.txt on every deploy — see NOTES.md deploy step. -->
-<meta name="app-version" content="20261022-1134">
+<meta name="app-version" content="20261022-1237">
 <title>יומן ומשימות</title>
 <!-- PWA manifest + icons — no service worker on purpose: this is a live-data
      app on a 20s poll, a SW would only risk serving a stale index.html for
@@ -1224,6 +1224,19 @@ button.notes-empty:focus-visible{ outline:2px solid var(--accent); outline-offse
    plain text; sanitizeInline unwraps the <a> on every commit). LTR-isolated so a
    URL never flips the Hebrew line around it; break-all so a long one wraps at 375px. */
 .ob-link{ color:var(--accent); text-decoration:underline; text-underline-offset:2px; direction:ltr; unicode-bidi:isolate; word-break:break-all; cursor:pointer; }
+.ob-link.is-named{ direction:inherit; unicode-bidi:normal; word-break:normal; }
+.picker.ob-linkpop{ padding:8px; display:flex; flex-direction:column; gap:6px; }
+.picker.ob-linkpop .picker-add{ border-top:none; padding-top:0; }
+.picker.ob-linkpop .picker-add input{ font-size:14px; padding:7px 9px; }
+.picker.ob-linkpop .picker-add input[aria-invalid="true"]{ border-color:var(--danger); }
+.picker.ob-linkpop .picker-add button{ font-size:13.5px; padding:7px 12px; font-weight:600; }
+.ob-linkpop-remove{ align-self:flex-start; border:none; background:none; color:var(--danger); font:inherit; font-size:13px; padding:4px 2px; cursor:pointer; }
+.ob-linkbubble{ position:fixed; z-index:320; display:flex; align-items:center; gap:2px; max-width:min(360px, calc(100vw - 16px)); padding:4px 4px 4px 6px; background:var(--s1); border:1px solid var(--hl); border-radius:var(--r8); box-shadow:var(--shadow-lift); font-size:13px; }
+.ob-linkbubble[hidden]{ display:none; }
+.ob-linkbubble-url{ color:var(--accent); direction:ltr; unicode-bidi:isolate; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; flex:1 1 auto; padding:4px 6px; text-decoration:none; }
+.ob-linkbubble-url:hover{ text-decoration:underline; }
+.ob-linkbubble button{ border:none; background:none; color:var(--muted); font:inherit; font-size:13px; padding:4px 8px; border-radius:6px; cursor:pointer; white-space:nowrap; }
+.ob-linkbubble button:hover{ background:var(--s3); color:var(--ink); }
 .ob-text.ob-h1{ font-size:24px; font-weight:800; letter-spacing:-.005em; line-height:1.4; }
 .ob-text.ob-h2{ font-size:19px; font-weight:700; line-height:1.45; }
 .ob-row.is-checked > .ob-row-main > .ob-text{
@@ -2559,6 +2572,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     <button type="button" data-action="italic" title="נטוי (Ctrl+I)" aria-label="נטוי" aria-pressed="false"><i style="font-family:Georgia,serif">I</i></button>
     <button type="button" class="obt-fine" data-action="underline" title="קו תחתון (Ctrl+U)" aria-label="קו תחתון" aria-pressed="false"><u>U</u></button>
     <button type="button" class="obt-fine" data-action="strikeThrough" title="קו חוצה (Ctrl+Shift+X)" aria-label="קו חוצה" aria-pressed="false"><s>S</s></button>
+    <button type="button" class="obt-fine" data-action="link" title="קישור (Ctrl+K)" aria-label="קישור" aria-pressed="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>
     <span class="obt-sep"></span>
     <button type="button" data-action="kind" data-kind="ul" title="רשימת תבליטים (Ctrl+Shift+8)" aria-label="רשימת תבליטים" aria-pressed="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="6" x2="15" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="15" y2="18"/><circle cx="20" cy="6" r="1.2" fill="currentColor"/><circle cx="20" cy="12" r="1.2" fill="currentColor"/><circle cx="20" cy="18" r="1.2" fill="currentColor"/></svg></button>
     <button type="button" data-action="kind" data-kind="ol" title="רשימה ממוספרת (Ctrl+Shift+7)" aria-label="רשימה ממוספרת" aria-pressed="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="6" x2="14" y2="6"/><line x1="3" y1="12" x2="14" y2="12"/><line x1="3" y1="18" x2="14" y2="18"/><path d="M19 4v4M18 4h1M17.5 13.5a1.5 1.5 0 1 1 2.5 1.1L17.5 17H21" stroke-width="1.6"/></svg></button>
@@ -9646,8 +9660,8 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   //   Page  = { id, title, icon, createdAt, updatedAt, updatedBy, pinned, blocks:[ Block ] }
   //   (updatedBy/pinned are additive — absent on old pages, backfilled on load)
   //   Block = { id, html, style:'p'|'h1'|'h2', collapsed, children:[ Block ] }
-  // `html` only ever contains the sanitizeInline() subset (b/i/u/s/br, no
-  // attributes) — enforced on every load AND on every commit, since a board's
+  // `html` only ever contains the sanitizeInline() subset (b/i/u/s/br with no
+  // attributes, and <a href> with an http(s)/mailto address only, 2026-10-22) — enforced on every load AND on every commit, since a board's
   // schema-less blob can in principle be edited by anything that can reach
   // the API, not just this client.
 
@@ -9690,6 +9704,18 @@ body.has-select-mode .undo-toast{ bottom:84px; }
         if(tag === 'STRONG'){ const b = document.createElement('b'); b.append(...child.childNodes); child.replaceWith(b); return; }
         if(tag === 'EM'){ const i = document.createElement('i'); i.append(...child.childNodes); child.replaceWith(i); return; }
         if(tag === 'STRIKE'){ const s = document.createElement('s'); s.append(...child.childNodes); child.replaceWith(s); return; }
+        // a named link: http(s)/mailto only, no attributes but href; a link
+        // whose text is its own address stays plain text (auto-linked on render)
+        if(tag === 'A'){
+          const raw = child.getAttribute('href');
+          const href = safeLinkHref(raw);
+          const text = (child.textContent || '').trim();
+          if(href && text && text !== raw && text !== href && text !== href.replace(/^mailto:/, '')){
+            while(child.attributes.length) child.removeAttribute(child.attributes[0].name);
+            child.setAttribute('href', href);
+            return;
+          }
+        }
         if(ALLOWED[tag]){
           while(child.attributes.length) child.removeAttribute(child.attributes[0].name);
           return;
@@ -10240,12 +10266,16 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   // back to its text, so the data model stays b/i/u/s/br only.
   const OB_URL_RE = /https?:\/\/[^\s<>"'\u200e\u200f]+[^\s<>"'.,;:!?)\]\u200e\u200f]/g;
   function linkifyBlockHtml(html){
-    if(!html || html.indexOf('http') === -1) return html || '';
+    if(!html || (html.indexOf('http') === -1 && html.indexOf('<a') === -1)) return html || '';
     const tmpl = document.createElement('template');
     tmpl.innerHTML = html;
+    // stored (named) links
+    tmpl.content.querySelectorAll('a').forEach(a => {
+      a.className = 'ob-link is-named'; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.title = a.getAttribute('href').replace(/^mailto:/, '');
+    });
     const walker = document.createTreeWalker(tmpl.content, NodeFilter.SHOW_TEXT);
     const nodes = [];
-    while(walker.nextNode()) nodes.push(walker.currentNode);
+    while(walker.nextNode()){ if(!walker.currentNode.parentElement || !walker.currentNode.parentElement.closest('a')) nodes.push(walker.currentNode); }
     nodes.forEach(node => {
       const str = node.nodeValue;
       OB_URL_RE.lastIndex = 0;
@@ -10332,10 +10362,12 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     });
   }
 
+  let obRendering = false;
   function renderNotesOutline(page){
     const container = document.getElementById('notesOutline');
     if(!container) return;
-    container.innerHTML = '';
+    obRendering = true;
+    try{ container.innerHTML = ''; } finally { obRendering = false; }
     renderBlockList(page.blocks, page, container);
     obSelAfterRender();
   }
@@ -10407,7 +10439,16 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       else if(INLINE_TAG[a]){
         on = false;
         if(selBlocks) on = selBlocks.some(b => b.html) && selBlocks.every(b => !b.html || isWholeTag(b.html, INLINE_TAG[a]));
-        else if(inLine){ try{ on = document.queryCommandState(a); }catch(e){} }
+        else if(inLine){
+          try{ on = document.queryCommandState(a); }catch(e){}
+          // a link draws its own underline: U is lit only by a real <u>
+          if(a === 'underline' && on){ const n = window.getSelection().anchorNode; const p = n && (n.nodeType === 1 ? n : n.parentElement); if(p && p.closest('a') && !p.closest('u')) on = false; }
+        }
+      }
+      else if(a === 'link'){
+        const n = inLine && window.getSelection().anchorNode;
+        const p = n && (n.nodeType === 1 ? n : n.parentElement);
+        on = !!(p && p.closest && p.closest('a.is-named'));
       }
       else if(a === 'undo' || a === 'redo'){
         const has = !!page && notesHist.pageId === page.id && (a === 'undo' ? notesHist.undo : notesHist.redo).length > 0;
@@ -10418,7 +10459,8 @@ body.has-select-mode .undo-toast{ bottom:84px; }
   }
   document.addEventListener('selectionchange', () => {
     const ae = document.activeElement;
-    if(ae && ae.classList && ae.classList.contains('ob-text')) refreshObToolbarState();
+    if(ae && ae.classList && ae.classList.contains('ob-text')){ refreshObToolbarState(); obRememberRange(); }
+    refreshLinkBubble();
   });
   // Touch: keep the bar on top of the on-screen keyboard. The visual viewport
   // shrinks by the keyboard's height; a fixed bar at bottom:0 would sit under it.
@@ -10488,6 +10530,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       add(menuItemEl(ICO_DEL, selIds.length === 1 ? 'מחיקה' : 'מחיקת ' + selIds.length + ' שורות', { danger:true }), () => obSelDelete());
     } else if(!typesOnly){
       divider();
+      if(touch) add(menuItemEl(I('<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>'), 'קישור'), () => openLinkEditor(blockId));
       if(touch) add(menuItemEl(I('<rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/>'), 'בחירת שורות'), () => obSelSet(blockId, blockId, true));
       if(ctx.index > 0) add(menuItemEl(I('<polyline points="18 15 12 9 6 15"/>'), 'הזזה למעלה'), () => moveBlockAmongSiblings(blockId, -1));
       if(ctx.index < ctx.arr.length - 1) add(menuItemEl(I('<polyline points="6 9 12 15 18 9"/>'), 'הזזה למטה'), () => moveBlockAmongSiblings(blockId, 1));
@@ -10569,6 +10612,335 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     setBlockStyleAndRefresh(block.id, kind);
   }
 
+  // ---------- links (named links, 2026-10-22) ----------
+  // A line may hold <a href> with its own text (pasted from Docs, or the 🔗
+  // button). Only http(s)/mailto survive sanitizeInline; a link whose text is
+  // its own address is stored as plain text and auto-linked on render.
+  function safeLinkHref(href){
+    try{ const u = new URL(String(href || '').trim()); return (u.protocol === 'http:' || u.protocol === 'https:' || u.protocol === 'mailto:') ? u.href : null; }catch(e){ return null; }
+  }
+  // what people type: "example.com/x" → https://example.com/x
+  function normalizeLinkInput(v){
+    v = String(v || '').trim();
+    if(!v) return null;
+    if(/^[a-z][a-z0-9+.-]*:/i.test(v)) return safeLinkHref(v);
+    if(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return safeLinkHref('mailto:' + v);
+    if(/^[^\s/]+\.[^\s/]{2,}(\/\S*)?$/.test(v)) return safeLinkHref('https://' + v);
+    return null;
+  }
+  // the selection last seen in a line — on touch, tapping a bar/menu button
+  // can drop the live selection before its handler runs
+  let obLastRange = null; // { id, range }
+  function obRememberRange(){
+    const ae = document.activeElement;
+    const sel = window.getSelection();
+    if(!ae || !ae.classList || !ae.classList.contains('ob-text') || !sel || !sel.rangeCount) return;
+    const r = sel.getRangeAt(0);
+    if(!ae.contains(r.startContainer)) return;
+    obLastRange = { id: ae.closest('.ob-row').dataset.id, range: r.cloneRange() };
+  }
+  function obLinkAt(el, node){
+    const a = node && (node.nodeType === 1 ? node : node.parentElement);
+    const link = a && a.closest ? a.closest('a') : null;
+    return link && el.contains(link) ? link : null;
+  }
+  // write a line's DOM back to the model, re-render its links, keep the caret
+  function obCommitLineDom(el, block, caretOffset){
+    block.html = sanitizeInline(el.innerHTML);
+    el.innerHTML = linkifyBlockHtml(block.html);
+    const page = currentNotesPage();
+    if(page){ touchNotesPage(page); persistState(); }
+    if(caretOffset != null){ el.focus(); placeCaretAtOffset(el, caretOffset); }
+  }
+  function textOffsetIn(el, node, offset){
+    const r = document.createRange(); r.selectNodeContents(el);
+    try{ r.setEnd(node, offset); }catch(e){ return 0; }
+    return r.toString().length;
+  }
+  function closeLinkEditor(){
+    const pop = document.querySelector('.picker.ob-linkpop');
+    if(pop){ if(openPickerEl === pop) closePicker(); else pop.remove(); }
+  }
+  // 🔗 / Ctrl+K: link the selected text, or edit the link the caret is in
+  function openLinkEditor(blockId){
+    const page = currentNotesPage(); if(!page) return;
+    const ctx = findBlockCtx(page.blocks, blockId); if(!ctx) return;
+    const el = document.querySelector(notesTextSelector(blockId)); if(!el) return;
+    const block = ctx.block;
+    const sel = window.getSelection();
+    let range = (sel && sel.rangeCount && el.contains(sel.getRangeAt(0).startContainer)) ? sel.getRangeAt(0).cloneRange()
+      : (obLastRange && obLastRange.id === blockId && el.contains(obLastRange.range.startContainer) ? obLastRange.range.cloneRange() : null);
+    if(!range){ range = document.createRange(); range.selectNodeContents(el); range.collapse(false); }
+    let link = obLinkAt(el, range.startContainer) || obLinkAt(el, range.endContainer);
+    if(link && link.classList.contains('ob-link') && !link.classList.contains('is-named')) link = null; // an auto-link is just text
+    if(link){ range = document.createRange(); range.selectNodeContents(link); }
+    const startOff = textOffsetIn(el, range.startContainer, range.startOffset);
+    const endOff = textOffsetIn(el, range.endContainer, range.endOffset);
+    closePicker();
+    const pop = document.createElement('div');
+    pop.className = 'picker ob-linkpop';
+    pop.setAttribute('role', 'dialog'); pop.setAttribute('aria-label', link ? 'עריכת קישור' : 'הוספת קישור');
+    pop.innerHTML = '<div class="picker-add"><input type="url" dir="ltr" inputmode="url" autocomplete="off" spellcheck="false" aria-label="כתובת הקישור" placeholder="הדביקו קישור"><button type="button" class="ob-linkpop-ok">החלה</button></div>'
+      + (link ? '<button type="button" class="ob-linkpop-remove">הסרת הקישור</button>' : '');
+    const input = pop.querySelector('input');
+    input.value = link ? link.getAttribute('href') : '';
+    document.body.appendChild(pop);
+    const W = 300;
+    const rect = (range.getClientRects()[0] || el.getBoundingClientRect());
+    const rtl = getComputedStyle(el).direction === 'rtl';
+    pop.style.width = W + 'px';
+    positionPopover(pop, { left: rtl ? rect.right - W : rect.left, top: rect.top, bottom: rect.bottom }, { width: W });
+    openPickerEl = pop;
+    setTimeout(() => document.addEventListener('mousedown', onDocClick, true), 0);
+    const back = () => { el.focus(); placeCaretAtOffset(el, endOff); };
+    const apply = () => {
+      const href = normalizeLinkInput(input.value);
+      if(!href){ input.setAttribute('aria-invalid', 'true'); input.focus(); return; }
+      closePicker();
+      notesHistoryRecord();
+      el.focus();
+      if(link && link.isConnected){ link.setAttribute('href', href); obCommitLineDom(el, block, endOff); return; }
+      const r = document.createRange();
+      // re-find the range by text offsets: the line may have re-rendered meanwhile
+      setRangeByOffsets(r, el, startOff, endOff);
+      const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+      if(r.collapsed){
+        const t = href.replace(/^mailto:/, '');
+        document.execCommand('insertText', false, t);
+        obCommitLineDom(el, block, startOff + t.length);
+      } else {
+        document.execCommand('createLink', false, href);
+        obCommitLineDom(el, block, endOff);
+      }
+    };
+    pop.querySelector('.ob-linkpop-ok').onclick = apply;
+    input.addEventListener('input', () => input.removeAttribute('aria-invalid'));
+    input.addEventListener('keydown', (e) => {
+      if(e.key === 'Enter'){ e.preventDefault(); apply(); }
+      else if(e.key === 'Escape'){ e.preventDefault(); closePicker(); back(); }
+    });
+    const rm = pop.querySelector('.ob-linkpop-remove');
+    if(rm) rm.onclick = () => { closePicker(); notesHistoryRecord(); if(link.isConnected) link.replaceWith(...link.childNodes); obCommitLineDom(el, block, endOff); };
+    setTimeout(() => { input.focus(); input.select(); }, 0);
+  }
+  function setRangeByOffsets(r, el, start, end){
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    let node, count = 0, sSet = false;
+    r.selectNodeContents(el); r.collapse(false);
+    while((node = walker.nextNode())){
+      const len = node.nodeValue.length;
+      if(!sSet && start <= count + len){ r.setStart(node, start - count); sSet = true; }
+      if(sSet && end <= count + len){ r.setEnd(node, end - count); return; }
+      count += len;
+    }
+  }
+  // While the caret is in a link: a small bubble with the address (opens it —
+  // the only way on a phone, where a tap into a line being edited just moves
+  // the caret), edit and remove (named links).
+  function refreshLinkBubble(){
+    let bub = document.getElementById('obLinkBubble');
+    const ae = document.activeElement;
+    const sel = window.getSelection();
+    let link = null;
+    if(ae && ae.classList && ae.classList.contains('ob-text') && sel && sel.rangeCount && sel.isCollapsed && !obSelActive()) link = obLinkAt(ae, sel.anchorNode);
+    if(!link){ if(bub) bub.hidden = true; return; }
+    if(!bub){
+      bub = document.createElement('div');
+      bub.id = 'obLinkBubble'; bub.className = 'ob-linkbubble'; bub.hidden = true;
+      bub.innerHTML = '<a class="ob-linkbubble-url" target="_blank" rel="noopener noreferrer"></a><button type="button" data-act="edit">עריכה</button><button type="button" data-act="remove">הסרה</button>';
+      bub.addEventListener('mousedown', (e) => { if(!e.target.closest('a')) e.preventDefault(); });
+      bub.addEventListener('click', (e) => {
+        const btn = e.target.closest('button'); if(!btn) return;
+        const ae2 = document.activeElement;
+        const row = ae2 && ae2.closest && ae2.closest('.ob-row'); if(!row) return;
+        if(btn.dataset.act === 'edit') openLinkEditor(row.dataset.id);
+        else {
+          const s = window.getSelection();
+          const l = s && s.rangeCount ? obLinkAt(ae2, s.anchorNode) : null;
+          const page = currentNotesPage(); const c = page && findBlockCtx(page.blocks, row.dataset.id);
+          if(l && c){ const off = caretTextOffset(ae2); notesHistoryRecord(); l.replaceWith(...l.childNodes); obCommitLineDom(ae2, c.block, off); }
+        }
+        bub.hidden = true;
+      });
+      document.body.appendChild(bub);
+    }
+    const href = link.getAttribute('href');
+    const a = bub.querySelector('a');
+    a.href = href; a.textContent = href.replace(/^mailto:/, '').replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const named = link.classList.contains('is-named');
+    bub.querySelectorAll('button').forEach(b => { b.hidden = !named; });
+    bub.hidden = false;
+    const r = link.getBoundingClientRect();
+    const w = bub.offsetWidth;
+    bub.style.top = Math.round(r.bottom + 6) + 'px';
+    bub.style.left = Math.round(Math.max(8, Math.min(window.innerWidth - w - 8, r.right - w))) + 'px';
+  }
+
+  // ---------- rich paste (Docs, Word, Notion, web pages) ----------
+  // The clipboard's HTML becomes lines: headings, bullets, numbered lists,
+  // checklists (Docs/Notion), nesting, bold/italic/underline/strike and
+  // links. Everything else (fonts, colours, images, sizes) is dropped. Tables
+  // become one line per row until tables arrive (phase 3).
+  const RICH_BLOCK_TAGS = new Set(['P','DIV','H1','H2','H3','H4','H5','H6','UL','OL','LI','TABLE','THEAD','TBODY','TFOOT','TR','TD','TH','BLOCKQUOTE','PRE','SECTION','ARTICLE','HEADER','FOOTER','MAIN','ASIDE','NAV','FIGURE','FIGCAPTION','DL','DT','DD','HR','ADDRESS','CENTER','CAPTION']);
+  function richInlineHtml(nodes, pre){
+    const out = document.createElement('div');
+    (function conv(list, parent){
+      list.forEach(n => {
+        if(n.nodeType === 3){
+          const t = pre ? n.nodeValue : n.nodeValue.replace(/[\s ]+/g, ' ');
+          if(t) parent.append(t);
+          return;
+        }
+        if(n.nodeType !== 1) return;
+        const tag = n.tagName;
+        if(tag === 'BR'){ parent.append(document.createElement('br')); return; }
+        const st = (n.getAttribute('style') || '').toLowerCase();
+        if(/mso-list\s*:\s*ignore/.test(st)) return; // Word's typed bullet/number
+        const wrap = [];
+        const fw = st.match(/font-weight\s*:\s*([a-z0-9]+)/);
+        const fwBold = fw && (fw[1] === 'bold' || fw[1] === 'bolder' || +fw[1] >= 600);
+        const fwNormal = fw && !fwBold;
+        if(((tag === 'B' || tag === 'STRONG') && !fwNormal) || fwBold) wrap.push('b');
+        if(((tag === 'I' || tag === 'EM') && !/font-style\s*:\s*normal/.test(st)) || /font-style\s*:\s*italic/.test(st)) wrap.push('i');
+        if((tag === 'U' && !/text-decoration[^;]*none/.test(st)) || /text-decoration[^;]*underline/.test(st)) wrap.push('u');
+        if(tag === 'S' || tag === 'STRIKE' || tag === 'DEL' || /text-decoration[^;]*line-through/.test(st)) wrap.push('s');
+        let inner = parent;
+        if(tag === 'A'){
+          const href = safeLinkHref(n.getAttribute('href'));
+          if(href){ const a = document.createElement('a'); a.setAttribute('href', href); parent.append(a); inner = a; }
+        }
+        wrap.forEach(t => {
+          if(t === 'u' && inner.closest && inner.closest('a')) return; // a link is underlined already
+          const w = document.createElement(t); inner.append(w); inner = w;
+        });
+        conv(Array.from(n.childNodes), inner);
+      });
+    })(Array.from(nodes), out);
+    let html = sanitizeInline(out.innerHTML);
+    html = html.replace(/^(\s|&nbsp;|<br>)+/, '').replace(/(\s|&nbsp;|<br>)+$/, '');
+    return html;
+  }
+  function richTodoState(li, text){
+    const role = li.getAttribute && li.getAttribute('role');
+    if(role === 'checkbox') return li.getAttribute('aria-checked') === 'true';
+    const box = li.querySelector && li.querySelector(':scope > input[type=checkbox], :scope > .checkbox, :scope > div > input[type=checkbox]');
+    if(box) return box.checked || box.hasAttribute('checked') || box.classList.contains('checkbox-on');
+    if(/^\s*(☐|\[\s?\])\s*/.test(text)) return false;
+    if(/^\s*(☑|☒|✅|\[[xX]\])\s*/.test(text)) return true;
+    return null;
+  }
+  function htmlToNoteItems(html){
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    doc.querySelectorAll('script,style,meta,link,title,noscript,template,iframe,object,embed,svg,img,picture,video,audio,canvas,button,select,textarea,head').forEach(n => n.remove());
+    const items = [];
+    const push = (kind, nodes, depth, extra) => {
+      const pre = !!(extra && extra.pre);
+      let h = richInlineHtml(nodes, pre);
+      let checked = extra && extra.checked;
+      if(kind === 'todo') h = h.replace(/^(☐|☑|☒|✅|\[\s?\]|\[[xX]\])\s*/, '');
+      if(!h.replace(/<br>/g, '').replace(/&nbsp;/g, '').trim()) return;
+      items.push({ kind, html: h, depth: depth || 0, checked: !!checked });
+    };
+    // Word: list paragraphs carry their level in mso-list
+    const wordList = (p) => {
+      const st = (p.getAttribute('style') || '');
+      if(!/mso-list/i.test(st) && !/MsoListParagraph/i.test(p.className || '')) return null;
+      const lvl = st.match(/level(\d+)/i);
+      const ig = p.querySelector('[style*="mso-list:Ignore"], [style*="mso-list: Ignore"]');
+      const mark = ig ? ig.textContent.trim() : '';
+      return { depth: lvl ? Math.max(0, +lvl[1] - 1) : 0, kind: /^\(?[0-9a-zA-Zא-ת]{1,3}[.)]$/.test(mark) ? 'ol' : 'ul' };
+    };
+    function walk(node, ctx){
+      let buf = [];
+      const flush = () => { if(buf.length){ push(ctx.kind || 'text', buf, ctx.depth, { pre: ctx.pre }); buf = []; } };
+      Array.from(node.childNodes).forEach(ch => {
+        if(ch.nodeType === 3 || (ch.nodeType === 1 && !RICH_BLOCK_TAGS.has(ch.tagName))){
+          if(ch.nodeType === 1 && ch.tagName === 'BR' && !buf.length) return; // a <br> between paragraphs
+          // an inline wrapper around blocks (Docs: <b id="docs-internal-guid"><p>…) is walked through
+          if(ch.nodeType === 1 && ch.querySelector && Array.from(ch.querySelectorAll('*')).some(x => RICH_BLOCK_TAGS.has(x.tagName))){ flush(); walk(ch, ctx); return; }
+          buf.push(ch);
+          return;
+        }
+        flush();
+        const tag = ch.tagName;
+        if(tag === 'HR') return;
+        if(/^H[1-6]$/.test(tag)){ push(tag === 'H1' ? 'h1' : 'h2', ch.childNodes, 0); return; }
+        if(tag === 'UL' || tag === 'OL'){
+          const todoList = /to-?do|checklist|task-list|contains-task-list/i.test(ch.className || '');
+          Array.from(ch.children).forEach(li => {
+            if(li.tagName === 'UL' || li.tagName === 'OL'){ walk({ childNodes: [li] }, { kind: ctx.kind, depth: (ctx.listDepth || 0) + 1, listDepth: (ctx.listDepth || 0) + 1 }); return; }
+            const al = +(li.getAttribute('aria-level') || 0);
+            const depth = al ? al - 1 : (ctx.listDepth || 0);
+            const own = Array.from(li.childNodes).filter(x => !(x.nodeType === 1 && (x.tagName === 'UL' || x.tagName === 'OL')));
+            const nested = Array.from(li.childNodes).filter(x => x.nodeType === 1 && (x.tagName === 'UL' || x.tagName === 'OL'));
+            const txt = li.textContent || '';
+            let st = richTodoState(li, txt);
+            if(st === null && todoList) st = false;
+            const kind = st !== null ? 'todo' : (tag === 'OL' ? 'ol' : 'ul');
+            // the line itself: its inline content (blocks inside an <li>, e.g. <p>, collapse into it)
+            const tmp = document.createElement('div');
+            own.forEach(x => tmp.append(x.cloneNode(true)));
+            tmp.querySelectorAll('input').forEach(x => x.remove());
+            push(kind, [tmp], depth, { checked: st });
+            nested.forEach(n => walk({ childNodes: [n] }, { depth: depth + 1, listDepth: depth + 1 }));
+          });
+          return;
+        }
+        if(tag === 'TABLE' || tag === 'THEAD' || tag === 'TBODY' || tag === 'TFOOT'){
+          ch.querySelectorAll(':scope > tr, :scope > thead > tr, :scope > tbody > tr, :scope > tfoot > tr').forEach(tr => {
+            const cells = Array.from(tr.children).map(td => richInlineHtml(td.childNodes)).filter(Boolean);
+            if(cells.length){ const tmp = document.createElement('div'); tmp.innerHTML = cells.join(' | '); push('text', [tmp], ctx.depth); }
+          });
+          return;
+        }
+        if(tag === 'TR'){ const cells = Array.from(ch.children).map(td => richInlineHtml(td.childNodes)).filter(Boolean); if(cells.length){ const tmp = document.createElement('div'); tmp.innerHTML = cells.join(' | '); push('text', [tmp], ctx.depth); } return; }
+        if(tag === 'LI'){ const ul = document.createElement('ul'); ul.append(ch.cloneNode(true)); walk({ childNodes: [ul] }, ctx); return; } // a stray <li> (copied from inside a list)
+        if(tag === 'P' || tag === 'DIV'){
+          const wl = wordList(ch);
+          if(wl){ push(wl.kind, ch.childNodes, wl.depth); return; }
+          const role = ch.getAttribute('role');
+          if(role === 'heading'){ push(+(ch.getAttribute('aria-level') || 2) === 1 ? 'h1' : 'h2', ch.childNodes, 0); return; }
+        }
+        walk(ch, { kind: ctx.kind, depth: ctx.depth, listDepth: ctx.listDepth, pre: ctx.pre || tag === 'PRE' });
+      });
+      flush();
+    }
+    walk(doc.body, { depth: 0 });
+    return items;
+  }
+  // Paste parsed lines at the caret: the first joins the line being written,
+  // the rest follow it; list nesting becomes children.
+  function pasteItems(el, block, items){
+    const page = currentNotesPage(); if(!page) return;
+    notesHistoryRecord();
+    const ctx = findBlockCtx(page.blocks, block.id); if(!ctx) return;
+    const sel = window.getSelection();
+    if(sel && sel.rangeCount && !sel.isCollapsed) document.execCommand('delete');
+    const { before, after } = splitElementAtCaret(el);
+    const base = items[0].depth;
+    const first = items[0];
+    block.html = sanitizeInline(before + first.html);
+    if(!before.replace(/<br>/g, '').trim() && first.kind !== 'text'){ setBlockKind(block, first.kind); block.checked = first.kind === 'todo' && first.checked; }
+    const lastAt = [block];
+    let insertAt = ctx.index + 1, last = block;
+    items.slice(1).forEach(it => {
+      let d = Math.max(0, it.depth - base);
+      d = Math.min(d, lastAt.length); // no skipping levels
+      const nb = emptyBlock(it.kind);
+      nb.html = it.html;
+      if(it.kind === 'todo') nb.checked = !!it.checked;
+      if(d === 0) ctx.arr.splice(insertAt++, 0, nb);
+      else { const parent = lastAt[d - 1]; parent.children.push(nb); parent.collapsed = false; }
+      lastAt.length = d; lastAt[d] = nb;
+      last = nb;
+    });
+    const tmp = document.createElement('div'); tmp.innerHTML = last.html;
+    const lastLen = tmp.textContent.length;
+    last.html = sanitizeInline(last.html + after);
+    commitNotesChange();
+    focusBlockAtOffset(last.id, lastLen);
+  }
+
   // Multi-line paste becomes one line per line of text, like a document;
   // "- ", "• ", "1. ", "[ ] " at the start of a pasted line become its type.
   function escapeTextHtml(t){ return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
@@ -10616,7 +10988,8 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     el.addEventListener('pointerdown', () => { editingAtPress = document.activeElement === el; });
     el.addEventListener('click', (e) => {
       const a = e.target.closest && e.target.closest('a.ob-link');
-      if(!a || !el.contains(a) || editingAtPress) return;
+      if(!a || !el.contains(a)) return;
+      if(editingAtPress && !(e.ctrlKey || e.metaKey)) return; // Ctrl/⌘+click opens it while editing
       const sel = window.getSelection();
       if(sel && !sel.isCollapsed) return; // a drag-selection, not a tap
       e.preventDefault();
@@ -10624,6 +10997,9 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     });
     el.addEventListener('focus', () => showObToolbarFor(el));
     el.addEventListener('blur', () => {
+      // a re-render removes the focused line and Chrome blurs it on the way
+      // out: its stale text must not overwrite what the op just stored
+      if(obRendering || !el.isConnected) return;
       block.html = sanitizeInline(el.innerHTML);
       if(obSlash && obSlash.blockId === block.id) closeSlashMenu();
       hideObToolbarSoon();
@@ -10639,6 +11015,28 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       const text = (e.clipboardData || window.clipboardData).getData('text/plain');
       // lines copied here come back with their types and nesting
       if(obClipboard && text && text.replace(/\r\n?/g, '\n') === obClipboard.text){ pasteCopiedBlocks(block); return; }
+      // an address pasted over selected words links them (Docs/Notion)
+      const sel0 = window.getSelection();
+      const pastedHref = !/\s/.test(text.trim()) ? safeLinkHref(text.trim()) : null;
+      if(pastedHref && sel0 && !sel0.isCollapsed && sel0.toString().trim()){
+        notesHistoryRecord();
+        document.execCommand('createLink', false, pastedHref);
+        obCommitLineDom(el, block, textOffsetIn(el, sel0.focusNode, sel0.focusOffset));
+        return;
+      }
+      // rich content (Docs, Word, Notion, a web page): keep its structure
+      const html = (e.clipboardData || window.clipboardData).getData('text/html');
+      if(html && !pastedHref){
+        let items = [];
+        try{ items = htmlToNoteItems(html); }catch(err){ items = []; }
+        if(items.length === 1 && items[0].kind === 'text' && !items[0].depth){
+          notesHistoryRecord();
+          document.execCommand('insertHTML', false, items[0].html);
+          obCommitLineDom(el, block, caretTextOffset(el));
+          return;
+        }
+        if(items.length){ pasteItems(el, block, items); return; }
+      }
       if(/[\r\n]/.test(text.replace(/[\r\n]+$/, ''))){ pasteLines(el, block, text); return; }
       document.execCommand('insertText', false, text.replace(/[\r\n]+$/, ''));
     });
@@ -10792,6 +11190,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
         return;
       }
       if(mod && e.key === '.'){ e.preventDefault(); toggleCollapse(block.id); return; }
+      if(mod && !e.shiftKey && !e.altKey && (e.code === 'KeyK' || e.key === 'k' || e.key === 'K')){ e.preventDefault(); openLinkEditor(block.id); return; }
       // Ctrl/⌘+Shift+ 1/2 headings, 0 text, 7 numbered, 8 bullets, 9 to-do
       // (7/8/9 are Docs' and Notion's own list shortcuts); the list ones toggle.
       if(mod && e.shiftKey && !e.altKey){
@@ -11234,6 +11633,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       const action = btn.dataset.action;
       if(action === 'undo'){ notesUndo(); return; }
       if(action === 'seldone'){ obSelClear(); return; }
+      if(action === 'link'){ if(!obSelActive()) openLinkEditor(obToolbarTargetId); return; }
       if(action === 'redo'){ notesRedo(); return; }
       if(obSelActive()){
         const ids = obSelIds();
