@@ -6,7 +6,7 @@
 <!-- App build version, compared against version.txt to detect a new deploy in
      installed standalone PWA windows (which have no reload affordance). MUST be
      bumped together with version.txt on every deploy — see NOTES.md deploy step. -->
-<meta name="app-version" content="20261022-1325">
+<meta name="app-version" content="20261022-1408">
 <title>יומן ומשימות</title>
 <!-- PWA manifest + icons — no service worker on purpose: this is a live-data
      app on a 20s poll, a SW would only risk serving a stale index.html for
@@ -1351,6 +1351,17 @@ button.notes-empty:focus-visible{ outline:2px solid var(--accent); outline-offse
 @media (pointer:coarse){ .picker.ob-palette{ grid-template-columns:repeat(4, 40px); gap:10px; } .ob-swatch{ width:40px; height:40px; border-radius:10px; } }
 /* in a table, indent/outdent have nothing to act on */
 .ob-toolbar.in-table [data-action="indent"], .ob-toolbar.in-table [data-action="outdent"], .ob-toolbar.in-table .obt-notable{ display:none !important; }
+/* import box (Word file / Google Docs link): the link box's card */
+.picker.ob-importpop{ gap:8px; }
+.ob-import-head{ font-size:14px; font-weight:700; color:var(--ink); padding:2px 2px 0; }
+.ob-import-file{ display:flex; align-items:center; justify-content:center; gap:8px; min-height:40px; border:1px solid var(--hl2); border-radius:var(--r8); background:var(--s1); color:var(--ink); font:inherit; font-size:14px; font-weight:600; cursor:pointer; }
+.ob-import-file:hover{ background:var(--s2); border-color:var(--accent-deco); }
+.ob-import-file:focus-visible{ outline:2px solid var(--accent); outline-offset:1px; }
+.ob-import-or{ font-size:12px; color:var(--ink3-text); padding:2px 2px 0; }
+.ob-import-msg{ font-size:13px; color:var(--muted); line-height:1.45; }
+.ob-import-msg:empty{ display:none; }
+.ob-import-msg.is-error{ color:var(--danger); }
+.ob-importpop.is-busy{ cursor:progress; }
 /* the "/" menu: a .picker--menu that never takes focus from the line */
 .notes-outline:focus{ outline:none; }
 .ob-row.is-sel-root{ background:var(--accent-tint); }
@@ -10474,8 +10485,10 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     table:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="12" y1="4" x2="12" y2="20"/></svg>'
   };
   BLOCK_TYPE_LABELS.table = 'טבלה'; BLOCK_TYPE_HINTS.table = '';
-  // the "/" menu and the type menus also offer a table (not a line kind)
-  const BLOCK_MENU_KINDS = BLOCK_KINDS.concat('table');
+  BLOCK_TYPE_LABELS.import = 'ייבוא מסמך'; BLOCK_TYPE_HINTS.import = 'Word';
+  BLOCK_TYPE_ICONS.import = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><polyline points="14 3 14 8 19 8"/><path d="M12 18v-6M9 15l3-3 3 3"/></svg>';
+  // the "/" menu also offers a table and importing a document (not line kinds)
+  const BLOCK_MENU_KINDS = BLOCK_KINDS.concat('table', 'import');
   const ICON_CHECK_SMALL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>';
   function menuItemEl(icon, label, opts){
     opts = opts || {};
@@ -10714,6 +10727,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     el.textContent = '';
     block.html = '';
     if(kind === 'table'){ insertTableAt(block.id); return; }
+    if(kind === 'import'){ openImportBox(el, block.id); return; }
     setBlockStyleAndRefresh(block.id, kind);
   }
 
@@ -12644,6 +12658,292 @@ body.has-select-mode .undo-toast{ bottom:84px; }
     return h + '</table>';
   }
 
+  // ---------- import: Word (.docx) and Google Docs (phase 4, 2026-10-22) ----------
+  // A .docx is read here, no library: the zip's directory → the few parts
+  // needed, inflated with the browser's DecompressionStream; document.xml →
+  // simple HTML (headings, lists with levels, B/I/U/S, links, tables with
+  // merges and cell colours) → htmlToNoteItems, the same path as a rich
+  // paste. A Google Doc comes in through the backend as that doc's .docx
+  // export (the browser can't fetch docs.google.com itself), so it works for
+  // docs shared "anyone with the link".
+  const DOCX_MAX_BYTES = 15 * 1024 * 1024, DOCX_MAX_XML = 40 * 1024 * 1024, IMPORT_MAX_ITEMS = 5000;
+  async function unzipParts(buf, want){
+    const u8 = new Uint8Array(buf), dv = new DataView(buf);
+    let e = -1;
+    for(let i = u8.length - 22; i >= Math.max(0, u8.length - 65557); i--){ if(dv.getUint32(i, true) === 0x06054b50){ e = i; break; } }
+    if(e < 0) throw new Error('not_docx');
+    const n = dv.getUint16(e + 10, true);
+    let p = dv.getUint32(e + 16, true);
+    const out = {};
+    for(let k = 0; k < n; k++){
+      if(p + 46 > u8.length || dv.getUint32(p, true) !== 0x02014b50) throw new Error('not_docx');
+      const method = dv.getUint16(p + 10, true), csize = dv.getUint32(p + 20, true), usize = dv.getUint32(p + 24, true);
+      const nlen = dv.getUint16(p + 28, true), xlen = dv.getUint16(p + 30, true), clen = dv.getUint16(p + 32, true), off = dv.getUint32(p + 42, true);
+      const name = new TextDecoder().decode(u8.subarray(p + 46, p + 46 + nlen));
+      p += 46 + nlen + xlen + clen;
+      if(!want(name)) continue;
+      if(usize > DOCX_MAX_XML) throw new Error('too_big');
+      const start = off + 30 + dv.getUint16(off + 26, true) + dv.getUint16(off + 28, true);
+      const data = u8.subarray(start, start + csize);
+      let bytes;
+      if(method === 0) bytes = data;
+      else if(method === 8){
+        if(typeof DecompressionStream === 'undefined') throw new Error('old_browser');
+        bytes = new Uint8Array(await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());
+      } else continue;
+      out[name] = new TextDecoder().decode(bytes);
+    }
+    return out;
+  }
+  async function docxToHtml(buf){
+    const parts = await unzipParts(buf, n => n === 'word/document.xml' || n === 'word/styles.xml' || n === 'word/numbering.xml' || n === 'word/_rels/document.xml.rels');
+    const xml = (s) => { if(!s) return null; const d = new DOMParser().parseFromString(s, 'application/xml'); return d.getElementsByTagName('parsererror').length ? null : d; };
+    const doc = xml(parts['word/document.xml']);
+    if(!doc) throw new Error('not_docx');
+    const W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+    const R = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+    const kids = (el, name) => el ? Array.from(el.children).filter(x => x.localName === name) : [];
+    const kid = (el, name) => kids(el, name)[0] || null;
+    const val = (el) => el ? (el.getAttributeNS(W, 'val') || el.getAttribute('w:val')) : null;
+    const on = (el) => !!el && !/^(0|false|none|off)$/i.test(val(el) || '');
+    // styles: heading level + inherited numbering, through basedOn
+    const styles = {};
+    const sdoc = xml(parts['word/styles.xml']);
+    if(sdoc) Array.from(sdoc.getElementsByTagNameNS(W, 'style')).forEach(s => {
+      const id = s.getAttributeNS(W, 'styleId') || s.getAttribute('w:styleId');
+      const nm = (val(kid(s, 'name')) || '').toLowerCase();
+      const pPr = kid(s, 'pPr'), numPr = kid(pPr, 'numPr'), ol = val(kid(pPr, 'outlineLvl'));
+      let h = 0;
+      const m = nm.match(/^heading\s*(\d)$/);
+      if(m) h = +m[1] === 1 ? 1 : 2; else if(nm === 'title') h = 1; else if(nm === 'subtitle') h = 2; else if(ol !== null && +ol < 6) h = +ol === 0 ? 1 : 2;
+      styles[id] = { h, basedOn: val(kid(s, 'basedOn')), numId: numPr ? val(kid(numPr, 'numId')) : null, ilvl: numPr ? val(kid(numPr, 'ilvl')) : null };
+    });
+    const styleProp = (id, key) => { for(let i = 0, s = styles[id]; s && i < 12; i++, s = styles[s.basedOn]){ if(s[key] !== null && s[key] !== undefined && s[key] !== 0) return s[key]; } return null; };
+    // numbering: numId → abstract → level format (bullet or a number)
+    const numFmt = {};
+    const ndoc = xml(parts['word/numbering.xml']);
+    if(ndoc){
+      const abs = {};
+      Array.from(ndoc.getElementsByTagNameNS(W, 'abstractNum')).forEach(a => {
+        const lv = {};
+        kids(a, 'lvl').forEach(l => { lv[l.getAttributeNS(W, 'ilvl') || l.getAttribute('w:ilvl')] = val(kid(l, 'numFmt')) || 'bullet'; });
+        abs[a.getAttributeNS(W, 'abstractNumId') || a.getAttribute('w:abstractNumId')] = lv;
+      });
+      Array.from(ndoc.getElementsByTagNameNS(W, 'num')).forEach(n => { numFmt[n.getAttributeNS(W, 'numId') || n.getAttribute('w:numId')] = abs[val(kid(n, 'abstractNumId'))] || {}; });
+    }
+    const rels = {};
+    const rdoc = xml(parts['word/_rels/document.xml.rels']);
+    if(rdoc) Array.from(rdoc.getElementsByTagName('Relationship')).forEach(r => { rels[r.getAttribute('Id')] = r.getAttribute('Target'); });
+    const esc = (t) => escapeTextHtml(t).replace(/"/g, '&quot;');
+    function runHtml(r){
+      const rPr = kid(r, 'rPr');
+      let t = '';
+      Array.from(r.children).forEach(c => {
+        if(c.localName === 't') t += escapeTextHtml(c.textContent);
+        else if(c.localName === 'tab') t += ' ';
+        else if(c.localName === 'br' || c.localName === 'cr') t += '<br>';
+        else if(c.localName === 'noBreakHyphen') t += '-';
+      });
+      if(!t) return '';
+      if(on(kid(rPr, 'strike')) || on(kid(rPr, 'dstrike'))) t = '<s>' + t + '</s>';
+      if(on(kid(rPr, 'u'))) t = '<u>' + t + '</u>';
+      if(on(kid(rPr, 'i'))) t = '<i>' + t + '</i>';
+      if(on(kid(rPr, 'b'))) t = '<b>' + t + '</b>';
+      return t;
+    }
+    function inlineHtml(el){
+      let h = '';
+      Array.from(el.children).forEach(c => {
+        const n = c.localName;
+        if(n === 'r') h += runHtml(c);
+        else if(n === 'hyperlink'){
+          const inner = inlineHtml(c);
+          const href = rels[c.getAttributeNS(R, 'id') || c.getAttribute('r:id')];
+          h += href && safeLinkHref(href) ? '<a href="' + esc(href) + '">' + inner + '</a>' : inner;
+        }
+        else if(n === 'ins' || n === 'smartTag' || n === 'fldSimple' || n === 'customXml') h += inlineHtml(c);
+        else if(n === 'sdt') h += inlineHtml(kid(c, 'sdtContent') || c);
+      });
+      return h;
+    }
+    function paraHtml(p){
+      const pPr = kid(p, 'pPr');
+      const sid = val(kid(pPr, 'pStyle'));
+      const inner = inlineHtml(p);
+      const numPr = kid(pPr, 'numPr');
+      let numId = numPr ? val(kid(numPr, 'numId')) : null, ilvl = numPr ? val(kid(numPr, 'ilvl')) : null;
+      if(numId === null && sid){ numId = styleProp(sid, 'numId'); if(ilvl === null) ilvl = styleProp(sid, 'ilvl'); }
+      const h = sid ? styleProp(sid, 'h') : 0;
+      if(h) return '<h' + h + '>' + inner + '</h' + h + '>';
+      if(numId && numId !== '0'){
+        const lvl = +(ilvl || 0);
+        const fmt = (numFmt[numId] || {})[lvl] || 'bullet';
+        const tag = fmt === 'bullet' || fmt === 'none' ? 'ul' : 'ol';
+        return '<' + tag + '><li aria-level="' + (lvl + 1) + '">' + inner + '</li></' + tag + '>';
+      }
+      return '<p>' + inner + '</p>';
+    }
+    function tableHtml(tbl){
+      const rows = kids(tbl, 'tr');
+      const grid = rows.map(() => []); // grid[r][col] = { td, rs } for anchors
+      let h = '<table>';
+      const open = {}; // col → anchor info of a vertical merge in progress
+      rows.forEach((tr, r) => {
+        let col = 0, row = '';
+        const head = on(kid(kid(tr, 'trPr'), 'tblHeader'));
+        kids(tr, 'tc').forEach(tc => {
+          const tcPr = kid(tc, 'tcPr');
+          const span = Math.max(1, +(val(kid(tcPr, 'gridSpan')) || 1));
+          const vm = kid(tcPr, 'vMerge');
+          if(vm && val(vm) !== 'restart'){ if(open[col]) open[col].rs++; col += span; return; }
+          const fill = (kid(tcPr, 'shd') && (kid(tcPr, 'shd').getAttributeNS(W, 'fill') || kid(tcPr, 'shd').getAttribute('w:fill'))) || '';
+          const info = { rs: 1, id: 'rs' + r + '_' + col };
+          if(vm) open[col] = info; else delete open[col];
+          const tag = head ? 'th' : 'td';
+          row += '<' + tag + (span > 1 ? ' colspan="' + span + '"' : '') + ' data-rs="' + info.id + '"' + (/^[0-9a-f]{6}$/i.test(fill) ? ' style="background-color:#' + fill + '"' : '') + '>' + blocksHtml(tc) + '</' + tag + '>';
+          grid[r].push(info);
+          col += span;
+        });
+        h += '<tr>' + row + '</tr>';
+      });
+      h += '</table>';
+      // write the row spans counted above
+      grid.forEach(row => row.forEach(info => { h = h.replace(' data-rs="' + info.id + '"', info.rs > 1 ? ' rowspan="' + info.rs + '"' : ''); }));
+      return h;
+    }
+    function blocksHtml(el){
+      let h = '';
+      Array.from(el.children).forEach(c => {
+        if(c.localName === 'p') h += paraHtml(c);
+        else if(c.localName === 'tbl') h += tableHtml(c);
+        else if(c.localName === 'sdt') h += blocksHtml(kid(c, 'sdtContent') || c);
+        else if(c.localName === 'customXml') h += blocksHtml(c);
+      });
+      return h;
+    }
+    const body = doc.getElementsByTagNameNS(W, 'body')[0];
+    if(!body) throw new Error('not_docx');
+    return blocksHtml(body);
+  }
+  async function docxToNoteItems(buf){
+    if(buf.byteLength > DOCX_MAX_BYTES) throw new Error('too_big');
+    const items = htmlToNoteItems(await docxToHtml(buf));
+    if(items.length > IMPORT_MAX_ITEMS) throw new Error('too_big');
+    return items;
+  }
+  // the lines go where the import was asked from: an empty line becomes them,
+  // otherwise they follow that line (no line: the end of the page)
+  function importItemsIntoPage(items, title, atBlockId){
+    const page = currentNotesPage(); if(!page) return;
+    if(!items.length){ showUndoToast('לא נמצא תוכן לייבוא במסמך'); return; }
+    notesHistoryRecord();
+    const flat = flattenVisibleBlocks(page.blocks);
+    let ctx = atBlockId ? findBlockCtx(page.blocks, atBlockId) : null;
+    const isEmptyLine = (b) => b && !b.table && !b.html && !b.children.length && blockKind(b) === 'text';
+    if(!ctx && flat.length === 1 && isEmptyLine(flat[0])) ctx = findBlockCtx(page.blocks, flat[0].id);
+    if(!ctx || !isEmptyLine(ctx.block)){
+      const nb = emptyBlock();
+      if(ctx) ctx.arr.splice(ctx.index + 1, 0, nb); else page.blocks.push(nb);
+      ctx = findBlockCtx(page.blocks, nb.id);
+    }
+    if(!(page.title || '').trim() && title){ page.title = String(title).trim().slice(0, 200); const t = document.getElementById('notesPageTitle'); if(t) t.textContent = page.title; const bc = document.getElementById('notesBreadcrumbCurrent'); if(bc) bc.textContent = page.title; }
+    pasteItemsWithTables(page, ctx, '', '', items);
+    showUndoToast(items.length === 1 ? 'יובאה שורה אחת' : 'יובאו ' + items.length + ' שורות', () => notesUndo());
+  }
+  const IMPORT_ERRORS = {
+    not_docx: 'אפשר לייבא קובצי Word מסוג ‎.docx בלבד. קובץ ‎.doc ישן: ב-Word שמירה בשם ← מסמך Word (‎.docx).',
+    too_big: 'המסמך גדול מדי לייבוא.',
+    old_browser: 'הדפדפן הזה ישן מדי לייבוא קבצים. נסו בדפדפן מעודכן.',
+    bad_doc: 'זה לא נראה כמו קישור למסמך Google Docs.',
+    doc_not_shared: 'אין גישה למסמך. ב-Google Docs: שיתוף ← "כל מי שיש לו את הקישור", או קובץ ← הורדה ← Microsoft Word וייבוא הקובץ.',
+    unknown_action: 'ייבוא מקישור עוד לא הופעל בשרת. בינתיים: ב-Google Docs קובץ ← הורדה ← Microsoft Word (‎.docx), וייבוא הקובץ כאן.',
+    fetch_failed: 'לא הצלחנו להביא את המסמך. נסו שוב בעוד רגע.'
+  };
+  function googleDocIdFrom(v){
+    v = String(v || '').trim();
+    const m = v.match(/docs\.google\.com\/document\/(?:u\/\d+\/)?d\/([A-Za-z0-9_-]{20,100})/);
+    if(m) return m[1];
+    return /^[A-Za-z0-9_-]{25,100}$/.test(v) ? v : null;
+  }
+  async function fetchGoogleDocItems(link){
+    const id = googleDocIdFrom(link);
+    if(!id) throw new Error('bad_doc');
+    let json;
+    try{
+      const res = await fetch(API_URL + '?action=fetchGoogleDoc&doc=' + encodeURIComponent(id) + authQuery() + '&t=' + Date.now());
+      json = await res.json();
+    }catch(e){ throw new Error('fetch_failed'); }
+    if(!json || !json.ok) throw new Error(json && IMPORT_ERRORS[json.error] ? json.error : 'fetch_failed');
+    const bin = atob(json.docx || '');
+    const bytes = new Uint8Array(bin.length);
+    for(let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return { items: await docxToNoteItems(bytes.buffer), title: json.title || '' };
+  }
+  async function importDocxFile(file, atBlockId){
+    if(!file) return;
+    if(!/\.docx$/i.test(file.name || '') && file.type !== 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') throw new Error('not_docx');
+    const items = await docxToNoteItems(await file.arrayBuffer());
+    importItemsIntoPage(items, (file.name || '').replace(/\.docx$/i, ''), atBlockId);
+  }
+  // the import box: a Word file, or a Google Docs link
+  function openImportBox(anchorEl, atBlockId){
+    if(currentRole !== 'editor') return;
+    closePicker();
+    const pop = document.createElement('div');
+    pop.className = 'picker ob-linkpop ob-importpop';
+    pop.setAttribute('role', 'dialog'); pop.setAttribute('aria-label', 'ייבוא מסמך');
+    pop.innerHTML = '<div class="ob-import-head">ייבוא מסמך</div>'
+      + '<button type="button" class="ob-import-file"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><polyline points="14 3 14 8 19 8"/><path d="M12 18v-6M9 15l3-3 3 3"/></svg>קובץ Word (‎.docx)</button>'
+      + '<div class="ob-import-or">או קישור ל-Google Docs</div>'
+      + '<div class="picker-add"><input type="url" dir="ltr" inputmode="url" autocomplete="off" spellcheck="false" aria-label="קישור למסמך Google Docs" placeholder="https://docs.google.com/document/d/…"><button type="button" class="ob-linkpop-ok">ייבוא</button></div>'
+      + '<div class="ob-import-msg" role="status" aria-live="polite"></div>'
+      + '<input type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden>';
+    const msg = pop.querySelector('.ob-import-msg');
+    const input = pop.querySelector('input[type="url"]');
+    const fileIn = pop.querySelector('input[type="file"]');
+    const busy = (b) => { pop.classList.toggle('is-busy', b); pop.querySelectorAll('button, input').forEach(x => { x.disabled = b; }); if(b){ msg.className = 'ob-import-msg'; msg.textContent = 'מייבא…'; } };
+    const fail = (err) => { busy(false); msg.className = 'ob-import-msg is-error'; msg.textContent = IMPORT_ERRORS[err && err.message] || IMPORT_ERRORS.not_docx; };
+    pop.querySelector('.ob-import-file').onclick = () => fileIn.click();
+    fileIn.onchange = async () => {
+      const f = fileIn.files && fileIn.files[0]; if(!f) return;
+      busy(true);
+      try{ await importDocxFile(f, atBlockId); closePicker(); }catch(e){ fail(e); }
+    };
+    const go = async () => {
+      if(!googleDocIdFrom(input.value)){ input.setAttribute('aria-invalid', 'true'); fail(new Error('bad_doc')); input.disabled = false; input.focus(); return; }
+      busy(true);
+      try{ const r = await fetchGoogleDocItems(input.value); closePicker(); importItemsIntoPage(r.items, r.title, atBlockId); }catch(e){ fail(e); }
+    };
+    pop.querySelector('.ob-linkpop-ok').onclick = go;
+    input.addEventListener('input', () => { input.removeAttribute('aria-invalid'); });
+    input.addEventListener('keydown', (e) => { if(e.key === 'Enter'){ e.preventDefault(); go(); } else if(e.key === 'Escape'){ e.preventDefault(); closePicker(); } });
+    document.body.appendChild(pop);
+    const W = 320, r = anchorEl.getBoundingClientRect();
+    const rtl = getComputedStyle(anchorEl).direction === 'rtl';
+    pop.style.width = W + 'px';
+    positionPopover(pop, { left: rtl ? r.right - W : r.left, top: r.top, bottom: r.bottom }, { width: W });
+    openPickerEl = pop;
+    setTimeout(() => document.addEventListener('mousedown', onDocClick, true), 0);
+    setTimeout(() => pop.querySelector('.ob-import-file').focus(), 0);
+  }
+  // a .docx dropped on an open page goes in where it lands
+  (function wireDocxDrop(){
+    const view = document.getElementById('notesPageView');
+    if(!view) return;
+    const hasFile = (e) => e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
+    view.addEventListener('dragover', (e) => { if(hasFile(e) && currentRole === 'editor'){ e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; } }, true);
+    view.addEventListener('drop', async (e) => {
+      if(!hasFile(e)) return;
+      e.preventDefault(); e.stopPropagation();
+      if(currentRole !== 'editor') return;
+      const f = Array.from(e.dataTransfer.files || []).find(x => /\.docx$/i.test(x.name));
+      if(!f){ showUndoToast(IMPORT_ERRORS.not_docx); return; }
+      const t = document.elementFromPoint(e.clientX, e.clientY);
+      const row = t && t.closest && t.closest('#notesOutline .ob-row');
+      try{ await importDocxFile(f, row ? row.dataset.id : null); }catch(err){ showUndoToast(IMPORT_ERRORS[err.message] || IMPORT_ERRORS.not_docx); }
+    }, true);
+  })();
+
   // ---------- page view + gallery ----------
 
   function renderNotesPageView(page){
@@ -12826,6 +13126,7 @@ body.has-select-mode .undo-toast{ bottom:84px; }
       items.push({ label: page.pinned ? 'ביטול הצמדה' : 'הצמדה', run: () => { const p = live(); if(p) toggleNotesPagePin(p); } });
       items.push({ label: 'שינוי שם', run: () => renameNotesPage(page.id) });
       items.push({ label: 'שכפול', run: () => duplicateNotesPage(page.id) });
+      if(currentNotesPageId === page.id) items.push({ label: 'ייבוא מסמך (Word / Google Docs)', run: () => openImportBox(document.getElementById('notesPageMenuBtn'), null) });
       items.push({ divider: true });
       items.push({ label: 'מחיקה', danger: true, run: () => {
         const p = live();
